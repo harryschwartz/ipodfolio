@@ -14,14 +14,14 @@
     canvas.style.height = H + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // Solid white background
+    // Clean white background
     ctx.fillStyle = '#f2f2f2';
     ctx.fillRect(0, 0, W, H);
 
     /*
-     * Flat horizontal plane — camera looks across an infinite floor.
-     * Lines recede to a vanishing point and fade out with distance.
-     * Above the horizon is just clean white.
+     * Flat horizontal plane with lines that individually fade
+     * to transparent with distance — no overlay needed, so
+     * there's never a distinct horizon line.
      */
 
     const surfaceWidth = 200;
@@ -30,11 +30,7 @@
     const camY = 2.8;
     const camZ = -1;
     const fov = 0.9;
-    const horizonY = H * 0.42; // horizon sits in upper portion
-
-    const UCOLS = 120;
-    const VROWS = 80;
-    const STEPS = 2; // floor lines are straight, only need 2 points
+    const horizonY = H * 0.32; // raised horizon
 
     function project(worldX, worldZ) {
       const relZ = worldZ - camZ;
@@ -45,74 +41,68 @@
       return { x: screenX, y: screenY };
     }
 
-    // Draw lines going into the distance (constant X, varying Z)
+    // How far a Z value is from the camera, normalized 0–1
+    function distanceFactor(worldZ) {
+      return Math.max(0, Math.min(1, (worldZ - 0.1) / floorDepth));
+    }
+
+    const UCOLS = 120;
+    const VROWS = 80;
+    const SEGMENTS = 40; // segments per depth-line for gradient effect
+
+    // --- Depth lines (constant X, varying Z) ---
+    // Draw each as many small segments so opacity can fade per-segment
     for (let col = 0; col <= UCOLS; col++) {
       const u = col / UCOLS;
       const worldX = (u - 0.5) * surfaceWidth;
 
-      // Near point
-      const pNear = project(worldX, 0.1);
-      // Far point (converges to vanishing point)
-      const pFar = project(worldX, floorDepth);
-      if (!pNear || !pFar) continue;
+      let prev = null;
+      for (let s = 0; s <= SEGMENTS; s++) {
+        const t = s / SEGMENTS;
+        const worldZ = 0.1 + Math.pow(t, 1.5) * floorDepth;
+        const p = project(worldX, worldZ);
+        if (!p) { prev = null; continue; }
+        if (p.x < -50 || p.x > W + 50 || p.y < -50 || p.y > H + 50) { prev = null; continue; }
 
-      // Skip if entirely off screen
-      if (pNear.x < -50 && pFar.x < -50) continue;
-      if (pNear.x > W + 50 && pFar.x > W + 50) continue;
-
-      ctx.beginPath();
-      ctx.moveTo(pNear.x, pNear.y);
-      ctx.lineTo(pFar.x, pFar.y);
-      ctx.strokeStyle = 'rgba(160,160,160,0.3)';
-      ctx.lineWidth = 0.5;
-      ctx.stroke();
+        if (prev) {
+          const d = distanceFactor(worldZ);
+          // Fade: full opacity near camera, transparent at horizon
+          const alpha = 0.30 * Math.pow(1 - d, 2.0);
+          if (alpha > 0.005) {
+            ctx.beginPath();
+            ctx.moveTo(prev.x, prev.y);
+            ctx.lineTo(p.x, p.y);
+            ctx.strokeStyle = `rgba(155,155,155,${alpha})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+        prev = p;
+      }
     }
 
-    // Draw horizontal cross-lines (constant Z, varying X)
+    // --- Cross lines (constant Z, varying X) ---
     for (let row = 0; row <= VROWS; row++) {
       const t = row / VROWS;
-      // Distribute Z values with more density near the camera (exponential)
       const worldZ = 0.1 + Math.pow(t, 1.8) * floorDepth;
 
       const pLeft = project(-surfaceWidth / 2, worldZ);
       const pRight = project(surfaceWidth / 2, worldZ);
       if (!pLeft || !pRight) continue;
-
-      // Skip if off screen vertically
-      if (pLeft.y < horizonY - 5) continue;
+      if (pLeft.y < horizonY - 10) continue;
       if (pLeft.y > H + 50) continue;
 
-      // Fade with distance — lines near horizon are fainter
-      const distFade = 1 - Math.pow(t, 2.5);
-      const alpha = 0.3 * distFade + 0.05;
+      const d = distanceFactor(worldZ);
+      const alpha = 0.30 * Math.pow(1 - d, 2.0);
+      if (alpha < 0.005) continue;
 
       ctx.beginPath();
       ctx.moveTo(pLeft.x, pLeft.y);
       ctx.lineTo(pRight.x, pRight.y);
-      ctx.strokeStyle = `rgba(160,160,160,${alpha})`;
+      ctx.strokeStyle = `rgba(155,155,155,${alpha})`;
       ctx.lineWidth = 0.5;
       ctx.stroke();
     }
-
-    // Fade to white at the horizon — gradient overlay
-    const fadeHeight = H * 0.18;
-    const fade = ctx.createLinearGradient(0, horizonY - fadeHeight, 0, horizonY + fadeHeight * 0.3);
-    fade.addColorStop(0, 'rgba(242,242,242,1)');
-    fade.addColorStop(0.5, 'rgba(242,242,242,0.85)');
-    fade.addColorStop(1, 'rgba(242,242,242,0)');
-    ctx.fillStyle = fade;
-    ctx.fillRect(0, horizonY - fadeHeight, W, fadeHeight + fadeHeight * 0.3);
-
-    // Clean white above horizon
-    ctx.fillStyle = '#f2f2f2';
-    ctx.fillRect(0, 0, W, horizonY - fadeHeight);
-
-    // Subtle fade at bottom edge too
-    const bottomFade = ctx.createLinearGradient(0, H - 60, 0, H);
-    bottomFade.addColorStop(0, 'rgba(242,242,242,0)');
-    bottomFade.addColorStop(1, 'rgba(242,242,242,0.6)');
-    ctx.fillStyle = bottomFade;
-    ctx.fillRect(0, H - 60, W, 60);
   }
 
   draw();
