@@ -198,6 +198,7 @@ class IPodApp {
           { id: 'theme-silver', title: 'Silver', type: '_theme', metadata: { themeId: 'silver' } },
           { id: 'theme-black', title: 'Black', type: '_theme', metadata: { themeId: 'black' } },
           { id: 'theme-u2', title: 'U2', type: '_theme', metadata: { themeId: 'u2' } },
+          { id: 'theme-pink', title: 'Pink', type: '_theme', metadata: { themeId: 'pink' } },
         ];
         const view = renderSettingsView(this.theme);
         this.transitionTo(view, direction);
@@ -473,7 +474,7 @@ class IPodApp {
 
     // Settings theme selection
     if (this.currentNode?.type === 'settings') {
-      const themes = ['silver', 'black', 'u2'];
+      const themes = ['silver', 'black', 'u2', 'pink'];
       if (themes[this.scrollIndex]) {
         this.applyTheme(themes[this.scrollIndex]);
         // Re-render settings
@@ -481,6 +482,7 @@ class IPodApp {
           { id: 'theme-silver', title: 'Silver', type: '_theme', metadata: { themeId: 'silver' } },
           { id: 'theme-black', title: 'Black', type: '_theme', metadata: { themeId: 'black' } },
           { id: 'theme-u2', title: 'U2', type: '_theme', metadata: { themeId: 'u2' } },
+          { id: 'theme-pink', title: 'Pink', type: '_theme', metadata: { themeId: 'pink' } },
         ];
         const view = renderSettingsView(this.theme);
         this.transitionTo(view, 'none');

@@ -316,6 +316,7 @@ function renderSettingsView(currentTheme) {
     { id: 'silver', title: 'Silver' },
     { id: 'black', title: 'Black' },
     { id: 'u2', title: 'U2' },
+    { id: 'pink', title: 'Pink' },
   ];
   
   const sectionHeader = document.createElement('div');
