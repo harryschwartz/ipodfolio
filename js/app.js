@@ -15,7 +15,7 @@ class IPodApp {
     this.scrollIndex = 0;
     this.currentItems = []; // Items in current list
     this.currentNode = null;
-    this.theme = localStorage.getItem('ipod-theme') || 'silver';
+    this.theme = window._ipodTheme || 'silver';
     
     // Active sub-controllers
     this.activeCoverFlow = null;
@@ -45,7 +45,7 @@ class IPodApp {
   applyTheme(themeId) {
     this.theme = themeId;
     document.querySelector('.ipod-shell').setAttribute('data-theme', themeId);
-    localStorage.setItem('ipod-theme', themeId);
+    window._ipodTheme = themeId;
   }
 
   bindEvents() {
