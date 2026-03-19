@@ -1,5 +1,5 @@
 // Studio Cyclorama Grid — seamless curved perspective grid on canvas
-// The curve recedes away from the viewer, like standing in a photo studio
+// The curve recedes away from the viewer, lines extend to fill the viewport
 (function () {
   const canvas = document.getElementById('studio-grid');
   if (!canvas) return;
@@ -26,44 +26,36 @@
 
     /*
      * 3D Cyclorama — viewer stands on the floor looking at the back wall.
+     * The surface is extremely wide so grid lines fill the entire viewport
+     * edge-to-edge, appearing to extend infinitely.
      *
      * Coordinate system:
      *   X = left/right
      *   Y = up (height)
      *   Z = depth (positive = away from camera, toward the back wall)
-     *
-     * Surface layout (v goes from 0 at near floor to 1 at top of wall):
-     *   v ∈ [0, floorFrac]          → floor: Y=0, Z increases from near to curve start
-     *   v ∈ [floorFrac, floorFrac+curveFrac] → quarter-circle curve from floor to wall
-     *   v ∈ [floorFrac+curveFrac, 1] → wall: Z=maxZ, Y increases upward
-     *
-     * Camera is at (0, camY, 0) looking toward +Z.
      */
 
     // --- 3D parameters ---
-    const surfaceWidth = 18;        // total width of the cyclorama
-    const floorDepth = 14;          // floor extends from near camera to curve
+    // Make surface very wide so near-floor lines go well past viewport edges
+    const surfaceWidth = 80;        // very wide so lines fill all edges
+    const floorDepth = 16;          // floor extends from near camera to curve
     const curveRadius = 5;          // radius of the quarter-circle bend
-    const wallHeight = 10;          // straight wall above the curve
+    const wallHeight = 12;          // straight wall above the curve
 
     // Camera
     const camY = 3.0;              // camera height above floor
     const camZ = -2;               // camera slightly in front of floor start
     const fov = 1.0;               // field-of-view multiplier
 
-    // Grid density
-    const UCOLS = 30;              // lines across the width
-    const VROWS = 36;              // lines along the surface
-    const STEPS = 120;             // smoothness per line
+    // Grid density — use enough lines to fill the wide surface
+    const UCOLS = 80;              // lines across the width (more for wider surface)
+    const VROWS = 40;              // lines along the surface
+    const STEPS = 100;             // smoothness per line
 
     // --- Surface parameterization ---
     const totalArcLen = floorDepth + (Math.PI / 2) * curveRadius + wallHeight;
     const floorFrac = floorDepth / totalArcLen;
     const curveFrac = ((Math.PI / 2) * curveRadius) / totalArcLen;
-    // wallFrac = 1 - floorFrac - curveFrac
-
-    // The back wall sits at Z = floorDepth + curveRadius
-    const backWallZ = floorDepth + curveRadius;
 
     // Given v ∈ [0,1], return 3D point on the surface at column u
     function surfacePoint(u, v) {
@@ -71,25 +63,15 @@
       let worldY, worldZ;
 
       if (v <= floorFrac) {
-        // Floor: Y=0, Z goes from 0 to floorDepth
         const t = v / floorFrac;
         worldY = 0;
         worldZ = t * floorDepth;
       } else if (v <= floorFrac + curveFrac) {
-        // Quarter-circle: transitions from horizontal floor to vertical wall
-        const t = (v - floorFrac) / curveFrac; // 0→1 through curve
-        const angle = t * (Math.PI / 2); // 0 = horizontal, PI/2 = vertical
-        // At t=0: Y=0, Z=floorDepth+R (tangent to floor)
-        // At t=1: Y=R, Z=floorDepth+R (tangent to wall, going up)
-        // Circle center is at (Y=0, Z=floorDepth) — no wait, let me think...
-        // The curve center is at Y=0, Z=floorDepth. Radius goes from
-        // center+(0,R) at angle=0 to center+(R,0) at angle=PI/2.
-        // Actually: at angle=0, point is at Z=floorDepth+R, Y=0 (floor end)
-        //           at angle=PI/2, point is at Z=floorDepth, Y=R (wall start)
+        const t = (v - floorFrac) / curveFrac;
+        const angle = t * (Math.PI / 2);
         worldZ = floorDepth + Math.cos(angle) * curveRadius;
         worldY = Math.sin(angle) * curveRadius;
       } else {
-        // Wall: Z=floorDepth (flat against back), Y goes from R upward
         const t = (v - floorFrac - curveFrac) / (1 - floorFrac - curveFrac);
         worldZ = floorDepth;
         worldY = curveRadius + t * wallHeight;
@@ -101,7 +83,7 @@
     // Project 3D → 2D screen coordinates (camera looks toward +Z)
     function project(p3) {
       const relZ = p3.z - camZ;
-      if (relZ <= 0.1) return null; // behind camera
+      if (relZ <= 0.1) return null;
       const scale = (fov * Math.min(W, H) * 0.5) / relZ;
       const screenX = W / 2 + p3.x * scale;
       const screenY = H * 0.48 - (p3.y - camY) * scale;
@@ -109,52 +91,59 @@
     }
 
     const lineColor = 'rgba(140, 140, 140,';
+    const lineAlpha = 0.28;
 
-    // Draw lines along the surface (constant u, varying v) — these run
-    // from the near floor, through the curve, up the wall
+    // Draw lines along the surface (constant u, varying v)
+    // These run from the near floor, through the curve, up the wall
     for (let col = 0; col <= UCOLS; col++) {
       const u = col / UCOLS;
       ctx.beginPath();
       let started = false;
+      let anyVisible = false;
       for (let s = 0; s <= STEPS; s++) {
         const v = s / STEPS;
         const p3 = surfacePoint(u, v);
         const p2 = project(p3);
         if (!p2) continue;
-        // Clip to viewport with margin
-        if (p2.y < -100 || p2.y > H + 100) continue;
+        // Only skip if way off screen (generous margin)
+        if (p2.x < -500 || p2.x > W + 500 || p2.y < -500 || p2.y > H + 500) {
+          started = false;
+          continue;
+        }
         if (!started) { ctx.moveTo(p2.x, p2.y); started = true; }
         else ctx.lineTo(p2.x, p2.y);
+        // Check if any part of line is actually on screen
+        if (p2.x >= 0 && p2.x <= W && p2.y >= 0 && p2.y <= H) anyVisible = true;
       }
-      if (started) {
-        const edgeDist = Math.min(u, 1 - u);
-        const alpha = Math.min(1, edgeDist * 4) * 0.30;
-        ctx.strokeStyle = lineColor + alpha + ')';
+      if (anyVisible) {
+        ctx.strokeStyle = lineColor + lineAlpha + ')';
         ctx.lineWidth = 0.6;
         ctx.stroke();
       }
     }
 
-    // Draw lines across the surface (constant v, varying u) — these are
-    // horizontal on the floor and wall, curving through the bend
+    // Draw lines across the surface (constant v, varying u)
+    // These are horizontal on the floor and wall, curving through the bend
     for (let row = 0; row <= VROWS; row++) {
       const v = row / VROWS;
       ctx.beginPath();
       let started = false;
+      let anyVisible = false;
       for (let s = 0; s <= STEPS; s++) {
         const u = s / STEPS;
         const p3 = surfacePoint(u, v);
         const p2 = project(p3);
         if (!p2) continue;
-        if (p2.y < -100 || p2.y > H + 100) continue;
+        if (p2.y < -500 || p2.y > H + 500) {
+          started = false;
+          continue;
+        }
         if (!started) { ctx.moveTo(p2.x, p2.y); started = true; }
         else ctx.lineTo(p2.x, p2.y);
+        if (p2.x >= -50 && p2.x <= W + 50 && p2.y >= -50 && p2.y <= H + 50) anyVisible = true;
       }
-      if (started) {
-        const topFade = Math.min(v * 3, 1);
-        const bottomFade = Math.min((1 - v) * 4, 1);
-        const alpha = topFade * bottomFade * 0.28;
-        ctx.strokeStyle = lineColor + alpha + ')';
+      if (anyVisible) {
+        ctx.strokeStyle = lineColor + lineAlpha + ')';
         ctx.lineWidth = 0.6;
         ctx.stroke();
       }
