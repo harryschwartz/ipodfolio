@@ -342,6 +342,18 @@ a {
   opacity: 1;
 }
 
+.list-value {
+  margin-left: auto;
+  margin-right: 10px;
+  font-size: 13px;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.list-item.active .list-value {
+  color: #fff;
+}
+
 /* Arrow SVG icon */
 .arrow-right {
   width: 8px;

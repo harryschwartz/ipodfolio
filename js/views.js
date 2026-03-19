@@ -308,7 +308,7 @@ function renderVideoView(node) {
 }
 
 // ---- Settings View ----
-function renderSettingsView(currentTheme) {
+function renderSettingsView(currentTheme, hapticsEnabled) {
   const container = document.createElement('div');
   container.className = 'settings-view';
   
@@ -324,10 +324,11 @@ function renderSettingsView(currentTheme) {
   sectionHeader.textContent = 'Theme';
   container.appendChild(sectionHeader);
   
-  themes.forEach((theme, i) => {
+  let itemIndex = 0;
+  themes.forEach((theme) => {
     const el = document.createElement('div');
-    el.className = 'list-item' + (i === 0 ? ' active' : '');
-    el.dataset.index = i;
+    el.className = 'list-item' + (itemIndex === 0 ? ' active' : '');
+    el.dataset.index = itemIndex;
     el.dataset.themeId = theme.id;
     
     const labelContainer = document.createElement('div');
@@ -344,7 +345,30 @@ function renderSettingsView(currentTheme) {
     el.appendChild(arrow);
     
     container.appendChild(el);
+    itemIndex++;
   });
+
+  // Haptics toggle
+  const hapticsHeader = document.createElement('div');
+  hapticsHeader.className = 'settings-section-header';
+  hapticsHeader.textContent = 'Feedback';
+  container.appendChild(hapticsHeader);
+
+  const hapticsEl = document.createElement('div');
+  hapticsEl.className = 'list-item';
+  hapticsEl.dataset.index = itemIndex;
+  const hapticsLabelContainer = document.createElement('div');
+  hapticsLabelContainer.className = 'list-label-container';
+  const hapticsLabel = document.createElement('h3');
+  hapticsLabel.className = 'list-label';
+  hapticsLabel.textContent = 'Haptics';
+  hapticsLabelContainer.appendChild(hapticsLabel);
+  hapticsEl.appendChild(hapticsLabelContainer);
+  const hapticsValue = document.createElement('span');
+  hapticsValue.className = 'list-value';
+  hapticsValue.textContent = hapticsEnabled !== false ? 'On' : 'Off';
+  hapticsEl.appendChild(hapticsValue);
+  container.appendChild(hapticsEl);
   
   return container;
 }

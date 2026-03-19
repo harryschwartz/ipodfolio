@@ -4,6 +4,9 @@
 const ANGLE_OFFSET_THRESHOLD = 10; // degrees before scroll triggers
 const PAN_THRESHOLD = 5; // pixels
 
+// Haptic feedback support
+const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
+
 class ClickWheel {
   constructor(element) {
     this.el = element;
@@ -17,8 +20,23 @@ class ClickWheel {
     this.startPoint = { x: 0, y: 0 };
     this.isPanning = false;
     this.lastPoint = { x: 0, y: 0 };
+    this.hapticsEnabled = true; // can be toggled from Settings
     
     this.bindEvents();
+  }
+
+  // Short vibration pulse for scroll ticks (10ms like original iPod.js)
+  triggerScrollHaptic() {
+    if (this.hapticsEnabled && canVibrate) {
+      navigator.vibrate(10);
+    }
+  }
+
+  // Slightly stronger pulse for button presses
+  triggerClickHaptic() {
+    if (this.hapticsEnabled && canVibrate) {
+      navigator.vibrate(15);
+    }
   }
 
   getCircularBoundingInfo(rect) {
@@ -62,6 +80,7 @@ class ClickWheel {
   }
 
   handleWheelPress(point) {
+    this.triggerClickHaptic();
     if (this.isPointInCenter(point)) {
       this.dispatch('centerclick');
     } else if (this.isPointWithin(point, this.menuButton)) {
@@ -88,6 +107,7 @@ class ClickWheel {
       this.hasScrolled = true;
       this.startPoint = currentPoint;
       const direction = this.getScrollDirection(angleDelta);
+      this.triggerScrollHaptic();
       this.dispatch(direction === 'clockwise' ? 'forwardscroll' : 'backwardscroll');
     }
   }
@@ -136,31 +156,38 @@ class ClickWheel {
       switch (e.key) {
         case 'ArrowUp':
           e.preventDefault();
+          this.triggerScrollHaptic();
           this.dispatch('backwardscroll');
           break;
         case 'ArrowDown':
           e.preventDefault();
+          this.triggerScrollHaptic();
           this.dispatch('forwardscroll');
           break;
         case 'Enter':
           e.preventDefault();
+          this.triggerClickHaptic();
           this.dispatch('centerclick');
           break;
         case 'Escape':
         case 'Backspace':
           e.preventDefault();
+          this.triggerClickHaptic();
           this.dispatch('menuclick');
           break;
         case 'ArrowLeft':
           e.preventDefault();
+          this.triggerClickHaptic();
           this.dispatch('backclick');
           break;
         case 'ArrowRight':
           e.preventDefault();
+          this.triggerClickHaptic();
           this.dispatch('forwardclick');
           break;
         case ' ':
           e.preventDefault();
+          this.triggerClickHaptic();
           this.dispatch('playpauseclick');
           break;
       }

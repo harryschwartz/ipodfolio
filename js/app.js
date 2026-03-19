@@ -194,13 +194,15 @@ class IPodApp {
       }
       case 'settings': {
         this.setHeaderTitle('Settings');
+        const hapticsOn = window.ipodClickWheel ? window.ipodClickWheel.hapticsEnabled : true;
         this.currentItems = [
           { id: 'theme-silver', title: 'Silver', type: '_theme', metadata: { themeId: 'silver' } },
           { id: 'theme-black', title: 'Black', type: '_theme', metadata: { themeId: 'black' } },
           { id: 'theme-u2', title: 'U2', type: '_theme', metadata: { themeId: 'u2' } },
           { id: 'theme-pink', title: 'Pink', type: '_theme', metadata: { themeId: 'pink' } },
+          { id: 'haptics-toggle', title: 'Haptics: ' + (hapticsOn ? 'On' : 'Off'), type: '_haptics' },
         ];
-        const view = renderSettingsView(this.theme);
+        const view = renderSettingsView(this.theme, hapticsOn);
         this.transitionTo(view, direction);
         break;
       }
@@ -472,23 +474,31 @@ class IPodApp {
       return;
     }
 
-    // Settings theme selection
+    // Settings theme/haptics selection
     if (this.currentNode?.type === 'settings') {
       const themes = ['silver', 'black', 'u2', 'pink'];
-      if (themes[this.scrollIndex]) {
+      if (this.scrollIndex < themes.length && themes[this.scrollIndex]) {
         this.applyTheme(themes[this.scrollIndex]);
-        // Re-render settings
-        this.currentItems = [
-          { id: 'theme-silver', title: 'Silver', type: '_theme', metadata: { themeId: 'silver' } },
-          { id: 'theme-black', title: 'Black', type: '_theme', metadata: { themeId: 'black' } },
-          { id: 'theme-u2', title: 'U2', type: '_theme', metadata: { themeId: 'u2' } },
-          { id: 'theme-pink', title: 'Pink', type: '_theme', metadata: { themeId: 'pink' } },
-        ];
-        const view = renderSettingsView(this.theme);
-        this.transitionTo(view, 'none');
-        this.scrollIndex = themes.indexOf(this.theme);
-        this.updateListSelection();
+      } else if (this.scrollIndex === themes.length) {
+        // Toggle haptics
+        if (window.ipodClickWheel) {
+          window.ipodClickWheel.hapticsEnabled = !window.ipodClickWheel.hapticsEnabled;
+        }
       }
+      // Re-render settings
+      const hapticsOn = window.ipodClickWheel ? window.ipodClickWheel.hapticsEnabled : true;
+      this.currentItems = [
+        { id: 'theme-silver', title: 'Silver', type: '_theme', metadata: { themeId: 'silver' } },
+        { id: 'theme-black', title: 'Black', type: '_theme', metadata: { themeId: 'black' } },
+        { id: 'theme-u2', title: 'U2', type: '_theme', metadata: { themeId: 'u2' } },
+        { id: 'theme-pink', title: 'Pink', type: '_theme', metadata: { themeId: 'pink' } },
+        { id: 'haptics-toggle', title: 'Haptics: ' + (hapticsOn ? 'On' : 'Off'), type: '_haptics' },
+      ];
+      const view = renderSettingsView(this.theme, hapticsOn);
+      this.transitionTo(view, 'none');
+      const savedIndex = this.scrollIndex;
+      this.scrollIndex = savedIndex;
+      this.updateListSelection();
       return;
     }
 
@@ -682,6 +692,6 @@ class IPodApp {
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   const wheelEl = document.getElementById('clickwheel');
-  new ClickWheel(wheelEl);
+  window.ipodClickWheel = new ClickWheel(wheelEl);
   window.ipodApp = new IPodApp();
 });
