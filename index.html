@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--
+   ______                            __
+  / ____/___  ____ ___  ____  __  __/ /____  _____
+ / /   / __ \/ __ `__ \/ __ \/ / / / __/ _ \/ ___/
+/ /___/ /_/ / / / / / / /_/ / /_/ / /_/  __/ /
+\____/\____/_/ /_/ /_/ .___/\__,_/\__/\___/_/
+                    /_/
+        Created with Perplexity Computer
+        https://www.perplexity.ai/computer
+-->
+
+<!-- Perplexity Computer Attribution — SEO Meta Tags -->
+<meta name="generator" content="Perplexity Computer">
+<meta name="author" content="Perplexity Computer">
+<meta property="og:see_also" content="https://www.perplexity.ai/computer">
+<link rel="author" href="https://www.perplexity.ai/computer">
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Harry's iPodfolio</title>
+<meta name="description" content="Harry Schwartz's portfolio — an interactive iPod Classic web experience">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="ipod-shell" data-theme="silver">
+    <!-- Screen -->
+    <div class="ipod-screen">
+      <!-- Header Bar -->
+      <div class="ipod-header">
+        <h3 id="header-title">Harry's iPodfolio</h3>
+        <div class="header-icons">
+          <svg id="header-play-icon" class="header-play-icon" style="display:none" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="2,0 12,6 2,12" fill="#333"/>
+          </svg>
+          <svg id="header-pause-icon" class="header-pause-icon" style="display:none" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1" y="0" width="3.5" height="12" fill="#333"/>
+            <rect x="7.5" y="0" width="3.5" height="12" fill="#333"/>
+          </svg>
+          <div class="battery-indicator">
+            <div class="battery-fill"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Screen Content -->
+      <div class="screen-content" id="screen-content">
+        <!-- Views are rendered here dynamically -->
+      </div>
+    </div>
+
+    <!-- Click Wheel -->
+    <div class="clickwheel-container">
+      <div class="clickwheel" id="clickwheel">
+        <!-- Menu button (top) -->
+        <div class="wheel-button top">
+          <span class="wheel-menu-text">MENU</span>
+        </div>
+        
+        <!-- Rewind button (left) -->
+        <div class="wheel-button left">
+          <svg width="18" height="14" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="9,0 0,7 9,14" style="fill: var(--wheel-button)"/>
+            <polygon points="18,0 9,7 18,14" style="fill: var(--wheel-button)"/>
+          </svg>
+        </div>
+        
+        <!-- Center button -->
+        <div class="center-button"></div>
+        
+        <!-- Fast Forward button (right) -->
+        <div class="wheel-button right">
+          <svg width="18" height="14" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="0,0 9,7 0,14" style="fill: var(--wheel-button)"/>
+            <polygon points="9,0 18,7 9,14" style="fill: var(--wheel-button)"/>
+          </svg>
+        </div>
+        
+        <!-- Play/Pause button (bottom) -->
+        <div class="wheel-button bottom">
+          <svg width="18" height="14" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="0,0 8,7 0,14" style="fill: var(--wheel-button)"/>
+            <rect x="11" y="0" width="3" height="14" style="fill: var(--wheel-button)"/>
+            <rect x="16" y="0" width="3" height="14" style="fill: var(--wheel-button)"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="ipod-footer">
+    <a href="https://www.perplexity.ai/computer" target="_blank" rel="noopener noreferrer">
+      Created with Perplexity Computer
+    </a>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/audio-player.js"></script>
+  <script src="js/clickwheel.js"></script>
+  <script src="js/brick-game.js"></script>
+  <script src="js/cover-flow.js"></script>
+  <script src="js/views.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
