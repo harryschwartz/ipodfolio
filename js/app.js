@@ -15,7 +15,7 @@ class IPodApp {
     this.scrollIndex = 0;
     this.currentItems = []; // Items in current list
     this.currentNode = null;
-    this.theme = window._ipodTheme || 'silver';
+    this.theme = window._ipodTheme || 'pink';
     
     // Active sub-controllers
     this.activeCoverFlow = null;

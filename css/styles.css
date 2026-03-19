@@ -44,11 +44,11 @@
 
 [data-theme="pink"] {
   --body-bg: linear-gradient(180deg, #f7a8c4 0%, #e8779e 100%);
-  --wheel-bg: #f7a8c4;
+  --wheel-bg: #FFFFFF;
   --wheel-outline: #d4698c;
-  --wheel-button: #ffffff;
-  --center-bg: #f9c4d8;
-  --center-shadow: rgb(200, 120, 150);
+  --wheel-button: #AFAFAF;
+  --center-bg: #ffffff;
+  --center-shadow: rgb(200, 150, 170);
   --center-outline: #d4698c;
 }
 
