@@ -9,7 +9,7 @@ const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
 
 // iOS Safari haptic support via <input type="checkbox" switch> trick
 // Safari 17.4+ supports the switch attribute; iOS 18+ triggers Taptic Engine on toggle
-// Based on: https://github.com/tijnjh/ios-haptics
+// Based on: https://github.com/tijnjh/ios-haptics & https://github.com/lochie/web-haptics
 const isCoarsePointer = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 const supportsSwitchInput = (() => {
   try {
@@ -20,19 +20,53 @@ const supportsSwitchInput = (() => {
 })();
 const canIOSHaptic = isCoarsePointer && supportsSwitchInput;
 
-function triggerIOSHaptic() {
+// Persistent haptic element — kept in DOM to allow rapid repeated triggering
+// Uses a label+input pair; clicking the label toggles the switch and fires haptic
+// Matches web-haptics library approach: positioned off-screen, NOT display:none
+let _hapticLabel = null;
+let _hapticReady = false;
+
+function ensureHapticDOM() {
+  if (_hapticReady || !canIOSHaptic) return;
   try {
+    const id = 'ipod-haptic-switch';
     const label = document.createElement('label');
-    label.ariaHidden = 'true';
-    label.style.display = 'none';
+    label.setAttribute('for', id);
+    label.textContent = 'Haptic feedback';
+    // Off-screen but rendered (display:none suppresses haptic on iOS)
+    label.style.position = 'fixed';
+    label.style.bottom = '-9999px';
+    label.style.left = '-9999px';
+    label.style.opacity = '0';
+    label.style.userSelect = 'none';
+    label.style.zIndex = '-1';
+
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.setAttribute('switch', '');
+    input.id = id;
+    // Match web-haptics: reset styles, keep appearance:auto so Safari renders it as a real switch
+    input.style.all = 'initial';
+    input.style.appearance = 'auto';
+
     label.appendChild(input);
-    document.head.appendChild(label);
-    label.click();
-    document.head.removeChild(label);
+    document.body.appendChild(label);
+    _hapticLabel = label;
+    _hapticReady = true;
   } catch {}
+}
+
+// Throttle iOS haptics to prevent overwhelming the Taptic Engine during rapid scrolling
+let _lastHapticTime = 0;
+const HAPTIC_MIN_INTERVAL = 40; // ms — minimum gap between haptic pulses on iOS
+
+function triggerIOSHaptic() {
+  if (!_hapticReady) ensureHapticDOM();
+  if (!_hapticLabel) return;
+  const now = performance.now();
+  if (now - _lastHapticTime < HAPTIC_MIN_INTERVAL) return;
+  _lastHapticTime = now;
+  try { _hapticLabel.click(); } catch {}
 }
 
 class ClickWheel {
@@ -49,6 +83,9 @@ class ClickWheel {
     this.isPanning = false;
     this.lastPoint = { x: 0, y: 0 };
     this.hapticsEnabled = true; // can be toggled from Settings
+    
+    // Pre-initialize iOS haptic DOM element so it's ready for first interaction
+    if (canIOSHaptic) ensureHapticDOM();
     
     this.bindEvents();
   }
