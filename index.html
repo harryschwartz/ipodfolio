@@ -25,13 +25,8 @@
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-  <!-- Studio backdrop with perspective grid -->
-  <div class="studio-backdrop">
-    <div class="wall-grid"></div>
-    <div class="floor-grid"></div>
-    <div class="curve-seam"></div>
-    <div class="vignette"></div>
-  </div>
+  <!-- Studio backdrop with curved perspective grid -->
+  <canvas id="studio-grid" class="studio-backdrop"></canvas>
 
   <div class="ipod-shell" data-theme="pink">
     <!-- Screen -->
@@ -105,6 +100,7 @@
   </footer>
 
   <!-- Scripts -->
+  <script src="js/studio-grid.js"></script>
   <script src="js/data.js"></script>
   <script src="js/audio-player.js"></script>
   <script src="js/clickwheel.js"></script>

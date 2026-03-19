@@ -47,8 +47,8 @@
   --wheel-bg: #FFFFFF;
   --wheel-outline: #d4698c;
   --wheel-button: #AFAFAF;
-  --center-bg: #ffffff;
-  --center-shadow: rgb(200, 150, 170);
+  --center-bg: #f2a3be;
+  --center-shadow: rgb(200, 120, 150);
   --center-outline: #d4698c;
 }
 
@@ -72,64 +72,12 @@ body {
   position: relative;
 }
 
-/* ---- Studio Backdrop: CSS Perspective Grid ---- */
+/* ---- Studio Backdrop ---- */
 .studio-backdrop {
   position: fixed;
   inset: 0;
-  overflow: hidden;
   z-index: 0;
-  background: linear-gradient(180deg, #f5f5f5 0%, #e8e8e8 40%, #ddd 60%, #d0d0d0 100%);
-}
-
-/* Back wall grid */
-.studio-backdrop .wall-grid {
-  position: absolute;
-  top: 0;
-  left: -20%;
-  right: -20%;
-  bottom: 45%;
-  /* Subtle curved distortion via transform */
-  background-image:
-    linear-gradient(to right, rgba(180,180,180,0.35) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(180,180,180,0.35) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(ellipse 80% 120% at 50% 100%, black 50%, transparent 80%);
-  -webkit-mask-image: radial-gradient(ellipse 80% 120% at 50% 100%, black 50%, transparent 80%);
-}
-
-/* Floor grid with perspective */
-.studio-backdrop .floor-grid {
-  position: absolute;
-  left: -60%;
-  right: -60%;
-  bottom: 0;
-  height: 50%;
-  transform-origin: center top;
-  transform: perspective(400px) rotateX(55deg);
-  background-image:
-    linear-gradient(to right, rgba(160,160,160,0.4) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(160,160,160,0.4) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
-}
-
-/* Curved seam between wall and floor */
-.studio-backdrop .curve-seam {
-  position: absolute;
-  left: -10%;
-  right: -10%;
-  top: 50%;
-  height: 15%;
-  transform: translateY(-50%);
-  background: radial-gradient(ellipse 100% 100% at 50% 0%, rgba(200,200,200,0.3) 0%, transparent 70%);
-}
-
-/* Soft vignette for studio feel */
-.studio-backdrop .vignette {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse 70% 60% at 50% 45%, transparent 40%, rgba(0,0,0,0.06) 100%);
+  display: block;
 }
 
 a {
