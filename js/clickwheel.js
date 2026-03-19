@@ -20,9 +20,7 @@ const supportsSwitchInput = (() => {
 })();
 const canIOSHaptic = isCoarsePointer && supportsSwitchInput;
 
-// Persistent haptic element — kept in DOM to allow rapid repeated triggering
-// Uses a label+input pair; clicking the label toggles the switch and fires haptic
-// Matches web-haptics library approach: positioned off-screen, NOT display:none
+// Persistent haptic element for iOS click haptics (buttons only — doesn't work during pan gestures)
 let _hapticLabel = null;
 let _hapticReady = false;
 
@@ -33,22 +31,18 @@ function ensureHapticDOM() {
     const label = document.createElement('label');
     label.setAttribute('for', id);
     label.textContent = 'Haptic feedback';
-    // Off-screen but rendered (display:none suppresses haptic on iOS)
     label.style.position = 'fixed';
     label.style.bottom = '-9999px';
     label.style.left = '-9999px';
     label.style.opacity = '0';
     label.style.userSelect = 'none';
     label.style.zIndex = '-1';
-
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.setAttribute('switch', '');
     input.id = id;
-    // Match web-haptics: reset styles, keep appearance:auto so Safari renders it as a real switch
     input.style.all = 'initial';
     input.style.appearance = 'auto';
-
     label.appendChild(input);
     document.body.appendChild(label);
     _hapticLabel = label;
@@ -56,17 +50,63 @@ function ensureHapticDOM() {
   } catch {}
 }
 
-// Throttle iOS haptics to prevent overwhelming the Taptic Engine during rapid scrolling
-let _lastHapticTime = 0;
-const HAPTIC_MIN_INTERVAL = 40; // ms — minimum gap between haptic pulses on iOS
-
-function triggerIOSHaptic() {
+function triggerIOSClickHaptic() {
   if (!_hapticReady) ensureHapticDOM();
-  if (!_hapticLabel) return;
+  if (_hapticLabel) {
+    try { _hapticLabel.click(); } catch {}
+  }
+}
+
+// Web Audio tick sound for scroll feedback on iOS
+// The checkbox switch trick does NOT work during pan/move gestures (iOS limitation).
+// Web Audio API plays during touchmove once the AudioContext is unlocked on first touch.
+// This mimics the real iPod click wheel's audible tick.
+let _audioCtx = null;
+let _tickBuffer = null;
+let _audioUnlocked = false;
+let _lastTickTime = 0;
+const TICK_MIN_INTERVAL = 30; // ms between ticks
+
+function ensureAudioContext() {
+  if (_audioCtx) return;
+  try {
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Synthesize a short tick sound: brief noise burst (~3ms) through a bandpass filter
+    const sr = _audioCtx.sampleRate;
+    const len = Math.ceil(sr * 0.003); // 3ms
+    _tickBuffer = _audioCtx.createBuffer(1, len, sr);
+    const data = _tickBuffer.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      // Exponential decay noise burst — very short, subtle click
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.15));
+    }
+  } catch {}
+}
+
+function unlockAudioContext() {
+  if (_audioUnlocked || !_audioCtx) return;
+  if (_audioCtx.state === 'suspended') {
+    _audioCtx.resume().then(() => { _audioUnlocked = true; });
+  } else {
+    _audioUnlocked = true;
+  }
+}
+
+function playTickSound() {
+  if (!_audioCtx || !_tickBuffer) return;
   const now = performance.now();
-  if (now - _lastHapticTime < HAPTIC_MIN_INTERVAL) return;
-  _lastHapticTime = now;
-  try { _hapticLabel.click(); } catch {}
+  if (now - _lastTickTime < TICK_MIN_INTERVAL) return;
+  _lastTickTime = now;
+  try {
+    const source = _audioCtx.createBufferSource();
+    source.buffer = _tickBuffer;
+    // Low volume so it's subtle tactile feedback, not loud
+    const gain = _audioCtx.createGain();
+    gain.gain.value = 0.08;
+    source.connect(gain);
+    gain.connect(_audioCtx.destination);
+    source.start(0);
+  } catch {}
 }
 
 class ClickWheel {
@@ -84,29 +124,32 @@ class ClickWheel {
     this.lastPoint = { x: 0, y: 0 };
     this.hapticsEnabled = true; // can be toggled from Settings
     
-    // Pre-initialize iOS haptic DOM element so it's ready for first interaction
+    // Pre-initialize haptic systems
     if (canIOSHaptic) ensureHapticDOM();
+    // Set up Web Audio tick for iOS scroll feedback
+    if (!canVibrate) ensureAudioContext();
     
     this.bindEvents();
   }
 
-  // Short vibration pulse for scroll ticks (10ms like original iPod.js)
+  // Scroll tick: vibrate on Android, audio tick on iOS (checkbox trick doesn't work during pan)
   triggerScrollHaptic() {
     if (!this.hapticsEnabled) return;
     if (canVibrate) {
       navigator.vibrate(10);
-    } else if (canIOSHaptic) {
-      triggerIOSHaptic();
+    } else {
+      // iOS: play a subtle audio tick (Web Audio works during touchmove)
+      playTickSound();
     }
   }
 
-  // Slightly stronger pulse for button presses
+  // Button press: vibrate on Android, Taptic Engine on iOS (checkbox trick works for clicks)
   triggerClickHaptic() {
     if (!this.hapticsEnabled) return;
     if (canVibrate) {
       navigator.vibrate(15);
     } else if (canIOSHaptic) {
-      triggerIOSHaptic();
+      triggerIOSClickHaptic();
     }
   }
 
@@ -187,6 +230,8 @@ class ClickWheel {
     // Pointer events for unified mouse/touch handling
     this.el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      // Unlock Web Audio on first touch (iOS Safari requires user gesture)
+      if (!_audioUnlocked && _audioCtx) unlockAudioContext();
       this.isPanning = true;
       this.hasScrolled = false;
       this.startPoint = { x: e.clientX, y: e.clientY };
