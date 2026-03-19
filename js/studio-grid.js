@@ -1,5 +1,4 @@
-// Studio Cyclorama Grid — seamless curved perspective grid on canvas
-// Camera near floor level: dense wall grid top, perspective floor bottom
+// Studio Grid — infinite horizontal perspective grid fading to white
 (function () {
   const canvas = document.getElementById('studio-grid');
   if (!canvas) return;
@@ -15,124 +14,105 @@
     canvas.style.height = H + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // Background — very light, slightly warm gray
-    const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, '#f3f3f3');
-    bg.addColorStop(0.35, '#efefef');
-    bg.addColorStop(0.5, '#eaeaea');
-    bg.addColorStop(0.6, '#e5e5e5');
-    bg.addColorStop(1, '#ddd');
-    ctx.fillStyle = bg;
+    // Solid white background
+    ctx.fillStyle = '#f2f2f2';
     ctx.fillRect(0, 0, W, H);
 
     /*
-     * Cyclorama with camera at near-floor level.
-     * Wall = massive, fills upper ~55% with dense uniform grid
-     * Floor = dramatic perspective, fills lower ~45%
-     * Curve = very gentle, barely noticeable transition
+     * Flat horizontal plane — camera looks across an infinite floor.
+     * Lines recede to a vanishing point and fade out with distance.
+     * Above the horizon is just clean white.
      */
 
-    const surfaceWidth = 160;
-    const floorDepth = 22;          // more floor so near lines are denser
-    const curveRadius = 14;         // larger radius = more subtle curve
-    const wallHeight = 50;
+    const surfaceWidth = 200;
+    const floorDepth = 60;
 
-    // Camera barely above floor
-    const camY = 0.5;
-    const camZ = -0.5;              // closer to surface start
-    const fov = 0.85;
+    const camY = 2.8;
+    const camZ = -1;
+    const fov = 0.9;
+    const horizonY = H * 0.42; // horizon sits in upper portion
 
-    // Very high density
-    const UCOLS = 140;
-    const VROWS = 120;              // more rows for denser floor lines
-    const STEPS = 80;
+    const UCOLS = 120;
+    const VROWS = 80;
+    const STEPS = 2; // floor lines are straight, only need 2 points
 
-    const totalArcLen = floorDepth + (Math.PI / 2) * curveRadius + wallHeight;
-    const floorFrac = floorDepth / totalArcLen;
-    const curveFrac = ((Math.PI / 2) * curveRadius) / totalArcLen;
-
-    function surfacePoint(u, v) {
-      const worldX = (u - 0.5) * surfaceWidth;
-      let worldY, worldZ;
-
-      if (v <= floorFrac) {
-        const t = v / floorFrac;
-        worldY = 0;
-        worldZ = t * floorDepth;
-      } else if (v <= floorFrac + curveFrac) {
-        const t = (v - floorFrac) / curveFrac;
-        const angle = t * (Math.PI / 2);
-        worldZ = floorDepth + Math.cos(angle) * curveRadius;
-        worldY = Math.sin(angle) * curveRadius;
-      } else {
-        const t = (v - floorFrac - curveFrac) / (1 - floorFrac - curveFrac);
-        worldZ = floorDepth;
-        worldY = curveRadius + t * wallHeight;
-      }
-
-      return { x: worldX, y: worldY, z: worldZ };
-    }
-
-    function project(p3) {
-      const relZ = p3.z - camZ;
+    function project(worldX, worldZ) {
+      const relZ = worldZ - camZ;
       if (relZ <= 0.05) return null;
       const scale = (fov * Math.min(W, H) * 0.5) / relZ;
-      const screenX = W / 2 + p3.x * scale;
-      const screenY = H * 0.5 - (p3.y - camY) * scale;
+      const screenX = W / 2 + worldX * scale;
+      const screenY = horizonY + camY * scale;
       return { x: screenX, y: screenY };
     }
 
-    ctx.lineWidth = 0.5;
-
-    // Lines along the surface (constant u, varying v)
+    // Draw lines going into the distance (constant X, varying Z)
     for (let col = 0; col <= UCOLS; col++) {
       const u = col / UCOLS;
+      const worldX = (u - 0.5) * surfaceWidth;
+
+      // Near point
+      const pNear = project(worldX, 0.1);
+      // Far point (converges to vanishing point)
+      const pFar = project(worldX, floorDepth);
+      if (!pNear || !pFar) continue;
+
+      // Skip if entirely off screen
+      if (pNear.x < -50 && pFar.x < -50) continue;
+      if (pNear.x > W + 50 && pFar.x > W + 50) continue;
+
       ctx.beginPath();
-      let started = false;
-      let anyVisible = false;
-      for (let s = 0; s <= STEPS; s++) {
-        const v = s / STEPS;
-        const p3 = surfacePoint(u, v);
-        const p2 = project(p3);
-        if (!p2) continue;
-        if (p2.x < -1000 || p2.x > W + 1000 || p2.y < -1000 || p2.y > H + 1000) {
-          started = false;
-          continue;
-        }
-        if (!started) { ctx.moveTo(p2.x, p2.y); started = true; }
-        else ctx.lineTo(p2.x, p2.y);
-        if (p2.x >= -30 && p2.x <= W + 30 && p2.y >= -30 && p2.y <= H + 30) anyVisible = true;
-      }
-      if (anyVisible) {
-        ctx.strokeStyle = 'rgba(150,150,150,0.38)';
-        ctx.stroke();
-      }
+      ctx.moveTo(pNear.x, pNear.y);
+      ctx.lineTo(pFar.x, pFar.y);
+      ctx.strokeStyle = 'rgba(160,160,160,0.3)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
     }
 
-    // Lines across the surface (constant v, varying u)
+    // Draw horizontal cross-lines (constant Z, varying X)
     for (let row = 0; row <= VROWS; row++) {
-      const v = row / VROWS;
+      const t = row / VROWS;
+      // Distribute Z values with more density near the camera (exponential)
+      const worldZ = 0.1 + Math.pow(t, 1.8) * floorDepth;
+
+      const pLeft = project(-surfaceWidth / 2, worldZ);
+      const pRight = project(surfaceWidth / 2, worldZ);
+      if (!pLeft || !pRight) continue;
+
+      // Skip if off screen vertically
+      if (pLeft.y < horizonY - 5) continue;
+      if (pLeft.y > H + 50) continue;
+
+      // Fade with distance — lines near horizon are fainter
+      const distFade = 1 - Math.pow(t, 2.5);
+      const alpha = 0.3 * distFade + 0.05;
+
       ctx.beginPath();
-      let started = false;
-      let anyVisible = false;
-      for (let s = 0; s <= STEPS; s++) {
-        const u = s / STEPS;
-        const p3 = surfacePoint(u, v);
-        const p2 = project(p3);
-        if (!p2) continue;
-        if (p2.y < -1000 || p2.y > H + 1000) {
-          started = false;
-          continue;
-        }
-        if (!started) { ctx.moveTo(p2.x, p2.y); started = true; }
-        else ctx.lineTo(p2.x, p2.y);
-        if (p2.x >= -50 && p2.x <= W + 50 && p2.y >= -50 && p2.y <= H + 50) anyVisible = true;
-      }
-      if (anyVisible) {
-        ctx.strokeStyle = 'rgba(150,150,150,0.38)';
-        ctx.stroke();
-      }
+      ctx.moveTo(pLeft.x, pLeft.y);
+      ctx.lineTo(pRight.x, pRight.y);
+      ctx.strokeStyle = `rgba(160,160,160,${alpha})`;
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
     }
+
+    // Fade to white at the horizon — gradient overlay
+    const fadeHeight = H * 0.18;
+    const fade = ctx.createLinearGradient(0, horizonY - fadeHeight, 0, horizonY + fadeHeight * 0.3);
+    fade.addColorStop(0, 'rgba(242,242,242,1)');
+    fade.addColorStop(0.5, 'rgba(242,242,242,0.85)');
+    fade.addColorStop(1, 'rgba(242,242,242,0)');
+    ctx.fillStyle = fade;
+    ctx.fillRect(0, horizonY - fadeHeight, W, fadeHeight + fadeHeight * 0.3);
+
+    // Clean white above horizon
+    ctx.fillStyle = '#f2f2f2';
+    ctx.fillRect(0, 0, W, horizonY - fadeHeight);
+
+    // Subtle fade at bottom edge too
+    const bottomFade = ctx.createLinearGradient(0, H - 60, 0, H);
+    bottomFade.addColorStop(0, 'rgba(242,242,242,0)');
+    bottomFade.addColorStop(1, 'rgba(242,242,242,0.6)');
+    ctx.fillStyle = bottomFade;
+    ctx.fillRect(0, H - 60, W, 60);
   }
 
   draw();
