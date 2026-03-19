@@ -7,6 +7,34 @@ const PAN_THRESHOLD = 5; // pixels
 // Haptic feedback support
 const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
 
+// iOS Safari haptic support via <input type="checkbox" switch> trick
+// Safari 17.4+ supports the switch attribute; iOS 18+ triggers Taptic Engine on toggle
+// Based on: https://github.com/tijnjh/ios-haptics
+const isCoarsePointer = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+const supportsSwitchInput = (() => {
+  try {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    return 'switch' in input;
+  } catch { return false; }
+})();
+const canIOSHaptic = isCoarsePointer && supportsSwitchInput;
+
+function triggerIOSHaptic() {
+  try {
+    const label = document.createElement('label');
+    label.ariaHidden = 'true';
+    label.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.setAttribute('switch', '');
+    label.appendChild(input);
+    document.head.appendChild(label);
+    label.click();
+    document.head.removeChild(label);
+  } catch {}
+}
+
 class ClickWheel {
   constructor(element) {
     this.el = element;
@@ -27,15 +55,21 @@ class ClickWheel {
 
   // Short vibration pulse for scroll ticks (10ms like original iPod.js)
   triggerScrollHaptic() {
-    if (this.hapticsEnabled && canVibrate) {
+    if (!this.hapticsEnabled) return;
+    if (canVibrate) {
       navigator.vibrate(10);
+    } else if (canIOSHaptic) {
+      triggerIOSHaptic();
     }
   }
 
   // Slightly stronger pulse for button presses
   triggerClickHaptic() {
-    if (this.hapticsEnabled && canVibrate) {
+    if (!this.hapticsEnabled) return;
+    if (canVibrate) {
       navigator.vibrate(15);
+    } else if (canIOSHaptic) {
+      triggerIOSHaptic();
     }
   }
 
