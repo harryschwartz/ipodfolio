@@ -1,5 +1,10 @@
 // Portfolio data tree - each node has id, parentId, type, title, sortOrder, metadata
-const PORTFOLIO_DATA = [
+// Data is fetched from the CMS API at runtime; the hardcoded array below is the fallback.
+
+const CMS_API_URL = "https://ipodfolio-cms.vercel.app/api/public/nodes";
+
+// Fallback data (used if CMS is unreachable)
+const FALLBACK_DATA = [
   {
     id: "cover-flow",
     parentId: null,
@@ -238,6 +243,48 @@ const PORTFOLIO_DATA = [
     metadata: {}
   }
 ];
+
+// Live data - starts as fallback, replaced by CMS data when available
+let PORTFOLIO_DATA = [...FALLBACK_DATA];
+
+// Fetch live data from CMS API
+let _cmsDataReady = false;
+let _cmsDataPromise = null;
+
+function fetchCMSData() {
+  if (_cmsDataPromise) return _cmsDataPromise;
+  
+  _cmsDataPromise = fetch(CMS_API_URL)
+    .then(res => {
+      if (!res.ok) throw new Error(`CMS API returned ${res.status}`);
+      return res.json();
+    })
+    .then(nodes => {
+      if (Array.isArray(nodes) && nodes.length > 0) {
+        // Clean up undefined values from metadata
+        const cleaned = nodes.map(n => ({
+          ...n,
+          metadata: n.metadata ? Object.fromEntries(
+            Object.entries(n.metadata).filter(([_, v]) => v !== undefined && v !== null)
+          ) : {}
+        }));
+        PORTFOLIO_DATA = cleaned;
+        _cmsDataReady = true;
+        console.log(`[iPodfolio] Loaded ${nodes.length} nodes from CMS`);
+      }
+      return PORTFOLIO_DATA;
+    })
+    .catch(err => {
+      console.warn("[iPodfolio] CMS unreachable, using fallback data:", err.message);
+      _cmsDataReady = true; // Mark as ready even on failure (use fallback)
+      return PORTFOLIO_DATA;
+    });
+  
+  return _cmsDataPromise;
+}
+
+// Start fetching immediately
+fetchCMSData();
 
 // Helper functions for data tree
 function getChildren(parentId) {

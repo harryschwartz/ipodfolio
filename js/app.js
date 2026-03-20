@@ -689,9 +689,22 @@ class IPodApp {
   }
 }
 
-// Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
+// Initialize app when DOM is ready AND CMS data is loaded
+document.addEventListener('DOMContentLoaded', async () => {
   const wheelEl = document.getElementById('clickwheel');
   window.ipodClickWheel = new ClickWheel(wheelEl);
+  
+  // Wait for CMS data before initializing (has a fast timeout/fallback)
+  if (typeof fetchCMSData === 'function') {
+    try {
+      await Promise.race([
+        fetchCMSData(),
+        new Promise(resolve => setTimeout(resolve, 3000)) // 3s max wait
+      ]);
+    } catch (e) {
+      console.warn('[iPodfolio] CMS fetch failed, using fallback data');
+    }
+  }
+  
   window.ipodApp = new IPodApp();
 });
