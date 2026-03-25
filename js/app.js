@@ -144,7 +144,7 @@ class IPodApp {
     
     switch (node.type) {
       case 'folder': {
-        const isTopLevel = node.parentId === null;
+        const isTopLevel = node.metadata?.splitScreen ?? (node.parentId === null);
         this.setHeaderTitle(node.title);
         const view = renderFolderView(node, children, isTopLevel);
         this.transitionTo(view, direction);

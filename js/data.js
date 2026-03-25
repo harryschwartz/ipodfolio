@@ -2,6 +2,7 @@
 // Data is fetched from the CMS API at runtime; the hardcoded array below is the fallback.
 
 const CMS_API_URL = "https://ipodfolio-cms.vercel.app/api/public/nodes";
+const CMS_PREVIEW_URL = "https://ipodfolio-cms.vercel.app/api/preview/nodes";
 
 // Fallback data (used if CMS is unreachable)
 const FALLBACK_DATA = [
@@ -253,8 +254,9 @@ let _cmsDataPromise = null;
 
 function fetchCMSData() {
   if (_cmsDataPromise) return _cmsDataPromise;
-  
-  _cmsDataPromise = fetch(CMS_API_URL)
+  const isPreview = new URLSearchParams(window.location.search).get("preview") === "true";
+  const url = isPreview ? CMS_PREVIEW_URL : CMS_API_URL;
+  _cmsDataPromise = fetch(url)
     .then(res => {
       if (!res.ok) throw new Error(`CMS API returned ${res.status}`);
       return res.json();
