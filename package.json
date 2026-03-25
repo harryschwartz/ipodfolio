@@ -1,0 +1,8 @@
+{
+  "name": "ipodfolio",
+  "private": true,
+  "scripts": {
+    "dev": "npx --yes live-server . --port=5173 --host=localhost --no-browser",
+    "preview": "npx --yes serve . -l 5173"
+  }
+}
