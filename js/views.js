@@ -105,6 +105,22 @@ function createSelectableList(items, activeIndex, showArrow) {
   return frag;
 }
 
+/** Turn list-item rows into anchor rows (same layout, opens URL). */
+function wrapListRowsAsLinks(container, linkItems) {
+  const rows = container.querySelectorAll('.list-item');
+  rows.forEach((row, i) => {
+    const item = linkItems[i];
+    if (!item?.metadata?.url) return;
+    const a = document.createElement('a');
+    a.className = row.className;
+    a.href = item.metadata.url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    while (row.firstChild) a.appendChild(row.firstChild);
+    row.replaceWith(a);
+  });
+}
+
 // ---- Album View ----
 function renderAlbumView(node, children) {
   const container = document.createElement('div');
@@ -264,25 +280,30 @@ function renderPhotoFullscreen(photo) {
 function renderTextView(node) {
   const container = document.createElement('div');
   container.className = 'text-view';
-  
+
+  const scroll = document.createElement('div');
+  scroll.className = 'text-view-scroll';
+
   const p = document.createElement('p');
   p.textContent = node.metadata?.bodyText || '';
-  container.appendChild(p);
-  
+  scroll.appendChild(p);
+
   if (node.metadata?.links?.length) {
+    const linkItems = node.metadata.links.map((link, i) => ({
+      id: `${node.id}-link-${i}`,
+      title: link.label,
+      type: 'link',
+      metadata: { url: link.url },
+    }));
     const links = document.createElement('div');
     links.className = 'text-view-links';
-    node.metadata.links.forEach(link => {
-      const a = document.createElement('a');
-      a.href = link.url;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.textContent = link.label + ' →';
-      links.appendChild(a);
-    });
-    container.appendChild(links);
+    links.appendChild(createSelectableList(linkItems, -1, true));
+    wrapListRowsAsLinks(links, linkItems);
+    scroll.appendChild(links);
   }
-  
+
+  container.appendChild(scroll);
+  container._scrollEl = scroll;
   return container;
 }
 

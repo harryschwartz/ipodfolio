@@ -403,6 +403,20 @@ class IPodApp {
       return;
     }
 
+    // Text view: scroll body + link rows (wheel does not move list highlight)
+    if (this.currentNode?.type === 'text') {
+      const scrollEl = this.currentView?._scrollEl;
+      if (!scrollEl) return;
+      const step = 28;
+      const max = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+      if (direction === 'forward') {
+        scrollEl.scrollTop = Math.min(max, scrollEl.scrollTop + step);
+      } else {
+        scrollEl.scrollTop = Math.max(0, scrollEl.scrollTop - step);
+      }
+      return;
+    }
+
     if (this.currentItems.length === 0) return;
 
     if (direction === 'forward' && this.scrollIndex < this.currentItems.length - 1) {
