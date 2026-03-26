@@ -588,6 +588,17 @@ a {
   }
 }
 
+@media (max-width: 576px) {
+  .clickwheel {
+    width: 280px;
+    height: 280px;
+  }
+  .center-button {
+    width: 114px;
+    height: 114px;
+  }
+}
+
 .wheel-button {
   position: absolute;
   padding: 12px;
