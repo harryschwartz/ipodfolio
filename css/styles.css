@@ -887,9 +887,6 @@ a {
 .coverflow-artwork:not(img) {
   top: 0;
   left: 0;
-  width: 8em;
-  height: 8em;
-  font-size: 52px;
 }
 
 .coverflow-info {

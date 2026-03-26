@@ -10,7 +10,11 @@ function createCoverEl(metadata, className, fallbackSrc) {
     el.style.display = 'flex';
     el.style.alignItems = 'center';
     el.style.justifyContent = 'center';
-    el.textContent = metadata.coverEmoji;
+    const span = document.createElement('span');
+    span.style.fontSize = '40px';
+    span.style.lineHeight = '1';
+    span.textContent = metadata.coverEmoji;
+    el.appendChild(span);
     return el;
   }
   const img = document.createElement('img');
