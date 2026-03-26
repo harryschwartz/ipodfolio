@@ -597,6 +597,12 @@ a {
     width: 114px;
     height: 114px;
   }
+  .wheel-button.top    { top: 22px; }
+  .wheel-button.bottom { bottom: 22px; }
+  .wheel-button.left   { left: 22px; }
+  .wheel-button.right  { right: 22px; }
+  .wheel-icon { width: 14px; height: 14px; }
+  .wheel-menu-text { font-size: 13px; }
 }
 
 .wheel-button {
