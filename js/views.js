@@ -1,6 +1,26 @@
 // View Renderers — each node type gets its own render function
 // Returns DOM element for the screen content area
 
+// Creates a cover art element — either an <img> or an emoji div
+function createCoverEl(metadata, className, fallbackSrc) {
+  if (metadata?.coverEmoji) {
+    const el = document.createElement('div');
+    el.className = className;
+    el.style.backgroundColor = metadata.coverColor || '#6366f1';
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.justifyContent = 'center';
+    el.style.fontSize = '40%'; // scales with element size via em
+    el.style.fontSize = 'min(40px, 40cqw)'; // responsive
+    el.textContent = metadata.coverEmoji;
+    return el;
+  }
+  const img = document.createElement('img');
+  img.className = className;
+  img.src = metadata?.coverImage || fallbackSrc || '';
+  return img;
+}
+
 function formatTime(seconds) {
   if (!seconds || !isFinite(seconds)) return '--:--';
   const s = Math.floor(seconds);
@@ -99,12 +119,13 @@ function createSelectableList(items, activeIndex, showArrow) {
     el.dataset.index = i;
     
     // Image if available
-    if (item.metadata?.coverImage || item.metadata?.thumbnailUrl) {
-      const img = document.createElement('img');
-      img.className = 'list-item-image';
-      img.src = item.metadata.coverImage || item.metadata.thumbnailUrl;
-      img.alt = item.title;
-      el.appendChild(img);
+    if (item.metadata?.coverEmoji || item.metadata?.coverImage || item.metadata?.thumbnailUrl) {
+      const cover = createCoverEl(
+        item.metadata?.coverEmoji ? item.metadata : { coverImage: item.metadata?.coverImage || item.metadata?.thumbnailUrl },
+        'list-item-image'
+      );
+      cover.alt = item.title;
+      el.appendChild(cover);
     }
     
     const labelContainer = document.createElement('div');
@@ -161,12 +182,10 @@ function renderAlbumView(node, children) {
   const header = document.createElement('div');
   header.className = 'album-header';
   
-  if (node.metadata?.coverImage) {
-    const img = document.createElement('img');
-    img.className = 'album-cover-small';
-    img.src = node.metadata.coverImage;
-    img.alt = node.title;
-    header.appendChild(img);
+  if (node.metadata?.coverEmoji || node.metadata?.coverImage) {
+    const cover = createCoverEl(node.metadata, 'album-cover-small');
+    cover.alt = node.title;
+    header.appendChild(cover);
   }
   
   const info = document.createElement('div');
@@ -434,12 +453,10 @@ function renderPlaylistView(node, songs) {
   const header = document.createElement('div');
   header.className = 'playlist-header';
   
-  if (node.metadata?.coverImage) {
-    const img = document.createElement('img');
-    img.className = 'playlist-cover';
-    img.src = node.metadata.coverImage;
-    img.alt = node.title;
-    header.appendChild(img);
+  if (node.metadata?.coverEmoji || node.metadata?.coverImage) {
+    const cover = createCoverEl(node.metadata, 'playlist-cover');
+    cover.alt = node.title;
+    header.appendChild(cover);
   }
   
   const info = document.createElement('div');

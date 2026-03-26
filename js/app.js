@@ -658,8 +658,22 @@ class IPodApp {
     const artwork = this.currentView?.querySelector('.now-playing-artwork');
     if (artwork) {
       const parent = getParent(track);
-      const coverImg = parent?.metadata?.coverImage || track.metadata?.coverImage || 'img/headphones-cover.jpg';
-      artwork.src = coverImg;
+      const meta = parent?.metadata?.coverEmoji ? parent.metadata
+                 : track.metadata?.coverEmoji ? track.metadata
+                 : null;
+      if (meta?.coverEmoji) {
+        artwork.style.backgroundColor = meta.coverColor || '#6366f1';
+        artwork.style.display = 'flex';
+        artwork.style.alignItems = 'center';
+        artwork.style.justifyContent = 'center';
+        artwork.style.fontSize = '2rem';
+        artwork.textContent = meta.coverEmoji;
+        artwork.src = '';
+      } else {
+        artwork.textContent = '';
+        artwork.style = '';
+        artwork.src = parent?.metadata?.coverImage || track.metadata?.coverImage || 'img/headphones-cover.jpg';
+      }
     }
     
     // Info

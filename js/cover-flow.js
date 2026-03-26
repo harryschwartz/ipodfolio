@@ -29,11 +29,9 @@ class CoverFlow {
       const el = document.createElement('div');
       el.className = 'coverflow-album';
       
-      const img = document.createElement('img');
-      img.className = 'coverflow-artwork';
-      img.src = album.metadata.coverImage || 'img/headphones-cover.jpg';
-      img.alt = album.title;
-      el.appendChild(img);
+      const cover = createCoverEl(album.metadata, 'coverflow-artwork', 'img/headphones-cover.jpg');
+      cover.alt = album.title;
+      el.appendChild(cover);
       
       this.albumsEl.appendChild(el);
       return el;
