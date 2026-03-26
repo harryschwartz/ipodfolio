@@ -537,7 +537,9 @@ class IPodApp {
     // Links: open in new tab
     if (item.type === 'link') {
       if (item.metadata?.url) {
-        window.open(item.metadata.url, '_blank', 'noopener,noreferrer');
+        let url = item.metadata.url;
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+        window.open(url, '_blank', 'noopener,noreferrer');
       }
       return;
     }
