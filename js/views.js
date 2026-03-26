@@ -446,7 +446,14 @@ function renderPlaylistView(node, songs) {
   info.className = 'playlist-header-info';
   info.innerHTML = `
     <div class="playlist-header-title">${node.title}</div>
-    <div class="playlist-header-count">${songs.length} song${songs.length !== 1 ? 's' : ''}</div>
+    <div class="playlist-header-count">${(() => {
+      const songCount = songs.filter(s => s.type === 'song').length;
+      const linkCount = songs.filter(s => s.type === 'link').length;
+      const parts = [];
+      if (songCount) parts.push(`${songCount} song${songCount !== 1 ? 's' : ''}`);
+      if (linkCount) parts.push(`${linkCount} link${linkCount !== 1 ? 's' : ''}`);
+      return parts.join(', ') || '0 songs';
+    })()}</div>
   `;
   header.appendChild(info);
   container.appendChild(header);
