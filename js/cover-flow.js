@@ -32,10 +32,6 @@ class CoverFlow {
       const cover = createCoverEl(album.metadata, 'coverflow-artwork', 'img/headphones-cover.jpg');
       cover.alt = album.title;
       el.appendChild(cover);
-      requestAnimationFrame(() => {
-        const r = cover.getBoundingClientRect();
-        console.log(`[CoverFlow] "${album.title}" cover: ${cover.tagName} ${r.width.toFixed(0)}x${r.height.toFixed(0)}px, classes: ${cover.className}`);
-      });
       
       this.albumsEl.appendChild(el);
       return el;
