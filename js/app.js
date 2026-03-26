@@ -1,4 +1,4 @@
-// Harry's iPodfolio — Main Application Controller
+// Harry's iPortfolio — Main Application Controller
 // Manages navigation stack, view rendering, and event routing
 
 class IPodApp {
@@ -63,7 +63,7 @@ class IPodApp {
     this.currentNode = null;
     this.currentItems = getRootNodes();
     this.scrollIndex = 0;
-    this.setHeaderTitle("Harry's iPodfolio");
+    this.setHeaderTitle("Harry's iPortfolio");
     
     const view = renderFolderView(null, this.currentItems, true);
     this.transitionTo(view, 'none');
@@ -122,7 +122,7 @@ class IPodApp {
         this.currentNode = null;
         this.currentItems = getRootNodes();
         this.scrollIndex = prev.scrollIndex;
-        this.setHeaderTitle("Harry's iPodfolio");
+        this.setHeaderTitle("Harry's iPortfolio");
         const view = renderFolderView(null, this.currentItems, true);
         this.transitionTo(view, 'left');
         startKenBurns(view);
