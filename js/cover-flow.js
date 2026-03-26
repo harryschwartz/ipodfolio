@@ -206,10 +206,9 @@ class CoverFlow {
           if (track.type === 'song') {
             const songs = this.backsideChildren.filter(c => c.type === 'song');
             audioPlayer.play(track, songs, songs.indexOf(track));
+            this.cleanup();
+            if (this.onBack) this.onBack(true);
           }
-          this.playingAlbum = true;
-          this.updatePositions();
-          this.updateInfo();
         }
       }
     };

@@ -283,9 +283,13 @@ class IPodApp {
     
     // Initialize CoverFlow after DOM ready
     requestAnimationFrame(() => {
-      this.activeCoverFlow = new CoverFlow(container, albums, () => {
+      this.activeCoverFlow = new CoverFlow(container, albums, (playedSong) => {
         this.activeCoverFlow = null;
-        this.navigateBack();
+        if (playedSong) {
+          this.showNowPlaying();
+        } else {
+          this.navigateBack();
+        }
       });
     });
   }
