@@ -112,7 +112,7 @@ a {
     animation: none;
     width: 100vw;
     max-height: unset;
-    border-radius: 0;
+    border-radius: 30px;
     -webkit-box-reflect: unset;
   }
 }
