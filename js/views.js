@@ -473,7 +473,7 @@ function startKenBurns(container) {
     back.src = kb.urls[next];
     back.classList.replace('inactive', 'active');
     front.classList.replace('active', 'inactive');
-  }, 5000);
+  }, 2500);
 }
 
 function stopKenBurns(container) {
