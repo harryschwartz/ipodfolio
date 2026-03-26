@@ -258,8 +258,9 @@ class IPodApp {
     
     let albums;
     if (type === 'home') {
-      // Get all album-type nodes under projects
-      albums = PORTFOLIO_DATA.filter(n => n.type === 'album');
+      // Get children of the projects folder (top-level folder with splitScreen: false)
+      const projectsFolder = PORTFOLIO_DATA.find(n => n.type === 'folder' && n.parentId === null && n.metadata?.splitScreen === false);
+      albums = projectsFolder ? getChildren(projectsFolder.id) : [];
     } else {
       // Music albums
       albums = PORTFOLIO_DATA.filter(n => n.type === 'album');
