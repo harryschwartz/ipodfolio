@@ -67,6 +67,7 @@ class IPodApp {
     
     const view = renderFolderView(null, this.currentItems, true);
     this.transitionTo(view, 'none');
+    startKenBurns(view);
   }
 
   navigateTo(node, direction) {
@@ -124,6 +125,7 @@ class IPodApp {
         this.setHeaderTitle("Harry's iPodfolio");
         const view = renderFolderView(null, this.currentItems, true);
         this.transitionTo(view, 'left');
+        startKenBurns(view);
         this.updateListSelection();
       } else {
         const node = getNode(prev.nodeId);
@@ -148,6 +150,7 @@ class IPodApp {
         this.setHeaderTitle(node.title);
         const view = renderFolderView(node, children, isTopLevel);
         this.transitionTo(view, direction);
+        if (isTopLevel) startKenBurns(view);
         if (restoreIndex !== undefined) this.updateListSelection();
         break;
       }
@@ -356,6 +359,7 @@ class IPodApp {
       this.activeBrickGame.cleanup();
       this.activeBrickGame = null;
     }
+    stopKenBurns(this.currentView);
   }
 
   // ---- Header ----
@@ -442,11 +446,9 @@ class IPodApp {
       items[this.scrollIndex].scrollIntoView({ block: 'nearest' });
     }
 
-    // Update split-screen preview
-    if (this.currentView?._previewImg && this.currentItems[this.scrollIndex]) {
-      const item = this.currentItems[this.scrollIndex];
-      const img = item.metadata?.previewImage || item.metadata?.coverImage || 'img/projects-preview.jpg';
-      this.currentView._previewImg.src = img;
+    // Swap Ken Burns pool when scrolling the home split-screen
+    if (this.currentView?._kenBurns?.urlsPerItem) {
+      swapKenBurnsPool(this.currentView, this.scrollIndex);
     }
   }
 

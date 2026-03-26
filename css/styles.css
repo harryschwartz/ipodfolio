@@ -375,17 +375,38 @@ a {
 
 .split-screen .split-right {
   width: 40%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
   background: linear-gradient(180deg, #f8f8f8, #e8e8e8);
   overflow: hidden;
 }
 
-.split-preview-image {
+@keyframes kenBurns {
+  0%   { transform: scale(1.05) translateX(0%); }
+  100% { transform: scale(1.05) translateX(8%); }
+}
+
+.ken-burns-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ken-burns-img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: opacity 2s ease;
+}
+
+.ken-burns-img.active {
+  opacity: 1;
+  animation: kenBurns 20s linear infinite alternate;
+}
+
+.ken-burns-img.inactive {
+  opacity: 0;
 }
 
 /* ---- Now Playing ---- */

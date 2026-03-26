@@ -21,8 +21,9 @@ const VOLUME_FULL_SVG = `<svg class="volume-icon" viewBox="0 0 20 12" fill="none
 
 // ---- Folder View (List) ----
 function renderFolderView(node, children, isTopLevel) {
+  console.log('[renderFolderView] node:', node?.title || 'HOME', 'isTopLevel:', isTopLevel, 'children:', children.length);
   const container = document.createElement('div');
-  
+
   if (isTopLevel) {
     // Split screen: list on left, preview on right
     container.className = 'split-screen';
@@ -35,19 +36,52 @@ function renderFolderView(node, children, isTopLevel) {
     
     const list = createSelectableList(children, 0, isTopLevel);
     left.appendChild(list);
-    
-    // Preview image for first item
-    const previewImg = document.createElement('img');
-    previewImg.className = 'split-preview-image';
-    previewImg.src = children[0]?.metadata?.previewImage || children[0]?.metadata?.coverImage || 'img/projects-preview.jpg';
-    previewImg.alt = 'Preview';
-    right.appendChild(previewImg);
-    
+
+    // Build per-item image pools for Ken Burns.
+    // For cover_flow_home: use cover images from all top-level playlist/album/folder children across the whole tree.
+    // For navigable items: collect cover images from their direct children.
+    // Fallback: item's own coverImage/previewImage, then the default preview.
+    const allPlaylistCovers = PORTFOLIO_DATA
+      .filter(n => (n.type === 'playlist' || n.type === 'album') && n.metadata?.coverImage)
+      .map(n => n.metadata.coverImage);
+
+    const urlsPerItem = children.map(item => {
+      if (item.type === 'cover_flow_home' || item.type === 'cover_flow_music') {
+        return allPlaylistCovers.length ? allPlaylistCovers : ['img/projects-preview.jpg'];
+      }
+      // Collect cover images from direct children
+      const childImgs = getChildren(item.id)
+        .map(c => c.metadata?.coverImage || c.metadata?.previewImage)
+        .filter(Boolean);
+      if (childImgs.length) return childImgs;
+      // Fall back to item's own image
+      const own = item.metadata?.coverImage || item.metadata?.previewImage;
+      return own ? [own] : ['img/projects-preview.jpg'];
+    });
+
+    const urls = urlsPerItem[0] || ['img/projects-preview.jpg'];
+    console.log('[KenBurns] urlsPerItem:', urlsPerItem.map((u,i) => `${children[i]?.title}: ${u.length} imgs`));
+    console.log('[KenBurns] initial urls:', urls);
+
+    const kbContainer = document.createElement('div');
+    kbContainer.className = 'ken-burns-container';
+
+    const img0 = document.createElement('img');
+    img0.className = 'ken-burns-img active';
+    img0.src = urls[0];
+
+    const img1 = document.createElement('img');
+    img1.className = 'ken-burns-img inactive';
+    img1.src = urls[1] || urls[0];
+
+    kbContainer.appendChild(img0);
+    kbContainer.appendChild(img1);
+    right.appendChild(kbContainer);
+
     container.appendChild(left);
     container.appendChild(right);
     container._listEl = left;
-    container._previewImg = previewImg;
-    container._previewContainer = right;
+    container._kenBurns = { urls, index: 0, img0, img1, urlsPerItem };
   } else {
     container.className = 'selectable-list';
     const list = createSelectableList(children, 0, false);
@@ -426,6 +460,59 @@ function renderPlaylistView(node, songs) {
   container._listEl = tracks;
   
   return container;
+}
+
+// ---- Ken Burns helpers ----
+function startKenBurns(container) {
+  const kb = container._kenBurns;
+  if (!kb || kb.urls.length < 2) return;
+  kb.interval = setInterval(() => {
+    kb.index = (kb.index + 1) % kb.urls.length;
+    const next = (kb.index + 1) % kb.urls.length;
+    const [front, back] = kb.img0.classList.contains('active')
+      ? [kb.img0, kb.img1]
+      : [kb.img1, kb.img0];
+    back.src = kb.urls[next];
+    back.classList.replace('inactive', 'active');
+    front.classList.replace('active', 'inactive');
+  }, 5000);
+}
+
+function stopKenBurns(container) {
+  if (container?._kenBurns?.interval) {
+    clearInterval(container._kenBurns.interval);
+  }
+}
+
+function swapKenBurnsPool(container, itemIndex) {
+  const kb = container._kenBurns;
+  if (!kb || !kb.urlsPerItem) return;
+  const newUrls = kb.urlsPerItem[itemIndex];
+  if (!newUrls || !newUrls.length) return;
+  // Avoid restart if pool hasn't changed
+  if (newUrls === kb.urls) return;
+
+  stopKenBurns(container);
+  kb.urls = newUrls;
+  kb.index = 0;
+
+  // Snap the active image to first of new pool; preload second
+  const [front, back] = kb.img0.classList.contains('active')
+    ? [kb.img0, kb.img1]
+    : [kb.img1, kb.img0];
+  front.src = newUrls[0];
+  back.src = newUrls[1] || newUrls[0];
+  // Ensure correct opacity state (no transition flash)
+  front.style.transition = 'none';
+  back.style.transition = 'none';
+  front.classList.replace('inactive', 'active');
+  back.classList.replace('active', 'inactive');
+  requestAnimationFrame(() => {
+    front.style.transition = '';
+    back.style.transition = '';
+  });
+
+  startKenBurns(container);
 }
 
 // ---- Brick Game View ----
