@@ -10,8 +10,7 @@ function createCoverEl(metadata, className, fallbackSrc) {
     el.style.display = 'flex';
     el.style.alignItems = 'center';
     el.style.justifyContent = 'center';
-    el.style.fontSize = '40%'; // scales with element size via em
-    el.style.fontSize = 'min(40px, 40cqw)'; // responsive
+    el.style.fontSize = '2em';
     el.textContent = metadata.coverEmoji;
     return el;
   }
