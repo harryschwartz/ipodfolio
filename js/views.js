@@ -21,7 +21,6 @@ const VOLUME_FULL_SVG = `<svg class="volume-icon" viewBox="0 0 20 12" fill="none
 
 // ---- Folder View (List) ----
 function renderFolderView(node, children, isTopLevel) {
-  console.log('[renderFolderView] node:', node?.title || 'HOME', 'isTopLevel:', isTopLevel, 'children:', children.length);
   const container = document.createElement('div');
 
   if (isTopLevel) {
@@ -38,16 +37,17 @@ function renderFolderView(node, children, isTopLevel) {
     left.appendChild(list);
 
     // Build per-item image pools for Ken Burns.
-    // For cover_flow_home: use cover images from all top-level playlist/album/folder children across the whole tree.
-    // For navigable items: collect cover images from their direct children.
+    // cover_flow_home shares the Projects folder's image pool.
+    // All other navigable items use their direct children's cover images.
     // Fallback: item's own coverImage/previewImage, then the default preview.
-    const allPlaylistCovers = PORTFOLIO_DATA
-      .filter(n => (n.type === 'playlist' || n.type === 'album') && n.metadata?.coverImage)
-      .map(n => n.metadata.coverImage);
+    const projectsFolder = children.find(c => c.metadata?.splitScreen === false);
+    const projectsPool = projectsFolder
+      ? getChildren(projectsFolder.id).map(c => c.metadata?.coverImage || c.metadata?.previewImage).filter(Boolean)
+      : [];
 
     const urlsPerItem = children.map(item => {
       if (item.type === 'cover_flow_home' || item.type === 'cover_flow_music') {
-        return allPlaylistCovers.length ? allPlaylistCovers : ['img/projects-preview.jpg'];
+        return projectsPool.length ? projectsPool : ['img/projects-preview.jpg'];
       }
       // Collect cover images from direct children
       const childImgs = getChildren(item.id)
@@ -60,8 +60,6 @@ function renderFolderView(node, children, isTopLevel) {
     });
 
     const urls = urlsPerItem[0] || ['img/projects-preview.jpg'];
-    console.log('[KenBurns] urlsPerItem:', urlsPerItem.map((u,i) => `${children[i]?.title}: ${u.length} imgs`));
-    console.log('[KenBurns] initial urls:', urls);
 
     const kbContainer = document.createElement('div');
     kbContainer.className = 'ken-burns-container';
