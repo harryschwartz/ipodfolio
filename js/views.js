@@ -20,6 +20,14 @@ function createCoverEl(metadata, className, fallbackSrc) {
   const img = document.createElement('img');
   img.className = className;
   img.src = metadata?.coverImage || fallbackSrc || '';
+  if (metadata?.coverImagePosition || metadata?.coverImageZoom) {
+    img.style.objectFit = 'cover';
+    img.style.objectPosition = metadata.coverImagePosition || '50% 50%';
+    if (metadata.coverImageZoom && parseFloat(metadata.coverImageZoom) !== 1) {
+      img.style.transform = `scale(${metadata.coverImageZoom})`;
+      img.style.transformOrigin = metadata.coverImagePosition || '50% 50%';
+    }
+  }
   return img;
 }
 

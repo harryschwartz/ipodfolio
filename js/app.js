@@ -541,8 +541,13 @@ class IPodApp {
     if (item.type === 'link') {
       if (item.metadata?.url) {
         let url = item.metadata.url;
-        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-        window.open(url, '_blank', 'noopener,noreferrer');
+        if (!/^[a-zA-Z][a-zA-Z0-9+\-.]*:/.test(url)) url = 'https://' + url;
+        // Non-http schemes (sms:, mailto:, tel:) must use location.href, not window.open
+        if (/^https?:/i.test(url)) {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        } else {
+          window.location.href = url;
+        }
       }
       return;
     }
@@ -672,7 +677,14 @@ class IPodApp {
       } else {
         artwork.textContent = '';
         artwork.style = '';
-        artwork.src = parent?.metadata?.coverImage || track.metadata?.coverImage || 'img/headphones-cover.jpg';
+        const coverMeta = parent?.metadata?.coverImage ? parent.metadata : track.metadata;
+        artwork.src = coverMeta?.coverImage || 'img/headphones-cover.jpg';
+        artwork.style.objectFit = 'cover';
+        artwork.style.objectPosition = coverMeta?.coverImagePosition || '50% 50%';
+        if (coverMeta?.coverImageZoom && parseFloat(coverMeta.coverImageZoom) !== 1) {
+          artwork.style.transform = `scale(${coverMeta.coverImageZoom})`;
+          artwork.style.transformOrigin = coverMeta.coverImagePosition || '50% 50%';
+        }
       }
     }
     
