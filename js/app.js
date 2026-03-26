@@ -161,9 +161,8 @@ class IPodApp {
       case 'playlist': {
         const songIds = node.metadata?.songIds || [];
         const songs = songIds.map(id => getNode(id)).filter(Boolean);
-        // Also include direct children that are songs
-        const directSongs = children.filter(c => c.type === 'song');
-        const allSongs = songs.length > 0 ? songs : directSongs;
+        // Include all direct children (songs, links, albums, etc.)
+        const allSongs = songs.length > 0 ? songs : children;
         this.currentItems = allSongs;
         this.setHeaderTitle(node.title);
         const view = renderPlaylistView(node, allSongs);
