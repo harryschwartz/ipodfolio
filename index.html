@@ -19,9 +19,23 @@
 <link rel="author" href="https://www.perplexity.ai/computer">
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Harry's iPodfolio</title>
 <meta name="description" content="Harry Schwartz's portfolio — an interactive iPod Classic web experience">
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="manifest.json">
+
+<!-- iOS PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="iPodfolio">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+
+<!-- Android theme -->
+<meta name="theme-color" content="#e8779e">
+<meta name="mobile-web-app-capable" content="yes">
+
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -108,5 +122,15 @@
   <script src="js/cover-flow.js"></script>
   <script src="js/views.js"></script>
   <script src="js/app.js"></script>
+  <script>
+    // Register service worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((reg) => console.log('SW registered:', reg.scope))
+          .catch((err) => console.log('SW registration failed:', err));
+      });
+    }
+  </script>
 </body>
 </html>
