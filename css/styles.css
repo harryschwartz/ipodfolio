@@ -581,30 +581,6 @@ a {
   cursor: pointer;
 }
 
-@media (max-width: 300px) {
-  .clickwheel {
-    width: 176px;
-    height: 176px;
-  }
-}
-
-@media (max-width: 576px) {
-  .clickwheel {
-    width: 280px;
-    height: 280px;
-  }
-  .center-button {
-    width: 114px;
-    height: 114px;
-  }
-  .wheel-button.top    { top: 10px; }
-  .wheel-button.bottom { bottom: 10px; }
-  .wheel-button.left   { left: 10px; }
-  .wheel-button.right  { right: 10px; }
-  .wheel-icon { width: 20px; height: 20px; }
-  .wheel-menu-text { font-size: 15px; letter-spacing: 1px; }
-}
-
 .wheel-button {
   position: absolute;
   padding: 12px;
@@ -616,28 +592,35 @@ a {
   justify-content: center;
 }
 
+/* Position buttons at midpoint of ring (between outer edge and center button) */
+/* Desktop: wheel 220px, center 90px → ring midpoint ≈ 28px from edge */
 .wheel-button.top {
-  top: 8px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
 }
 
 .wheel-button.bottom {
-  bottom: 8px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
 }
 
 .wheel-button.left {
-  left: 8px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
 }
 
 .wheel-button.right {
-  right: 8px;
+  right: 16px;
   top: 50%;
   transform: translateY(-50%);
+}
+
+.wheel-button svg {
+  width: 22px;
+  height: 17px;
 }
 
 .center-button {
@@ -663,11 +646,37 @@ a {
 
 .wheel-menu-text {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--wheel-button);
   letter-spacing: 0.5px;
   user-select: none;
+}
+
+@media (max-width: 300px) {
+  .clickwheel {
+    width: 176px;
+    height: 176px;
+  }
+}
+
+@media (max-width: 576px) {
+  .clickwheel {
+    width: 280px;
+    height: 280px;
+  }
+  .center-button {
+    width: 114px;
+    height: 114px;
+  }
+  /* Mobile: wheel 280px, center 114px → ring midpoint ≈ 30px from edge */
+  .wheel-button.top    { top: 18px; }
+  .wheel-button.bottom { bottom: 18px; }
+  .wheel-button.left   { left: 18px; }
+  .wheel-button.right  { right: 18px; }
+  .wheel-button svg { width: 26px; height: 20px; }
+  .wheel-icon { width: 24px; height: 24px; }
+  .wheel-menu-text { font-size: 16px; letter-spacing: 1px; }
 }
 
 /* ---- Album View ---- */
