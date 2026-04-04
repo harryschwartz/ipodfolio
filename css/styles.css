@@ -1024,6 +1024,39 @@ a {
   pointer-events: none;
 }
 
+/* ---- Touchscreen Tap Feedback ---- */
+.list-item.tap-flash {
+  background: var(--list-highlight);
+}
+
+.list-item.tap-flash .list-label,
+.list-item.tap-flash .list-sublabel {
+  color: white;
+}
+
+.list-item.tap-flash .list-arrow {
+  opacity: 1;
+}
+
+.photo-thumb.tap-flash {
+  outline: 3px solid #2196f3;
+  outline-offset: -3px;
+}
+
+.ipod-header.header-tap {
+  filter: brightness(0.85);
+}
+
+/* Make screen content list items tappable */
+.screen-content .list-item {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.screen-content .photo-thumb {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ---- Empty State ---- */
 .empty-state {
   display: flex;
