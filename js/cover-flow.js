@@ -78,16 +78,16 @@ class CoverFlow {
           el.style.transform = `translate(${this.midpoint.x / 9}px, 8px) rotateY(35deg)`;
           el.style.webkitBoxReflect = 'below 0px -webkit-gradient(linear, left top, left bottom, from(transparent), color-stop(70%, transparent), to(rgba(240, 240, 240, 0.2)))';
         } else if (isSelected) {
-          el.style.transform = `translate3d(${this.midpoint.x - 60}px, 4px, 20px) rotateY(-180deg) translateY(25%) scale(0.96)`;
+          el.style.transform = `translate(${this.midpoint.x - 60}px, 4px) rotateY(-180deg) translateY(25%) scale(0.96)`;
           el.style.webkitBoxReflect = 'none';
         } else {
-          el.style.transform = `translate3d(${this.midpoint.x - 60}px, 4px, 20px)`;
+          el.style.transform = `translate(${this.midpoint.x - 60}px, 4px)`;
           el.style.webkitBoxReflect = 'below 0px -webkit-gradient(linear, left top, left bottom, from(transparent), color-stop(70%, transparent), to(rgba(240, 240, 240, 0.2)))';
         }
       } else {
         const px = this.getOffsetPx(offset);
         const rot = index < this.activeIndex ? '70deg' : '-70deg';
-        el.style.transform = `translateX(${px}px) scale(1.1) translateZ(-65px) rotateY(${rot})`;
+        el.style.transform = `translateX(${px}px) rotateY(${rot})`;
         el.style.webkitBoxReflect = 'below 0px -webkit-gradient(linear, left top, left bottom, from(transparent), color-stop(70%, transparent), to(rgba(240, 240, 240, 0.2)))';
       }
     });
