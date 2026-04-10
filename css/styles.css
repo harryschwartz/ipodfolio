@@ -901,18 +901,21 @@ a {
   opacity: 0;
 }
 
+.coverflow-artwork-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
 .coverflow-artwork {
   position: absolute;
+  top: 0;
+  left: 0;
   height: 8em;
   width: 8em;
   transition: opacity 0.5s;
   object-fit: cover;
   border: 1px solid #555;
-}
-
-.coverflow-artwork:not(img) {
-  top: 0;
-  left: 0;
 }
 
 .coverflow-info {

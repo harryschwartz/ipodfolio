@@ -31,7 +31,10 @@ class CoverFlow {
       
       const cover = createCoverEl(album.metadata, 'coverflow-artwork', 'img/headphones-cover.jpg');
       cover.alt = album.title;
-      el.appendChild(cover);
+      const artworkClip = document.createElement('div');
+      artworkClip.className = 'coverflow-artwork-clip';
+      artworkClip.appendChild(cover);
+      el.appendChild(artworkClip);
       
       this.albumsEl.appendChild(el);
       return el;
