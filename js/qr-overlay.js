@@ -432,10 +432,9 @@
       hint.textContent = 'Press ● to continue';
       container.appendChild(hint);
 
-      // Generate QR
+      // Generate QR linking to the canonical site URL
       try {
-        const url = window.location.href;
-        const matrix = generateQR(url);
+        const matrix = generateQR('https://ipodfolio.vercel.app/');
         drawQR(canvas, matrix);
       } catch (e) {
         console.warn('[iPodfolio] QR generation failed:', e);
