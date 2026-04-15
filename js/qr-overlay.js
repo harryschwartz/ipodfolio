@@ -381,43 +381,66 @@
           ctx.fillRect(offset + c * scale, offset + r * scale, scale, scale);
   }
 
-  // ---- Init ----
+  // ---- Public API ----
+  // Called by IPodApp to check if we should show the QR screen on desktop
 
-  function init() {
-    const overlay = document.getElementById('desktop-overlay');
-    const canvas = document.getElementById('qr-canvas');
-    const dismiss = document.getElementById('desktop-overlay-dismiss');
-    if (!overlay || !canvas) return;
+  window.ipodQROverlay = {
+    /**
+     * Returns true if the QR "best on mobile" screen should be shown.
+     * Conditions: desktop viewport (>576px), not already dismissed, not standalone PWA.
+     */
+    shouldShow() {
+      if (window.innerWidth <= 576) return false;
+      if (window.matchMedia('(display-mode: standalone)').matches) return false;
+      if (sessionStorage.getItem('ipodfolio-desktop-dismissed')) return false;
+      return true;
+    },
 
-    // Check if already dismissed this session
-    if (sessionStorage.getItem('ipodfolio-desktop-dismissed')) {
-      overlay.classList.add('dismissed');
-      return;
+    /**
+     * Renders the QR screen as a view element suitable for the iPod screen-content.
+     * Returns the DOM element.
+     */
+    renderView() {
+      const container = document.createElement('div');
+      container.className = 'qr-screen-view';
+
+      const heading = document.createElement('div');
+      heading.className = 'qr-screen-heading';
+      heading.textContent = 'This site is best on mobile';
+      container.appendChild(heading);
+
+      const sub = document.createElement('div');
+      sub.className = 'qr-screen-sub';
+      sub.textContent = 'Scan to open on your phone';
+      container.appendChild(sub);
+
+      const canvas = document.createElement('canvas');
+      canvas.className = 'qr-screen-canvas';
+      canvas.width = 160;
+      canvas.height = 160;
+      container.appendChild(canvas);
+
+      const hint = document.createElement('div');
+      hint.className = 'qr-screen-hint';
+      hint.textContent = 'Press ● to continue';
+      container.appendChild(hint);
+
+      // Generate QR
+      try {
+        const url = window.location.href;
+        const matrix = generateQR(url);
+        drawQR(canvas, matrix);
+      } catch (e) {
+        console.warn('[iPodfolio] QR generation failed:', e);
+        canvas.style.display = 'none';
+      }
+
+      return container;
+    },
+
+    /** Mark as dismissed so it won't show again this session. */
+    dismiss() {
+      sessionStorage.setItem('ipodfolio-desktop-dismissed', '1');
     }
-
-    // Generate QR from current URL
-    try {
-      const url = window.location.href;
-      const matrix = generateQR(url);
-      drawQR(canvas, matrix);
-    } catch (e) {
-      console.warn('[iPodfolio] QR generation failed:', e);
-      // Hide the QR canvas on failure, still show the message
-      canvas.style.display = 'none';
-    }
-
-    // Dismiss button
-    if (dismiss) {
-      dismiss.addEventListener('click', () => {
-        overlay.classList.add('dismissed');
-        sessionStorage.setItem('ipodfolio-desktop-dismissed', '1');
-      });
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  };
 })();

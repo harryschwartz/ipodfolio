@@ -38,7 +38,25 @@ class IPodApp {
     // Bind events
     this.bindEvents();
     
-    // Show home screen
+    // Desktop QR screen or home
+    this.desktopQRActive = false;
+    if (window.ipodQROverlay && window.ipodQROverlay.shouldShow()) {
+      this.showDesktopQR();
+    } else {
+      this.showHome();
+    }
+  }
+
+  showDesktopQR() {
+    this.desktopQRActive = true;
+    this.setHeaderTitle("Harry's iPodfolio");
+    const view = window.ipodQROverlay.renderView();
+    this.transitionTo(view, 'none');
+  }
+
+  dismissDesktopQR() {
+    this.desktopQRActive = false;
+    window.ipodQROverlay.dismiss();
     this.showHome();
   }
 
@@ -391,6 +409,7 @@ class IPodApp {
 
   // ---- Scroll ----
   onScroll(direction) {
+    if (this.desktopQRActive) return; // QR screen ignores scroll
     if (this.activeCoverFlow || this.activeBrickGame) return; // Handled by sub-controller via its own listeners
 
     if (this.activeNowPlaying) {
@@ -473,6 +492,10 @@ class IPodApp {
 
   // ---- Center Click ----
   onCenterClick() {
+    if (this.desktopQRActive) {
+      this.dismissDesktopQR();
+      return;
+    }
     if (this.activeCoverFlow || this.activeBrickGame) return;
 
     if (this.activeNowPlaying) {
@@ -566,6 +589,10 @@ class IPodApp {
 
   // ---- Menu Click ----
   onMenuClick() {
+    if (this.desktopQRActive) {
+      this.dismissDesktopQR();
+      return;
+    }
     if (this.activeCoverFlow) return; // CoverFlow handles its own menu
     if (this.activeBrickGame) {
       // Clean up game and go back
