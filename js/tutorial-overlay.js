@@ -1,17 +1,19 @@
 // Tutorial Overlay — Shows how to use the iPod interface
 // Renders a boot screen INSIDE the iPod display (Apple logo + "Harry's iPortfolio")
 // and floats callout labels OUTSIDE the iPod pointing to each button.
-// No dark overlay or blur — just the labels + lines on the page background.
+// Blurry overlay covers everything EXCEPT the iPod screen area.
 // On desktop: shown after dismissing the QR "best on mobile" screen.
 // On mobile: shown immediately on first visit.
-// Dismissed when the user presses the select (center) button.
+// Dismissed when the user presses the select (center) button or menu button.
 
 (function () {
   'use strict';
 
   var calloutContainer = null;
   var svgEl = null;
+  var blurOverlay = null;
   var dismissed = false;
+  var resizeTimer = null;
 
   function shouldShow() {
     var isStandalone = window.matchMedia('(display-mode: standalone)').matches;
@@ -27,12 +29,15 @@
     var container = document.createElement('div');
     container.className = 'boot-screen-view';
 
-    // Apple logo (SVG)
+    // Apple logo (PNG image)
     var logoDiv = document.createElement('div');
     logoDiv.className = 'boot-logo';
-    logoDiv.innerHTML = '<svg viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg" width="56" height="56">' +
-      '<path fill="#555" d="M150.4 130.2c-2.8 6.5-6.1 12.4-10 17.9-5.3 7.5-9.6 12.7-13 15.6-5.2 4.8-10.7 7.2-16.7 7.4-4.3 0-9.4-1.2-15.5-3.6-6.1-2.4-11.7-3.6-16.8-3.6-5.3 0-11.1 1.2-17.2 3.6-6.2 2.4-11.1 3.7-14.9 3.8-5.7 0.2-11.4-2.3-17-7.5-3.6-3.1-8.2-8.5-13.6-16.1-5.8-8.2-10.6-17.7-14.3-28.5-4-11.7-6-23-6-33.9 0-12.5 2.7-23.3 8.1-32.3 4.3-7.2 9.9-12.9 17-17.1 7.1-4.2 14.7-6.3 22.9-6.5 4.5 0 10.5 1.4 17.9 4.2 7.4 2.8 12.1 4.2 14.2 4.2 1.6 0 6.9-1.6 15.9-4.9 8.5-3 15.7-4.3 21.5-3.8 15.9 1.3 27.8 7.6 35.8 19-14.2 8.6-21.2 20.7-21 36.1 0.2 12 4.5 22 12.8 29.9 3.8 3.6 8.1 6.4 12.8 8.4-1 3-2.1 5.8-3.3 8.6zM119.3 7.6c0 9.4-3.4 18.2-10.2 26.3-8.2 9.6-18.1 15.2-28.8 14.3-0.1-1.2-0.2-2.4-0.2-3.6 0-9.1 3.9-18.8 10.9-26.7 3.5-4 7.9-7.3 13.3-9.9 5.3-2.6 10.4-4 15.2-4.2 0.1 1.3 0.2 2.6 0.2 3.8H119.3z"/>' +
-      '</svg>';
+    var logoImg = document.createElement('img');
+    logoImg.src = 'img/apple-logo-black.png';
+    logoImg.alt = 'Apple';
+    logoImg.className = 'boot-logo-img';
+    logoImg.draggable = false;
+    logoDiv.appendChild(logoImg);
     container.appendChild(logoDiv);
 
     // Title
@@ -51,8 +56,63 @@
   }
 
   /**
+   * Show the blur overlay that covers everything except the iPod screen.
+   */
+  function showBlurOverlay() {
+    if (blurOverlay) return;
+
+    blurOverlay = document.createElement('div');
+    blurOverlay.className = 'tutorial-blur-overlay';
+    blurOverlay.style.pointerEvents = 'none';
+
+    // Find the iPod screen to cut it out
+    var screen = document.querySelector('.ipod-screen');
+    if (screen) {
+      var sr = screen.getBoundingClientRect();
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+      // Use clip-path to cut out the screen area (polygon with hole)
+      // We create an inset rectangle that represents the screen
+      var top = (sr.top / vh * 100);
+      var right = (1 - sr.right / vw) * 100;
+      var bottom = (1 - sr.bottom / vh) * 100;
+      var left = (sr.left / vw * 100);
+      // evenodd polygon: outer rectangle, then inner rectangle (screen cutout)
+      blurOverlay.style.clipPath = 'polygon(evenodd, ' +
+        '0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ' +
+        left + '% ' + top + '%, ' +
+        left + '% ' + (100 - bottom) + '%, ' +
+        (100 - right) + '% ' + (100 - bottom) + '%, ' +
+        (100 - right) + '% ' + top + '%, ' +
+        left + '% ' + top + '%)';
+    }
+
+    document.body.appendChild(blurOverlay);
+  }
+
+  function updateBlurOverlayCutout() {
+    if (!blurOverlay) return;
+    var screen = document.querySelector('.ipod-screen');
+    if (!screen) return;
+    var sr = screen.getBoundingClientRect();
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+    var top = (sr.top / vh * 100);
+    var right = (1 - sr.right / vw) * 100;
+    var bottom = (1 - sr.bottom / vh) * 100;
+    var left = (sr.left / vw * 100);
+    blurOverlay.style.clipPath = 'polygon(evenodd, ' +
+      '0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, ' +
+      left + '% ' + top + '%, ' +
+      left + '% ' + (100 - bottom) + '%, ' +
+      (100 - right) + '% ' + (100 - bottom) + '%, ' +
+      (100 - right) + '% ' + top + '%, ' +
+      left + '% ' + top + '%)';
+  }
+
+  /**
    * Show the floating callout labels + SVG connector lines around the clickwheel.
-   * These sit on top of the page (no dark background).
+   * Uses a delay to ensure getBoundingClientRect is accurate after layout settles.
    */
   function showCallouts() {
     if (dismissed || calloutContainer) return;
@@ -62,7 +122,7 @@
     calloutContainer.className = 'tutorial-callouts-container';
     calloutContainer.style.position = 'fixed';
     calloutContainer.style.inset = '0';
-    calloutContainer.style.zIndex = '9999';
+    calloutContainer.style.zIndex = '10001';
     calloutContainer.style.pointerEvents = 'none';
     calloutContainer.style.overflow = 'hidden';
 
@@ -75,22 +135,49 @@
     svgEl.style.height = '100vh';
     svgEl.style.overflow = 'hidden';
     svgEl.style.pointerEvents = 'none';
-    svgEl.style.zIndex = '9998';
-
-    var vw = window.innerWidth;
-    var vh = window.innerHeight;
-    svgEl.setAttribute('viewBox', '0 0 ' + vw + ' ' + vh);
+    svgEl.style.zIndex = '10000';
 
     document.body.appendChild(svgEl);
     document.body.appendChild(calloutContainer);
 
-    requestAnimationFrame(function () {
+    // Show blur overlay
+    showBlurOverlay();
+
+    // Wait for layout to settle before reading positions
+    // Using 3 rAFs + a small timeout to handle mobile Safari layout jitter
+    setTimeout(function () {
       requestAnimationFrame(function () {
-        buildCallouts();
-        calloutContainer.classList.add('tutorial-callouts-visible');
-        svgEl.classList.add('tutorial-callouts-visible');
+        requestAnimationFrame(function () {
+          rebuildCallouts();
+          calloutContainer.classList.add('tutorial-callouts-visible');
+          svgEl.classList.add('tutorial-callouts-visible');
+        });
       });
-    });
+    }, 300);
+
+    // Listen for resize/orientation changes to reposition
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+  }
+
+  function onResize() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      rebuildCallouts();
+      updateBlurOverlayCutout();
+    }, 200);
+  }
+
+  function rebuildCallouts() {
+    if (!calloutContainer || !svgEl) return;
+    // Clear existing
+    calloutContainer.innerHTML = '';
+    while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
+    // Update viewBox
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+    svgEl.setAttribute('viewBox', '0 0 ' + vw + ' ' + vh);
+    buildCallouts();
   }
 
   /**
@@ -126,14 +213,14 @@
     if (!wheel) return;
 
     var vw = window.innerWidth;
-    var lineColor = 'rgba(0,0,0,0.25)';
-    var dotColor = 'rgba(0,0,0,0.4)';
+    var lineColor = 'rgba(255,255,255,0.4)';
+    var dotColor = 'rgba(255,255,255,0.6)';
     var isMobile = vw <= 576;
 
-    if (isMobile) {
-      // On mobile, use lighter colors since background is the iPod body
-      lineColor = 'rgba(255,255,255,0.35)';
-      dotColor = 'rgba(255,255,255,0.5)';
+    // On desktop, use dark lines since background is light behind the blur
+    if (!isMobile) {
+      lineColor = 'rgba(255,255,255,0.5)';
+      dotColor = 'rgba(255,255,255,0.7)';
     }
 
     function centerOf(el) {
@@ -159,7 +246,7 @@
       var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('d', d);
       path.setAttribute('stroke', lineColor);
-      path.setAttribute('stroke-width', 1);
+      path.setAttribute('stroke-width', 1.5);
       path.setAttribute('fill', 'none');
       svgEl.appendChild(path);
     }
@@ -187,11 +274,6 @@
         el.style.top = y + 'px';
         el.style.transform = 'translate(-50%, -50%)';
         textDiv.style.textAlign = 'center';
-      }
-
-      // Use darker text for desktop (light background), lighter for mobile
-      if (!isMobile) {
-        el.classList.add('callout-on-light');
       }
 
       var titleSpan = document.createElement('span');
@@ -329,6 +411,10 @@
   }
 
   function hideCallouts() {
+    // Remove resize listeners
+    window.removeEventListener('resize', onResize);
+    window.removeEventListener('orientationchange', onResize);
+
     if (calloutContainer) {
       calloutContainer.classList.add('tutorial-callouts-hiding');
       setTimeout(function () {
@@ -345,6 +431,15 @@
           svgEl.parentNode.removeChild(svgEl);
         }
         svgEl = null;
+      }, 400);
+    }
+    if (blurOverlay) {
+      blurOverlay.classList.add('tutorial-blur-hiding');
+      setTimeout(function () {
+        if (blurOverlay && blurOverlay.parentNode) {
+          blurOverlay.parentNode.removeChild(blurOverlay);
+        }
+        blurOverlay = null;
       }, 400);
     }
   }

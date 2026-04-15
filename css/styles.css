@@ -1156,39 +1156,59 @@ a {
   align-items: center;
   justify-content: center;
   height: 100%;
-  background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 100%);
+  background: #fff;
   text-align: center;
-  gap: 6px;
+  gap: 8px;
   padding: 20px;
 }
 
 .boot-logo {
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
-.boot-logo svg {
-  width: 48px;
-  height: 48px;
+.boot-logo-img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  -webkit-user-drag: none;
 }
 
 .boot-title {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 16px;
-  font-weight: 400;
-  color: #333;
-  letter-spacing: -0.01em;
+  font-size: 22px;
+  font-weight: 500;
+  color: #000;
+  letter-spacing: -0.02em;
 }
 
 .boot-hint {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 9px;
-  color: #999;
-  margin-top: 12px;
+  font-size: 11px;
+  color: #888;
+  margin-top: 16px;
   letter-spacing: 0.02em;
 }
 
 /* ============================================
-   Tutorial Callouts — floating labels (no overlay)
+   Tutorial Blur Overlay — covers everything except screen
+   ============================================ */
+.tutorial-blur-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: opacity 0.4s ease;
+}
+
+.tutorial-blur-overlay.tutorial-blur-hiding {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* ============================================
+   Tutorial Callouts — floating labels
    ============================================ */
 .tutorial-callouts-container {
   opacity: 0;
@@ -1245,7 +1265,7 @@ svg.tutorial-callouts-hiding {
 .callout-desc {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.65);
   line-height: 1.3;
   max-width: 160px;
 }
@@ -1254,26 +1274,17 @@ svg.tutorial-callouts-hiding {
   margin-left: auto;
 }
 
-/* Desktop: dark text on light background */
-.callout-on-light .callout-title {
-  color: #333;
-}
-
-.callout-on-light .callout-desc {
-  color: rgba(0, 0, 0, 0.45);
-}
-
 /* Mobile adjustments */
 @media (max-width: 576px) {
-  .boot-logo svg {
-    width: 56px;
-    height: 56px;
+  .boot-logo-img {
+    width: 80px;
+    height: 80px;
   }
   .boot-title {
-    font-size: 18px;
+    font-size: 26px;
   }
   .boot-hint {
-    font-size: 10px;
+    font-size: 12px;
   }
   .callout-title {
     font-size: 12px;
