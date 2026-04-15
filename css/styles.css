@@ -1082,25 +1082,7 @@ a {
   -webkit-overflow-scrolling: touch;
 }
 
-/* ---- Footer Attribution ---- */
-.ipod-footer {
-  position: fixed;
-  bottom: 8px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  z-index: 10;
-}
 
-.ipod-footer a {
-  font-size: 11px;
-  color: rgba(0,0,0,0.3);
-  text-decoration: none;
-}
-
-.ipod-footer a:hover {
-  color: rgba(0,0,0,0.5);
-}
 
 /* ---- Loading State ---- */
 .loading-text {
