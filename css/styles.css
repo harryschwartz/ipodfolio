@@ -1268,6 +1268,123 @@ a {
 }
 
 /* ============================================
+   Wear & Scratch Overlays — "Well-Loved iPod"
+   ============================================ */
+
+/* Shared base — all overlays are non-interactive, cover their parent */
+.wear-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 8;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+/* ----- Frame scratches & scuffs (on ipod-shell) ----- */
+.wear-frame-scratches {
+  /* Fine hairline scratches — a repeating SVG pattern of thin angled lines */
+  background:
+    /* Cluster of fine diagonal scratches — upper left area */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300'%3E%3Cline x1='20' y1='30' x2='160' y2='80' stroke='%23ffffff' stroke-width='0.5' opacity='0.18'/%3E%3Cline x1='25' y1='35' x2='145' y2='78' stroke='%23000000' stroke-width='0.3' opacity='0.08'/%3E%3Cline x1='40' y1='60' x2='180' y2='95' stroke='%23ffffff' stroke-width='0.4' opacity='0.14'/%3E%3Cline x1='10' y1='120' x2='120' y2='155' stroke='%23ffffff' stroke-width='0.6' opacity='0.12'/%3E%3Cline x1='60' y1='200' x2='190' y2='230' stroke='%23ffffff' stroke-width='0.3' opacity='0.1'/%3E%3Cline x1='30' y1='250' x2='170' y2='275' stroke='%23ffffff' stroke-width='0.5' opacity='0.13'/%3E%3C/svg%3E") no-repeat 0 0 / 100% 100%,
+    /* Deeper scuff — a shorter, thicker mark near middle-right */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40'%3E%3Cline x1='5' y1='18' x2='110' y2='22' stroke='%23000000' stroke-width='1.2' opacity='0.07' stroke-linecap='round'/%3E%3Cline x1='10' y1='20' x2='105' y2='24' stroke='%23ffffff' stroke-width='0.8' opacity='0.15' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 15px top 45% / 100px 30px,
+    /* Scuff cluster near bottom-left */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='60'%3E%3Cline x1='5' y1='10' x2='90' y2='18' stroke='%23ffffff' stroke-width='0.7' opacity='0.16'/%3E%3Cline x1='10' y1='30' x2='80' y2='35' stroke='%23000000' stroke-width='0.4' opacity='0.06'/%3E%3Cline x1='15' y1='45' x2='70' y2='50' stroke='%23ffffff' stroke-width='0.5' opacity='0.12'/%3E%3C/svg%3E") no-repeat 20px bottom 25% / 90px 50px;
+}
+
+/* Subtle overall "brushed" grain for the metal — pseudo-element so it layers independently */
+.wear-frame-scratches::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  /* Very fine noise-like grain to simulate brushed aluminium wear */
+  background:
+    repeating-linear-gradient(
+      78deg,
+      transparent,
+      transparent 3px,
+      rgba(255,255,255,0.04) 3px,
+      rgba(255,255,255,0.04) 3.5px
+    ),
+    repeating-linear-gradient(
+      82deg,
+      transparent,
+      transparent 7px,
+      rgba(0,0,0,0.02) 7px,
+      rgba(0,0,0,0.02) 7.3px
+    );
+}
+
+/* A couple of isolated deeper scratches via second pseudo-element */
+.wear-frame-scratches::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    /* Long diagonal scratch from upper-right toward lower-left */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='370' height='600'%3E%3Cpath d='M280,40 Q240,180 200,320 Q180,400 190,480' stroke='%23ffffff' stroke-width='0.7' fill='none' opacity='0.2' stroke-linecap='round'/%3E%3Cpath d='M278,41 Q238,181 198,321 Q178,401 188,481' stroke='%23000000' stroke-width='0.3' fill='none' opacity='0.06' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center / 100% 100%,
+    /* Short scuff near click wheel area */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='20'%3E%3Cline x1='0' y1='10' x2='75' y2='8' stroke='%23ffffff' stroke-width='1' opacity='0.18' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat 30% 78% / 70px 16px;
+}
+
+/* ----- Edge wear — faded/lighter spots along edges and corners ----- */
+.wear-edge-wear {
+  /* Radial highlights at corners to simulate worn-down coating */
+  background:
+    /* Top-left corner rub */
+    radial-gradient(ellipse 40px 40px at 8px 8px, rgba(255,255,255,0.15) 0%, transparent 70%),
+    /* Top-right corner rub */
+    radial-gradient(ellipse 35px 35px at calc(100% - 10px) 10px, rgba(255,255,255,0.12) 0%, transparent 70%),
+    /* Bottom-left corner */
+    radial-gradient(ellipse 30px 50px at 6px calc(100% - 6px), rgba(255,255,255,0.1) 0%, transparent 70%),
+    /* Bottom-right corner — most visible, as if often set down */
+    radial-gradient(ellipse 45px 45px at calc(100% - 8px) calc(100% - 8px), rgba(255,255,255,0.18) 0%, transparent 70%),
+    /* Top edge wear strip */
+    linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 3%),
+    /* Bottom edge wear strip */
+    linear-gradient(0deg, rgba(255,255,255,0.06) 0%, transparent 2%);
+}
+
+/* ----- Screen scratches & smudges ----- */
+.wear-screen-marks {
+  z-index: 6;
+  border-radius: 0.3rem;
+  /* Subtle fingerprint smudge + light scratches */
+  background:
+    /* Fingerprint smudge — upper right area (subtle circular gradient) */
+    radial-gradient(ellipse 60px 50px at 75% 35%, rgba(255,255,255,0.08) 0%, transparent 70%),
+    /* Second smudge — center-left */
+    radial-gradient(ellipse 45px 40px at 25% 55%, rgba(255,255,255,0.06) 0%, transparent 70%);
+}
+
+/* Fine hairline scratches on the screen surface */
+.wear-screen-marks::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='250'%3E%3Cline x1='30' y1='40' x2='250' y2='55' stroke='%23ffffff' stroke-width='0.4' opacity='0.15'/%3E%3Cline x1='32' y1='42' x2='248' y2='57' stroke='%23000000' stroke-width='0.2' opacity='0.05'/%3E%3Cline x1='80' y1='130' x2='220' y2='125' stroke='%23ffffff' stroke-width='0.3' opacity='0.12'/%3E%3Cline x1='50' y1='190' x2='200' y2='195' stroke='%23ffffff' stroke-width='0.35' opacity='0.1'/%3E%3Cline x1='150' y1='80' x2='270' y2='100' stroke='%23ffffff' stroke-width='0.3' opacity='0.1'/%3E%3C/svg%3E") no-repeat center / 100% 100%;
+}
+
+/* Very subtle "used screen" reflection sheen */
+.wear-screen-marks::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    transparent 30%,
+    rgba(255,255,255,0.04) 45%,
+    transparent 55%
+  );
+}
+
+/* ============================================
    PWA Standalone Mode — Safe Area
    ============================================ */
 @media all and (display-mode: standalone) {
