@@ -392,16 +392,13 @@
     shouldShow() {
       const width = window.innerWidth;
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      const wasDismissed = !!sessionStorage.getItem('ipodfolio-desktop-dismissed');
       console.log('[QR Overlay] shouldShow check:', {
         windowWidth: width,
         isMobile: width <= 576,
         isStandalone,
-        wasDismissed,
       });
       if (width <= 576) { console.log('[QR Overlay] SKIP: mobile viewport'); return false; }
       if (isStandalone) { console.log('[QR Overlay] SKIP: standalone PWA'); return false; }
-      if (wasDismissed) { console.log('[QR Overlay] SKIP: already dismissed this session'); return false; }
       console.log('[QR Overlay] SHOW: all conditions met');
       return true;
     },
@@ -448,9 +445,9 @@
       return container;
     },
 
-    /** Mark as dismissed so it won't show again this session. */
+    /** Mark as dismissed for this page load (no persistence). */
     dismiss() {
-      sessionStorage.setItem('ipodfolio-desktop-dismissed', '1');
+      // No-op — dismissal is handled by the app state (desktopQRActive flag)
     }
   };
 })();
