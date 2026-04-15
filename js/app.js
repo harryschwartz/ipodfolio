@@ -40,9 +40,12 @@ class IPodApp {
     
     // Desktop QR screen or home
     this.desktopQRActive = false;
+    console.log('[IPodApp] Init — ipodQROverlay available:', !!window.ipodQROverlay);
     if (window.ipodQROverlay && window.ipodQROverlay.shouldShow()) {
+      console.log('[IPodApp] Showing desktop QR screen');
       this.showDesktopQR();
     } else {
+      console.log('[IPodApp] Showing home screen (QR skipped)');
       this.showHome();
     }
   }
