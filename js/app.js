@@ -38,18 +38,16 @@ class IPodApp {
     // Bind events
     this.bindEvents();
     
-    // Desktop QR screen or home
+    // Desktop QR screen or boot screen
     this.desktopQRActive = false;
-    this.tutorialActive = false;
+    this.bootScreenActive = false;
     console.log('[IPodApp] Init — ipodQROverlay available:', !!window.ipodQROverlay);
     if (window.ipodQROverlay && window.ipodQROverlay.shouldShow()) {
       console.log('[IPodApp] Showing desktop QR screen');
       this.showDesktopQR();
     } else {
-      console.log('[IPodApp] Showing home screen (QR skipped)');
-      this.showHome();
-      // On mobile, show tutorial overlay immediately
-      this.showTutorialOverlay();
+      console.log('[IPodApp] Showing boot screen (QR skipped)');
+      this.showBootScreen();
     }
   }
 
@@ -63,22 +61,30 @@ class IPodApp {
   dismissDesktopQR() {
     this.desktopQRActive = false;
     window.ipodQROverlay.dismiss();
-    this.showHome();
-    // Show tutorial after QR screen is dismissed on desktop
-    this.showTutorialOverlay();
+    // After QR, show boot screen with callouts
+    this.showBootScreen();
   }
 
-  showTutorialOverlay() {
-    if (!window.ipodTutorialOverlay || !window.ipodTutorialOverlay.shouldShow()) return;
-    this.tutorialActive = true;
-    window.ipodTutorialOverlay.show();
-    // Poll for dismissal and update our state
-    const checkDismissed = setInterval(() => {
-      if (!window.ipodTutorialOverlay.isActive) {
-        this.tutorialActive = false;
-        clearInterval(checkDismissed);
-      }
-    }, 100);
+  showBootScreen() {
+    if (!window.ipodTutorialOverlay || !window.ipodTutorialOverlay.shouldShow()) {
+      this.showHome();
+      return;
+    }
+    this.bootScreenActive = true;
+    this.setHeaderTitle("Harry's iPortfolio");
+    // Render the boot screen inside the iPod display
+    const bootView = window.ipodTutorialOverlay.renderBootView();
+    this.transitionTo(bootView, 'none');
+    // Show floating callout labels around the clickwheel
+    window.ipodTutorialOverlay.showCallouts();
+  }
+
+  dismissBootScreen() {
+    this.bootScreenActive = false;
+    if (window.ipodTutorialOverlay) {
+      window.ipodTutorialOverlay.dismiss();
+    }
+    this.showHome();
   }
 
   applyTheme(themeId) {
@@ -430,7 +436,7 @@ class IPodApp {
 
   // ---- Scroll ----
   onScroll(direction) {
-    if (this.desktopQRActive) return; // QR screen ignores scroll
+    if (this.desktopQRActive || this.bootScreenActive) return; // QR/boot screen ignores scroll
     if (this.activeCoverFlow || this.activeBrickGame) return; // Handled by sub-controller via its own listeners
 
     if (this.activeNowPlaying) {
@@ -515,6 +521,10 @@ class IPodApp {
   onCenterClick() {
     if (this.desktopQRActive) {
       this.dismissDesktopQR();
+      return;
+    }
+    if (this.bootScreenActive) {
+      this.dismissBootScreen();
       return;
     }
     if (this.activeCoverFlow || this.activeBrickGame) return;
@@ -612,6 +622,10 @@ class IPodApp {
   onMenuClick() {
     if (this.desktopQRActive) {
       this.dismissDesktopQR();
+      return;
+    }
+    if (this.bootScreenActive) {
+      this.dismissBootScreen();
       return;
     }
     if (this.activeCoverFlow) return; // CoverFlow handles its own menu

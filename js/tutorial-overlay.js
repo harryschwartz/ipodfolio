@@ -1,14 +1,17 @@
 // Tutorial Overlay — Shows how to use the iPod interface
-// Displays callout labels for the click wheel and buttons.
+// Renders a boot screen INSIDE the iPod display (Apple logo + "Harry's iPortfolio")
+// and floats callout labels OUTSIDE the iPod pointing to each button.
+// No dark overlay or blur — just the labels + lines on the page background.
 // On desktop: shown after dismissing the QR "best on mobile" screen.
 // On mobile: shown immediately on first visit.
-// Dismissed on any user interaction.
+// Dismissed when the user presses the select (center) button.
 
 (function () {
   'use strict';
 
-  let overlayEl = null;
-  let dismissed = false;
+  var calloutContainer = null;
+  var svgEl = null;
+  var dismissed = false;
 
   function shouldShow() {
     var isStandalone = window.matchMedia('(display-mode: standalone)').matches;
@@ -16,77 +19,102 @@
     return true;
   }
 
-  function show() {
-    if (dismissed || overlayEl) return;
+  /**
+   * Renders the boot screen view for the iPod screen-content area.
+   * Returns a DOM element to be placed inside the iPod screen.
+   */
+  function renderBootView() {
+    var container = document.createElement('div');
+    container.className = 'boot-screen-view';
 
-    overlayEl = document.createElement('div');
-    overlayEl.className = 'tutorial-overlay';
-    overlayEl.setAttribute('role', 'dialog');
-    overlayEl.setAttribute('aria-label', 'How to use the iPod interface');
+    // Apple logo (SVG)
+    var logoDiv = document.createElement('div');
+    logoDiv.className = 'boot-logo';
+    logoDiv.innerHTML = '<svg viewBox="0 0 170 170" xmlns="http://www.w3.org/2000/svg" width="56" height="56">' +
+      '<path fill="#555" d="M150.4 130.2c-2.8 6.5-6.1 12.4-10 17.9-5.3 7.5-9.6 12.7-13 15.6-5.2 4.8-10.7 7.2-16.7 7.4-4.3 0-9.4-1.2-15.5-3.6-6.1-2.4-11.7-3.6-16.8-3.6-5.3 0-11.1 1.2-17.2 3.6-6.2 2.4-11.1 3.7-14.9 3.8-5.7 0.2-11.4-2.3-17-7.5-3.6-3.1-8.2-8.5-13.6-16.1-5.8-8.2-10.6-17.7-14.3-28.5-4-11.7-6-23-6-33.9 0-12.5 2.7-23.3 8.1-32.3 4.3-7.2 9.9-12.9 17-17.1 7.1-4.2 14.7-6.3 22.9-6.5 4.5 0 10.5 1.4 17.9 4.2 7.4 2.8 12.1 4.2 14.2 4.2 1.6 0 6.9-1.6 15.9-4.9 8.5-3 15.7-4.3 21.5-3.8 15.9 1.3 27.8 7.6 35.8 19-14.2 8.6-21.2 20.7-21 36.1 0.2 12 4.5 22 12.8 29.9 3.8 3.6 8.1 6.4 12.8 8.4-1 3-2.1 5.8-3.3 8.6zM119.3 7.6c0 9.4-3.4 18.2-10.2 26.3-8.2 9.6-18.1 15.2-28.8 14.3-0.1-1.2-0.2-2.4-0.2-3.6 0-9.1 3.9-18.8 10.9-26.7 3.5-4 7.9-7.3 13.3-9.9 5.3-2.6 10.4-4 15.2-4.2 0.1 1.3 0.2 2.6 0.2 3.8H119.3z"/>' +
+      '</svg>';
+    container.appendChild(logoDiv);
 
-    overlayEl.innerHTML =
-      '<div class="tutorial-content">' +
-        '<div class="tutorial-header">' +
-          '<div class="tutorial-welcome">Welcome to Harry Schwartz\'s iPortfolio</div>' +
-          '<div class="tutorial-title">How to Use</div>' +
-          '<div class="tutorial-subtitle">In case you\'re too young to remember</div>' +
-        '</div>' +
-        '<svg class="tutorial-lines" xmlns="http://www.w3.org/2000/svg"></svg>' +
-        '<div class="tutorial-dismiss-hint">Tap anywhere to start</div>' +
-      '</div>';
+    // Title
+    var title = document.createElement('div');
+    title.className = 'boot-title';
+    title.textContent = "Harry's iPortfolio";
+    container.appendChild(title);
 
-    document.body.appendChild(overlayEl);
+    // Hint
+    var hint = document.createElement('div');
+    hint.className = 'boot-hint';
+    hint.textContent = 'Press \u25cf to continue';
+    container.appendChild(hint);
 
-    // Use rAF to let the overlay layout settle before measuring
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        buildCallouts();
-        overlayEl.classList.add('tutorial-visible');
-      });
-    });
-
-    // Dismiss on any interaction (with delay to avoid instant dismiss)
-    var dismissEvents = ['pointerdown', 'keydown'];
-    function handleDismiss() {
-      dismiss();
-      dismissEvents.forEach(function (evt) {
-        document.removeEventListener(evt, handleDismiss, true);
-      });
-    }
-    setTimeout(function () {
-      dismissEvents.forEach(function (evt) {
-        document.addEventListener(evt, handleDismiss, true);
-      });
-    }, 500);
+    return container;
   }
 
   /**
-   * Draw a 90-degree elbow line from (x1,y1) to (x2,y2).
-   * direction: 'h-first' = horizontal then vertical, 'v-first' = vertical then horizontal
+   * Show the floating callout labels + SVG connector lines around the clickwheel.
+   * These sit on top of the page (no dark background).
+   */
+  function showCallouts() {
+    if (dismissed || calloutContainer) return;
+
+    // Container for labels (transparent, pointer-events none)
+    calloutContainer = document.createElement('div');
+    calloutContainer.className = 'tutorial-callouts-container';
+    calloutContainer.style.position = 'fixed';
+    calloutContainer.style.inset = '0';
+    calloutContainer.style.zIndex = '9999';
+    calloutContainer.style.pointerEvents = 'none';
+    calloutContainer.style.overflow = 'hidden';
+
+    // SVG for lines
+    svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svgEl.style.position = 'fixed';
+    svgEl.style.left = '0';
+    svgEl.style.top = '0';
+    svgEl.style.width = '100vw';
+    svgEl.style.height = '100vh';
+    svgEl.style.overflow = 'hidden';
+    svgEl.style.pointerEvents = 'none';
+    svgEl.style.zIndex = '9998';
+
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+    svgEl.setAttribute('viewBox', '0 0 ' + vw + ' ' + vh);
+
+    document.body.appendChild(svgEl);
+    document.body.appendChild(calloutContainer);
+
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        buildCallouts();
+        calloutContainer.classList.add('tutorial-callouts-visible');
+        svgEl.classList.add('tutorial-callouts-visible');
+      });
+    });
+  }
+
+  /**
+   * 90-degree elbow path from (x1,y1) to (x2,y2).
    */
   function elbowPath(x1, y1, x2, y2, direction) {
     if (Math.abs(y1 - y2) < 2 && Math.abs(x1 - x2) < 2) {
       return 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y2;
     }
     if (Math.abs(y1 - y2) < 2) {
-      // Straight horizontal
       return 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y2;
     }
     if (Math.abs(x1 - x2) < 2) {
-      // Straight vertical
       return 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y2;
     }
     if (direction === 'h-first') {
-      // Go horizontal first, then vertical
       return 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y1 + ' L' + x2 + ',' + y2;
     } else {
-      // Go vertical first, then horizontal
       return 'M' + x1 + ',' + y1 + ' L' + x1 + ',' + y2 + ' L' + x2 + ',' + y2;
     }
   }
 
   function buildCallouts() {
-    if (!overlayEl) return;
+    if (!calloutContainer || !svgEl) return;
 
     var wheel = document.querySelector('.clickwheel');
     var menuBtn = document.querySelector('.wheel-button.top');
@@ -97,24 +125,16 @@
 
     if (!wheel) return;
 
-    var content = overlayEl.querySelector('.tutorial-content');
-    var svgEl = overlayEl.querySelector('.tutorial-lines');
     var vw = window.innerWidth;
-    var vh = window.innerHeight;
+    var lineColor = 'rgba(0,0,0,0.25)';
+    var dotColor = 'rgba(0,0,0,0.4)';
+    var isMobile = vw <= 576;
 
-    // Use viewBox instead of width/height to prevent zoom issues on mobile
-    svgEl.setAttribute('viewBox', '0 0 ' + vw + ' ' + vh);
-    svgEl.style.position = 'fixed';
-    svgEl.style.left = '0';
-    svgEl.style.top = '0';
-    svgEl.style.width = '100vw';
-    svgEl.style.height = '100vh';
-    svgEl.style.overflow = 'hidden';
-    svgEl.style.pointerEvents = 'none';
-    svgEl.style.zIndex = '10001';
-
-    var lineColor = 'rgba(255,255,255,0.4)';
-    var dotColor = 'rgba(255,255,255,0.7)';
+    if (isMobile) {
+      // On mobile, use lighter colors since background is the iPod body
+      lineColor = 'rgba(255,255,255,0.35)';
+      dotColor = 'rgba(255,255,255,0.5)';
+    }
 
     function centerOf(el) {
       var r = el.getBoundingClientRect();
@@ -169,6 +189,11 @@
         textDiv.style.textAlign = 'center';
       }
 
+      // Use darker text for desktop (light background), lighter for mobile
+      if (!isMobile) {
+        el.classList.add('callout-on-light');
+      }
+
       var titleSpan = document.createElement('span');
       titleSpan.className = 'callout-title';
       titleSpan.textContent = title;
@@ -178,17 +203,11 @@
       textDiv.appendChild(titleSpan);
       textDiv.appendChild(descSpan);
       el.appendChild(textDiv);
-      content.appendChild(el);
+      calloutContainer.appendChild(el);
     }
-
-    var isMobile = vw <= 576;
 
     if (isMobile) {
       // ---- MOBILE LAYOUT ----
-      // Labels go above/below the wheel (for Scroll Wheel / Play Pause)
-      // and to the far left/right edges for the four directional + center buttons.
-      // All connectors use strict 90-degree elbows.
-
       var gap = 10;
 
       // SCROLL WHEEL — centered above wheel
@@ -198,7 +217,6 @@
       makeDot(scrollDotX, scrollDotY);
       var scrollLabelY = wheelRect.top - 40;
       makeLabel('Scroll Wheel', 'Slide finger in a circle to browse', wheelCx, scrollLabelY, 'center');
-      // Vertical line from dot up to label
       makePath(elbowPath(scrollDotX, scrollDotY, scrollDotX, scrollLabelY + 14, 'v-first'));
 
       // MENU (top) — left side
@@ -208,9 +226,7 @@
         var menuLabelX = gap;
         var menuLabelY = mc.y - 20;
         makeLabel('Menu', 'Go back', menuLabelX, menuLabelY, 'right');
-        // Elbow: horizontal from dot to left, then vertical to label
-        var menuLineEndX = menuLabelX + 50;
-        makePath(elbowPath(mc.x, mc.y, menuLineEndX, menuLabelY, 'v-first'));
+        makePath(elbowPath(mc.x, mc.y, menuLabelX + 50, menuLabelY, 'v-first'));
       }
 
       // SELECT (center) — right side
@@ -220,8 +236,7 @@
         var selectLabelX = vw - gap;
         var selectLabelY = cc.y - 24;
         makeLabel('Select', 'Press to choose', selectLabelX, selectLabelY, 'left');
-        var selectLineEndX = selectLabelX - 56;
-        makePath(elbowPath(cc.x, cc.y, selectLineEndX, selectLabelY, 'v-first'));
+        makePath(elbowPath(cc.x, cc.y, selectLabelX - 56, selectLabelY, 'v-first'));
       }
 
       // PREVIOUS (left) — left side
@@ -231,8 +246,7 @@
         var prevLabelX = gap;
         var prevLabelY = rc.y + 24;
         makeLabel('Previous', 'Skip back', prevLabelX, prevLabelY, 'right');
-        var prevLineEndX = prevLabelX + 65;
-        makePath(elbowPath(rc.x, rc.y, prevLineEndX, prevLabelY, 'v-first'));
+        makePath(elbowPath(rc.x, rc.y, prevLabelX + 65, prevLabelY, 'v-first'));
       }
 
       // NEXT (right) — right side
@@ -242,15 +256,13 @@
         var nextLabelX = vw - gap;
         var nextLabelY = fc.y + 24;
         makeLabel('Next', 'Skip forward', nextLabelX, nextLabelY, 'left');
-        var nextLineEndX = nextLabelX - 75;
-        makePath(elbowPath(fc.x, fc.y, nextLineEndX, nextLabelY, 'v-first'));
+        makePath(elbowPath(fc.x, fc.y, nextLabelX - 75, nextLabelY, 'v-first'));
       }
 
       // PLAY/PAUSE (bottom) — centered below wheel
       if (playPauseBtn) {
         var pc = centerOf(playPauseBtn);
         makeDot(pc.x, pc.y);
-        // Position label well above the "tap anywhere" hint
         var ppLabelY = wheelRect.bottom + 32;
         makeLabel('Play / Pause', 'Control playback', wheelCx, ppLabelY, 'center');
         makePath(elbowPath(pc.x, pc.y, pc.x, ppLabelY - 14, 'v-first'));
@@ -258,9 +270,6 @@
 
     } else {
       // ---- DESKTOP LAYOUT ----
-      // Labels to left/right of wheel with 90-degree elbow connectors.
-      // Dots anchor on actual button element centers.
-
       var labelGap = 20;
 
       function addDesktopCallout(title, desc, dotX, dotY, side, labelY) {
@@ -270,7 +279,6 @@
         if (side === 'left') {
           var lx = wheelRect.left - labelGap;
           makeLabel(title, desc, lx, ly, 'left');
-          // 90-degree elbow: horizontal from label edge to dot X, then vertical to dot Y
           makePath(elbowPath(lx + 4, ly, dotX, dotY, 'h-first'));
         } else {
           var rx = wheelRect.right + labelGap;
@@ -289,7 +297,6 @@
       var scrAngle = -45 * Math.PI / 180;
       var scrDotX = wheelCx + Math.cos(scrAngle) * (wheelR - 6);
       var scrDotY = wheelCy + Math.sin(scrAngle) * (wheelR - 6);
-      // Put label higher so it's well-separated from Select
       var scrLabelY = wheelCy - wheelR * 0.55;
       addDesktopCallout('Scroll Wheel', 'Slide finger in a circle to browse', scrDotX, scrDotY, 'right', scrLabelY);
 
@@ -305,11 +312,10 @@
         addDesktopCallout('Select', 'Press to choose an item', cc2.x, cc2.y, 'right');
       }
 
-      // Next (right) — right side, offset label below Select
+      // Next (right) — right side, offset below Select
       if (forwardBtn) {
         var fc2 = centerOf(forwardBtn);
         var centerC = centerBtn ? centerOf(centerBtn) : { y: wheelCy };
-        // Ensure at least 50px gap between Select label and Next label
         var nextY = (Math.abs(fc2.y - centerC.y) < 50) ? centerC.y + 50 : fc2.y;
         addDesktopCallout('Next', 'Skip forward', fc2.x, fc2.y, 'right', nextY);
       }
@@ -322,22 +328,38 @@
     }
   }
 
+  function hideCallouts() {
+    if (calloutContainer) {
+      calloutContainer.classList.add('tutorial-callouts-hiding');
+      setTimeout(function () {
+        if (calloutContainer && calloutContainer.parentNode) {
+          calloutContainer.parentNode.removeChild(calloutContainer);
+        }
+        calloutContainer = null;
+      }, 400);
+    }
+    if (svgEl) {
+      svgEl.classList.add('tutorial-callouts-hiding');
+      setTimeout(function () {
+        if (svgEl && svgEl.parentNode) {
+          svgEl.parentNode.removeChild(svgEl);
+        }
+        svgEl = null;
+      }, 400);
+    }
+  }
+
   function dismiss() {
-    if (dismissed || !overlayEl) return;
+    if (dismissed) return;
     dismissed = true;
-    overlayEl.classList.add('tutorial-dismissing');
-    setTimeout(function () {
-      if (overlayEl && overlayEl.parentNode) {
-        overlayEl.parentNode.removeChild(overlayEl);
-      }
-      overlayEl = null;
-    }, 400);
+    hideCallouts();
   }
 
   window.ipodTutorialOverlay = {
     shouldShow: shouldShow,
-    show: show,
+    renderBootView: renderBootView,
+    showCallouts: showCallouts,
     dismiss: dismiss,
-    get isActive() { return !dismissed && !!overlayEl; },
+    get isActive() { return !dismissed && !!calloutContainer; },
   };
 })();

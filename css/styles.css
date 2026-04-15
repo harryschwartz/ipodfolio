@@ -1148,104 +1148,76 @@ a {
 }
 
 /* ============================================
-   Tutorial Overlay — "How to Use" diagram
+   Boot Screen — inside iPod display
    ============================================ */
-.tutorial-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  opacity: 0;
-  transition: opacity 0.35s ease;
-  cursor: pointer;
-  overflow: hidden;
-  /* Prevent mobile zoom issues */
-  -webkit-overflow-scrolling: touch;
-  touch-action: manipulation;
+.boot-screen-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 100%);
+  text-align: center;
+  gap: 6px;
+  padding: 20px;
 }
 
-.tutorial-overlay.tutorial-visible {
+.boot-logo {
+  margin-bottom: 2px;
+}
+
+.boot-logo svg {
+  width: 48px;
+  height: 48px;
+}
+
+.boot-title {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: #333;
+  letter-spacing: -0.01em;
+}
+
+.boot-hint {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 9px;
+  color: #999;
+  margin-top: 12px;
+  letter-spacing: 0.02em;
+}
+
+/* ============================================
+   Tutorial Callouts — floating labels (no overlay)
+   ============================================ */
+.tutorial-callouts-container {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.tutorial-callouts-container.tutorial-callouts-visible {
   opacity: 1;
 }
 
-.tutorial-overlay.tutorial-dismissing {
+.tutorial-callouts-container.tutorial-callouts-hiding {
   opacity: 0;
-  pointer-events: none;
+  transition: opacity 0.3s ease;
 }
 
-.tutorial-content {
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
+svg.tutorial-callouts-visible {
+  opacity: 1;
+  transition: opacity 0.4s ease;
 }
 
-/* Header group: welcome + title + subtitle */
-.tutorial-header {
-  position: fixed;
-  top: max(env(safe-area-inset-top, 12px), 12px);
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  z-index: 10002;
-  padding-top: 12px;
-  white-space: nowrap;
-}
-
-.tutorial-welcome {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.7);
-  letter-spacing: 0.03em;
-  margin-bottom: 4px;
-}
-
-.tutorial-title {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 22px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
-}
-
-.tutorial-subtitle {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 12px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.45);
-  font-style: italic;
-  letter-spacing: 0.01em;
-  margin-top: 3px;
-}
-
-.tutorial-dismiss-hint {
-  position: fixed;
-  bottom: max(env(safe-area-inset-bottom, 20px), 20px);
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.55);
-  letter-spacing: 0.03em;
-  animation: tutorial-pulse 2s ease-in-out infinite;
-  padding-bottom: 16px;
-  white-space: nowrap;
-  z-index: 10002;
-}
-
-@keyframes tutorial-pulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 1; }
+svg.tutorial-callouts-hiding {
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 /* Callout shared styles */
 .tutorial-callout {
   pointer-events: none;
   white-space: nowrap;
-  z-index: 10002;
 }
 
 .callout-label {
@@ -1282,24 +1254,26 @@ a {
   margin-left: auto;
 }
 
+/* Desktop: dark text on light background */
+.callout-on-light .callout-title {
+  color: #333;
+}
+
+.callout-on-light .callout-desc {
+  color: rgba(0, 0, 0, 0.45);
+}
+
 /* Mobile adjustments */
 @media (max-width: 576px) {
-  .tutorial-header {
-    padding-top: 8px;
+  .boot-logo svg {
+    width: 56px;
+    height: 56px;
   }
-  .tutorial-welcome {
-    font-size: 12px;
+  .boot-title {
+    font-size: 18px;
   }
-  .tutorial-title {
-    font-size: 20px;
-  }
-  .tutorial-subtitle {
-    font-size: 11px;
-  }
-  .tutorial-dismiss-hint {
-    font-size: 14px;
-    padding-bottom: 20px;
-    bottom: max(env(safe-area-inset-bottom, 24px), 24px);
+  .boot-hint {
+    font-size: 10px;
   }
   .callout-title {
     font-size: 12px;
