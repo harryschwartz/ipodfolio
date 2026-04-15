@@ -1,9 +1,8 @@
 // Tutorial Overlay — Shows how to use the iPod interface
 // Displays callout labels for the click wheel and buttons.
-// Appears as a full-page overlay on top of the iPod.
 // On desktop: shown after dismissing the QR "best on mobile" screen.
 // On mobile: shown immediately on first visit.
-// Dismissed on any user interaction (touch/click/scroll/key).
+// Dismissed on any user interaction.
 
 (function () {
   'use strict';
@@ -12,7 +11,7 @@
   let dismissed = false;
 
   function shouldShow() {
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    var isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     if (isStandalone) return false;
     return true;
   }
@@ -25,71 +24,110 @@
     overlayEl.setAttribute('role', 'dialog');
     overlayEl.setAttribute('aria-label', 'How to use the iPod interface');
 
-    overlayEl.innerHTML = `
-      <div class="tutorial-content">
-        <div class="tutorial-title">How to Use</div>
-        <svg class="tutorial-lines" xmlns="http://www.w3.org/2000/svg"></svg>
-        <div class="tutorial-dismiss-hint">Tap anywhere to start</div>
-      </div>
-    `;
+    overlayEl.innerHTML =
+      '<div class="tutorial-content">' +
+        '<div class="tutorial-header">' +
+          '<div class="tutorial-welcome">Welcome to Harry Schwartz\'s iPortfolio</div>' +
+          '<div class="tutorial-title">How to Use</div>' +
+          '<div class="tutorial-subtitle">In case you\'re too young to remember</div>' +
+        '</div>' +
+        '<svg class="tutorial-lines" xmlns="http://www.w3.org/2000/svg"></svg>' +
+        '<div class="tutorial-dismiss-hint">Tap anywhere to start</div>' +
+      '</div>';
 
     document.body.appendChild(overlayEl);
 
-    requestAnimationFrame(() => {
-      buildCallouts();
-      overlayEl.classList.add('tutorial-visible');
+    // Use rAF to let the overlay layout settle before measuring
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        buildCallouts();
+        overlayEl.classList.add('tutorial-visible');
+      });
     });
 
-    const dismissEvents = ['pointerdown', 'keydown'];
+    // Dismiss on any interaction (with delay to avoid instant dismiss)
+    var dismissEvents = ['pointerdown', 'keydown'];
     function handleDismiss() {
       dismiss();
-      dismissEvents.forEach(evt => document.removeEventListener(evt, handleDismiss, true));
+      dismissEvents.forEach(function (evt) {
+        document.removeEventListener(evt, handleDismiss, true);
+      });
     }
-    setTimeout(() => {
-      dismissEvents.forEach(evt => document.addEventListener(evt, handleDismiss, true));
-    }, 400);
+    setTimeout(function () {
+      dismissEvents.forEach(function (evt) {
+        document.addEventListener(evt, handleDismiss, true);
+      });
+    }, 500);
+  }
+
+  /**
+   * Draw a 90-degree elbow line from (x1,y1) to (x2,y2).
+   * direction: 'h-first' = horizontal then vertical, 'v-first' = vertical then horizontal
+   */
+  function elbowPath(x1, y1, x2, y2, direction) {
+    if (Math.abs(y1 - y2) < 2 && Math.abs(x1 - x2) < 2) {
+      return 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y2;
+    }
+    if (Math.abs(y1 - y2) < 2) {
+      // Straight horizontal
+      return 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y2;
+    }
+    if (Math.abs(x1 - x2) < 2) {
+      // Straight vertical
+      return 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y2;
+    }
+    if (direction === 'h-first') {
+      // Go horizontal first, then vertical
+      return 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y1 + ' L' + x2 + ',' + y2;
+    } else {
+      // Go vertical first, then horizontal
+      return 'M' + x1 + ',' + y1 + ' L' + x1 + ',' + y2 + ' L' + x2 + ',' + y2;
+    }
   }
 
   function buildCallouts() {
     if (!overlayEl) return;
 
-    const wheel = document.querySelector('.clickwheel');
-    const menuBtn = document.querySelector('.wheel-button.top');
-    const centerBtn = document.querySelector('.center-button');
-    const rewindBtn = document.querySelector('.wheel-button.left');
-    const forwardBtn = document.querySelector('.wheel-button.right');
-    const playPauseBtn = document.querySelector('.wheel-button.bottom');
+    var wheel = document.querySelector('.clickwheel');
+    var menuBtn = document.querySelector('.wheel-button.top');
+    var centerBtn = document.querySelector('.center-button');
+    var rewindBtn = document.querySelector('.wheel-button.left');
+    var forwardBtn = document.querySelector('.wheel-button.right');
+    var playPauseBtn = document.querySelector('.wheel-button.bottom');
 
     if (!wheel) return;
 
-    const content = overlayEl.querySelector('.tutorial-content');
-    const svgEl = overlayEl.querySelector('.tutorial-lines');
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    var content = overlayEl.querySelector('.tutorial-content');
+    var svgEl = overlayEl.querySelector('.tutorial-lines');
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
 
-    svgEl.setAttribute('width', vw);
-    svgEl.setAttribute('height', vh);
+    // Use viewBox instead of width/height to prevent zoom issues on mobile
+    svgEl.setAttribute('viewBox', '0 0 ' + vw + ' ' + vh);
     svgEl.style.position = 'fixed';
-    svgEl.style.inset = '0';
+    svgEl.style.left = '0';
+    svgEl.style.top = '0';
+    svgEl.style.width = '100vw';
+    svgEl.style.height = '100vh';
+    svgEl.style.overflow = 'hidden';
     svgEl.style.pointerEvents = 'none';
     svgEl.style.zIndex = '10001';
 
-    const lineColor = 'rgba(255,255,255,0.4)';
-    const dotColor = 'rgba(255,255,255,0.7)';
+    var lineColor = 'rgba(255,255,255,0.4)';
+    var dotColor = 'rgba(255,255,255,0.7)';
 
-    // Helper: get the center of an element in viewport coords
     function centerOf(el) {
-      const r = el.getBoundingClientRect();
+      var r = el.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     }
 
-    const wheelRect = wheel.getBoundingClientRect();
-    const wheelCx = wheelRect.left + wheelRect.width / 2;
-    const wheelCy = wheelRect.top + wheelRect.height / 2;
-    const wheelR = wheelRect.width / 2;
+    var wheelRect = wheel.getBoundingClientRect();
+    var wheelCx = wheelRect.left + wheelRect.width / 2;
+    var wheelCy = wheelRect.top + wheelRect.height / 2;
+    var wheelR = wheelRect.width / 2;
 
     function makeDot(x, y) {
-      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       dot.setAttribute('cx', x);
       dot.setAttribute('cy', y);
       dot.setAttribute('r', 3);
@@ -98,7 +136,7 @@
     }
 
     function makePath(d) {
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('d', d);
       path.setAttribute('stroke', lineColor);
       path.setAttribute('stroke-width', 1);
@@ -107,11 +145,11 @@
     }
 
     function makeLabel(title, desc, x, y, align) {
-      const el = document.createElement('div');
+      var el = document.createElement('div');
       el.className = 'tutorial-callout';
       el.style.position = 'fixed';
 
-      const textDiv = document.createElement('div');
+      var textDiv = document.createElement('div');
       textDiv.className = 'callout-label';
 
       if (align === 'right') {
@@ -131,10 +169,10 @@
         textDiv.style.textAlign = 'center';
       }
 
-      const titleSpan = document.createElement('span');
+      var titleSpan = document.createElement('span');
       titleSpan.className = 'callout-title';
       titleSpan.textContent = title;
-      const descSpan = document.createElement('span');
+      var descSpan = document.createElement('span');
       descSpan.className = 'callout-desc';
       descSpan.textContent = desc;
       textDiv.appendChild(titleSpan);
@@ -143,155 +181,143 @@
       content.appendChild(el);
     }
 
-    /**
-     * For each button, the dot goes right on the button center.
-     * The label goes to the left or right side of the wheel,
-     * with a connecting line (possibly angled) from dot to label.
-     *
-     * side: 'left' means label is to the left of the wheel
-     * side: 'right' means label is to the right of the wheel
-     */
-    function addCallout(title, desc, dotX, dotY, side, labelYOverride) {
-      const labelY = labelYOverride !== undefined ? labelYOverride : dotY;
-      const labelGap = 16;
-
-      makeDot(dotX, dotY);
-
-      if (side === 'left') {
-        const labelX = wheelRect.left - labelGap;
-        makeLabel(title, desc, labelX, labelY, 'left');
-        // Line from label to dot
-        if (Math.abs(dotY - labelY) > 4) {
-          const midX = labelX + (dotX - labelX) * 0.35;
-          makePath(`M${labelX + 4},${labelY} L${midX},${labelY} L${dotX},${dotY}`);
-        } else {
-          makePath(`M${labelX + 4},${labelY} L${dotX},${dotY}`);
-        }
-      } else {
-        const labelX = wheelRect.right + labelGap;
-        makeLabel(title, desc, labelX, labelY, 'right');
-        if (Math.abs(dotY - labelY) > 4) {
-          const midX = dotX + (labelX - dotX) * 0.65;
-          makePath(`M${dotX},${dotY} L${midX},${labelY} L${labelX - 4},${labelY}`);
-        } else {
-          makePath(`M${dotX},${dotY} L${labelX - 4},${labelY}`);
-        }
-      }
-    }
-
-    // For mobile, a different layout is needed since the wheel is nearly full-width
-    const isMobile = vw <= 576;
+    var isMobile = vw <= 576;
 
     if (isMobile) {
       // ---- MOBILE LAYOUT ----
-      const gap = 8;
+      // Labels go above/below the wheel (for Scroll Wheel / Play Pause)
+      // and to the far left/right edges for the four directional + center buttons.
+      // All connectors use strict 90-degree elbows.
 
-      // SCROLL WHEEL — label centered above the wheel
-      // Dot on upper-left rim
-      const scrollAngle = -70 * Math.PI / 180;
-      const scrollDotX = wheelCx + Math.cos(scrollAngle) * (wheelR - 6);
-      const scrollDotY = wheelCy + Math.sin(scrollAngle) * (wheelR - 6);
+      var gap = 10;
+
+      // SCROLL WHEEL — centered above wheel
+      var scrollAngle = -60 * Math.PI / 180;
+      var scrollDotX = wheelCx + Math.cos(scrollAngle) * (wheelR - 6);
+      var scrollDotY = wheelCy + Math.sin(scrollAngle) * (wheelR - 6);
       makeDot(scrollDotX, scrollDotY);
-      const scrollLabelY = wheelRect.top - 28;
+      var scrollLabelY = wheelRect.top - 40;
       makeLabel('Scroll Wheel', 'Slide finger in a circle to browse', wheelCx, scrollLabelY, 'center');
-      makePath(`M${scrollDotX},${scrollDotY} L${wheelCx},${scrollLabelY + 12}`);
+      // Vertical line from dot up to label
+      makePath(elbowPath(scrollDotX, scrollDotY, scrollDotX, scrollLabelY + 14, 'v-first'));
 
-      // MENU (top button) — label to the left
+      // MENU (top) — left side
       if (menuBtn) {
-        const c = centerOf(menuBtn);
-        makeDot(c.x, c.y);
-        const labelX = gap + 8;
-        const labelY = c.y - 10;
-        makeLabel('Menu', 'Go back', labelX, labelY, 'right');
-        makePath(`M${c.x},${c.y} L${labelX + 55},${labelY}`);
+        var mc = centerOf(menuBtn);
+        makeDot(mc.x, mc.y);
+        var menuLabelX = gap;
+        var menuLabelY = mc.y - 20;
+        makeLabel('Menu', 'Go back', menuLabelX, menuLabelY, 'right');
+        // Elbow: horizontal from dot to left, then vertical to label
+        var menuLineEndX = menuLabelX + 50;
+        makePath(elbowPath(mc.x, mc.y, menuLineEndX, menuLabelY, 'v-first'));
       }
 
-      // SELECT (center button) — label to the right
+      // SELECT (center) — right side
       if (centerBtn) {
-        const c = centerOf(centerBtn);
-        // Dot on center button edge (upper-right)
-        const dotX = c.x + 20;
-        const dotY = c.y - 20;
-        makeDot(dotX, dotY);
-        const labelX = wheelRect.right + gap;
-        const labelY = c.y - 20;
-        makeLabel('Select', 'Press to choose', Math.min(labelX, vw - 100), labelY, 'right');
-        makePath(`M${dotX},${dotY} L${Math.min(labelX, vw - 100) - 4},${labelY}`);
+        var cc = centerOf(centerBtn);
+        makeDot(cc.x, cc.y);
+        var selectLabelX = vw - gap;
+        var selectLabelY = cc.y - 24;
+        makeLabel('Select', 'Press to choose', selectLabelX, selectLabelY, 'left');
+        var selectLineEndX = selectLabelX - 56;
+        makePath(elbowPath(cc.x, cc.y, selectLineEndX, selectLabelY, 'v-first'));
       }
 
-      // PREVIOUS (left button) — label to the left
+      // PREVIOUS (left) — left side
       if (rewindBtn) {
-        const c = centerOf(rewindBtn);
-        makeDot(c.x, c.y);
-        const labelX = gap + 8;
-        const labelY = c.y + 14;
-        makeLabel('Previous', 'Skip back', labelX, labelY, 'right');
-        makePath(`M${c.x},${c.y} L${labelX + 68},${labelY}`);
+        var rc = centerOf(rewindBtn);
+        makeDot(rc.x, rc.y);
+        var prevLabelX = gap;
+        var prevLabelY = rc.y + 24;
+        makeLabel('Previous', 'Skip back', prevLabelX, prevLabelY, 'right');
+        var prevLineEndX = prevLabelX + 65;
+        makePath(elbowPath(rc.x, rc.y, prevLineEndX, prevLabelY, 'v-first'));
       }
 
-      // NEXT (right button) — label to the right
+      // NEXT (right) — right side
       if (forwardBtn) {
-        const c = centerOf(forwardBtn);
-        makeDot(c.x, c.y);
-        const labelX = wheelRect.right + gap;
-        const labelY = c.y + 20;
-        makeLabel('Next', 'Skip forward', Math.min(labelX, vw - 90), labelY, 'right');
-        makePath(`M${c.x},${c.y} L${Math.min(labelX, vw - 90) - 4},${labelY}`);
+        var fc = centerOf(forwardBtn);
+        makeDot(fc.x, fc.y);
+        var nextLabelX = vw - gap;
+        var nextLabelY = fc.y + 24;
+        makeLabel('Next', 'Skip forward', nextLabelX, nextLabelY, 'left');
+        var nextLineEndX = nextLabelX - 75;
+        makePath(elbowPath(fc.x, fc.y, nextLineEndX, nextLabelY, 'v-first'));
       }
 
-      // PLAY/PAUSE (bottom button) — label centered below
+      // PLAY/PAUSE (bottom) — centered below wheel
       if (playPauseBtn) {
-        const c = centerOf(playPauseBtn);
-        makeDot(c.x, c.y);
-        const labelY = wheelRect.bottom + 28;
-        makeLabel('Play / Pause', 'Control audio playback', wheelCx, labelY, 'center');
-        makePath(`M${c.x},${c.y} L${wheelCx},${labelY - 12}`);
+        var pc = centerOf(playPauseBtn);
+        makeDot(pc.x, pc.y);
+        // Position label well above the "tap anywhere" hint
+        var ppLabelY = wheelRect.bottom + 32;
+        makeLabel('Play / Pause', 'Control playback', wheelCx, ppLabelY, 'center');
+        makePath(elbowPath(pc.x, pc.y, pc.x, ppLabelY - 14, 'v-first'));
       }
 
     } else {
       // ---- DESKTOP LAYOUT ----
-      // Dot goes on the actual button center. Label goes to left or right of wheel.
-      // This ensures the diagram is always anchored to the real element positions.
+      // Labels to left/right of wheel with 90-degree elbow connectors.
+      // Dots anchor on actual button element centers.
+
+      var labelGap = 20;
+
+      function addDesktopCallout(title, desc, dotX, dotY, side, labelY) {
+        var ly = (labelY !== undefined) ? labelY : dotY;
+        makeDot(dotX, dotY);
+
+        if (side === 'left') {
+          var lx = wheelRect.left - labelGap;
+          makeLabel(title, desc, lx, ly, 'left');
+          // 90-degree elbow: horizontal from label edge to dot X, then vertical to dot Y
+          makePath(elbowPath(lx + 4, ly, dotX, dotY, 'h-first'));
+        } else {
+          var rx = wheelRect.right + labelGap;
+          makeLabel(title, desc, rx, ly, 'right');
+          makePath(elbowPath(dotX, dotY, rx - 4, ly, 'h-first'));
+        }
+      }
 
       // Menu (top) — left side
       if (menuBtn) {
-        const c = centerOf(menuBtn);
-        addCallout('Menu', 'Go back to the previous screen', c.x, c.y, 'left');
+        var mc2 = centerOf(menuBtn);
+        addDesktopCallout('Menu', 'Go back to the previous screen', mc2.x, mc2.y, 'left');
       }
 
-      // Scroll Wheel — right side, dot on upper-right rim of the wheel ring
-      {
-        const scrollAngle = -45 * Math.PI / 180;
-        const dotX = wheelCx + Math.cos(scrollAngle) * (wheelR - 6);
-        const dotY = wheelCy + Math.sin(scrollAngle) * (wheelR - 6);
-        // Label Y offset up so it doesn't collide with Select
-        addCallout('Scroll Wheel', 'Slide finger in a circle to browse', dotX, dotY, 'right', wheelCy - wheelR * 0.45);
-      }
+      // Scroll Wheel — right side, dot on upper-right rim
+      var scrAngle = -45 * Math.PI / 180;
+      var scrDotX = wheelCx + Math.cos(scrAngle) * (wheelR - 6);
+      var scrDotY = wheelCy + Math.sin(scrAngle) * (wheelR - 6);
+      // Put label higher so it's well-separated from Select
+      var scrLabelY = wheelCy - wheelR * 0.55;
+      addDesktopCallout('Scroll Wheel', 'Slide finger in a circle to browse', scrDotX, scrDotY, 'right', scrLabelY);
 
       // Previous (left) — left side
       if (rewindBtn) {
-        const c = centerOf(rewindBtn);
-        addCallout('Previous', 'Skip back', c.x, c.y, 'left');
+        var rc2 = centerOf(rewindBtn);
+        addDesktopCallout('Previous', 'Skip back', rc2.x, rc2.y, 'left');
       }
 
       // Select (center) — right side
       if (centerBtn) {
-        const c = centerOf(centerBtn);
-        addCallout('Select', 'Press to choose an item', c.x, c.y, 'right');
+        var cc2 = centerOf(centerBtn);
+        addDesktopCallout('Select', 'Press to choose an item', cc2.x, cc2.y, 'right');
       }
 
-      // Next (right) — right side, offset label below Select if they'd overlap
+      // Next (right) — right side, offset label below Select
       if (forwardBtn) {
-        const fwdC = centerOf(forwardBtn);
-        const centerC = centerBtn ? centerOf(centerBtn) : { y: wheelCy };
-        const labelY = Math.abs(fwdC.y - centerC.y) < 40 ? centerC.y + 42 : fwdC.y;
-        addCallout('Next', 'Skip forward', fwdC.x, fwdC.y, 'right', labelY);
+        var fc2 = centerOf(forwardBtn);
+        var centerC = centerBtn ? centerOf(centerBtn) : { y: wheelCy };
+        // Ensure at least 50px gap between Select label and Next label
+        var nextY = (Math.abs(fc2.y - centerC.y) < 50) ? centerC.y + 50 : fc2.y;
+        addDesktopCallout('Next', 'Skip forward', fc2.x, fc2.y, 'right', nextY);
       }
 
       // Play/Pause (bottom) — left side
       if (playPauseBtn) {
-        const c = centerOf(playPauseBtn);
-        addCallout('Play / Pause', 'Control audio playback', c.x, c.y, 'left');
+        var pc2 = centerOf(playPauseBtn);
+        addDesktopCallout('Play / Pause', 'Control audio playback', pc2.x, pc2.y, 'left');
       }
     }
   }
@@ -300,7 +326,7 @@
     if (dismissed || !overlayEl) return;
     dismissed = true;
     overlayEl.classList.add('tutorial-dismissing');
-    setTimeout(() => {
+    setTimeout(function () {
       if (overlayEl && overlayEl.parentNode) {
         overlayEl.parentNode.removeChild(overlayEl);
       }
@@ -309,9 +335,9 @@
   }
 
   window.ipodTutorialOverlay = {
-    shouldShow,
-    show,
-    dismiss,
+    shouldShow: shouldShow,
+    show: show,
+    dismiss: dismiss,
     get isActive() { return !dismissed && !!overlayEl; },
   };
 })();
