@@ -9,6 +9,7 @@ const ASSETS_TO_CACHE = [
   '/js/clickwheel.js',
   '/js/cover-flow.js',
   '/js/data.js',
+  '/js/qrcode-lib.js',
   '/js/qr-overlay.js',
   '/js/tutorial-overlay.js',
   '/js/studio-grid.js',

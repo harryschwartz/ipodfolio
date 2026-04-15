@@ -1127,10 +1127,17 @@ a {
   margin-bottom: 8px;
 }
 
+.qr-screen-code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .qr-screen-canvas {
   border-radius: 4px;
-  width: 130px;
-  height: 130px;
+  width: 160px;
+  height: 160px;
+  image-rendering: pixelated;
 }
 
 .qr-screen-hint {
