@@ -564,6 +564,7 @@ a {
   position: relative;
   margin: auto;
   padding: 12px 0;
+  overflow: visible;
 }
 
 .clickwheel {
@@ -1278,37 +1279,39 @@ a {
   position: absolute;
   pointer-events: none;
   z-index: 8;
-  overflow: hidden;
 }
 
 /* ----- Cat-scratch cluster — above the click wheel ----- */
 .wear-cat-scratches-above {
   /* 3 thin parallel diagonal scratches, slightly fanned like claw marks */
-  width: 50px;
-  height: 28px;
-  top: 2px;
-  left: calc(50% - 8px);
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='28'%3E%3Cline x1='6' y1='3' x2='40' y2='25' stroke='%23ffffff' stroke-width='0.7' opacity='0.22' stroke-linecap='round'/%3E%3Cline x1='6' y1='3.5' x2='40' y2='25.5' stroke='%23000000' stroke-width='0.3' opacity='0.08' stroke-linecap='round'/%3E%3Cline x1='12' y1='1' x2='45' y2='22' stroke='%23ffffff' stroke-width='0.6' opacity='0.18' stroke-linecap='round'/%3E%3Cline x1='12' y1='1.5' x2='45' y2='22.5' stroke='%23000000' stroke-width='0.25' opacity='0.06' stroke-linecap='round'/%3E%3Cline x1='18' y1='0' x2='48' y2='18' stroke='%23ffffff' stroke-width='0.5' opacity='0.15' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center / contain;
+  width: 60px;
+  height: 30px;
+  top: -2px;
+  left: calc(50% - 10px);
+  opacity: 0.5;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='30'%3E%3Cline x1='6' y1='4' x2='48' y2='26' stroke='%23a0a0a0' stroke-width='1' stroke-linecap='round'/%3E%3Cline x1='6' y1='4.8' x2='48' y2='26.8' stroke='%23000000' stroke-width='0.4' opacity='0.3' stroke-linecap='round'/%3E%3Cline x1='14' y1='1' x2='54' y2='22' stroke='%23a0a0a0' stroke-width='0.8' stroke-linecap='round'/%3E%3Cline x1='14' y1='1.8' x2='54' y2='22.8' stroke='%23000000' stroke-width='0.35' opacity='0.25' stroke-linecap='round'/%3E%3Cline x1='22' y1='0' x2='56' y2='18' stroke='%23a0a0a0' stroke-width='0.7' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center / contain;
 }
 
 /* ----- Cat-scratch cluster — below the click wheel ----- */
 .wear-cat-scratches-below {
   /* 3 thin parallel scratches angled the other way */
-  width: 45px;
-  height: 24px;
-  bottom: 2px;
-  left: calc(50% + 15px);
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='45' height='24'%3E%3Cline x1='5' y1='22' x2='38' y2='2' stroke='%23ffffff' stroke-width='0.6' opacity='0.20' stroke-linecap='round'/%3E%3Cline x1='5' y1='22.5' x2='38' y2='2.5' stroke='%23000000' stroke-width='0.25' opacity='0.07' stroke-linecap='round'/%3E%3Cline x1='11' y1='23' x2='42' y2='5' stroke='%23ffffff' stroke-width='0.5' opacity='0.16' stroke-linecap='round'/%3E%3Cline x1='11' y1='23.5' x2='42' y2='5.5' stroke='%23000000' stroke-width='0.2' opacity='0.05' stroke-linecap='round'/%3E%3Cline x1='16' y1='21' x2='44' y2='7' stroke='%23ffffff' stroke-width='0.55' opacity='0.14' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center / contain;
+  width: 55px;
+  height: 26px;
+  bottom: -2px;
+  left: calc(50% + 12px);
+  opacity: 0.45;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='55' height='26'%3E%3Cline x1='5' y1='24' x2='45' y2='2' stroke='%23a0a0a0' stroke-width='0.9' stroke-linecap='round'/%3E%3Cline x1='5' y1='24.8' x2='45' y2='2.8' stroke='%23000000' stroke-width='0.35' opacity='0.25' stroke-linecap='round'/%3E%3Cline x1='13' y1='25' x2='50' y2='5' stroke='%23a0a0a0' stroke-width='0.7' stroke-linecap='round'/%3E%3Cline x1='13' y1='25.8' x2='50' y2='5.8' stroke='%23000000' stroke-width='0.3' opacity='0.2' stroke-linecap='round'/%3E%3Cline x1='20' y1='23' x2='52' y2='7' stroke='%23a0a0a0' stroke-width='0.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center / contain;
 }
 
 /* ----- Cat-scratch cluster — to the right of the click wheel ----- */
 .wear-cat-scratches-side {
   /* 2 short parallel scratches — smaller, more subtle cluster */
-  width: 22px;
-  height: 35px;
-  top: calc(50% + 10px);
-  right: calc(50% - 130px);
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='35'%3E%3Cline x1='3' y1='4' x2='8' y2='30' stroke='%23ffffff' stroke-width='0.6' opacity='0.18' stroke-linecap='round'/%3E%3Cline x1='3.3' y1='4' x2='8.3' y2='30' stroke='%23000000' stroke-width='0.25' opacity='0.06' stroke-linecap='round'/%3E%3Cline x1='10' y1='6' x2='16' y2='32' stroke='%23ffffff' stroke-width='0.5' opacity='0.15' stroke-linecap='round'/%3E%3Cline x1='10.3' y1='6' x2='16.3' y2='32' stroke='%23000000' stroke-width='0.2' opacity='0.05' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center / contain;
+  width: 24px;
+  height: 40px;
+  top: calc(50% + 8px);
+  right: 8px;
+  opacity: 0.4;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='40'%3E%3Cline x1='4' y1='4' x2='10' y2='34' stroke='%23a0a0a0' stroke-width='0.8' stroke-linecap='round'/%3E%3Cline x1='4.5' y1='4' x2='10.5' y2='34' stroke='%23000000' stroke-width='0.35' opacity='0.25' stroke-linecap='round'/%3E%3Cline x1='12' y1='6' x2='19' y2='36' stroke='%23a0a0a0' stroke-width='0.7' stroke-linecap='round'/%3E%3Cline x1='12.5' y1='6' x2='19.5' y2='36' stroke='%23000000' stroke-width='0.3' opacity='0.2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center / contain;
 }
 
 /* ============================================
