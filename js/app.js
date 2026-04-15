@@ -268,6 +268,8 @@ class IPodApp {
       // Music albums
       albums = PORTFOLIO_DATA.filter(n => n.type === 'album');
     }
+    // Exclude cover_flow nodes from the carousel (they're navigation nodes, not content)
+    albums = albums.filter(n => !n.type.startsWith('cover_flow'));
     
     if (albums.length === 0) {
       const empty = document.createElement('div');
