@@ -1141,6 +1141,133 @@ a {
 }
 
 /* ============================================
+   Tutorial Overlay — "How to Use" diagram
+   ============================================ */
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  cursor: pointer;
+}
+
+.tutorial-overlay.tutorial-visible {
+  opacity: 1;
+}
+
+.tutorial-overlay.tutorial-dismissing {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tutorial-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.tutorial-title {
+  position: fixed;
+  top: max(env(safe-area-inset-top, 12px), 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+  text-align: center;
+  padding-top: 12px;
+  z-index: 10002;
+}
+
+.tutorial-dismiss-hint {
+  position: fixed;
+  bottom: max(env(safe-area-inset-bottom, 16px), 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.03em;
+  animation: tutorial-pulse 2s ease-in-out infinite;
+  padding-bottom: 12px;
+  white-space: nowrap;
+  z-index: 10002;
+}
+
+@keyframes tutorial-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* Callout shared styles */
+.tutorial-callout {
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 10002;
+}
+
+.callout-label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.callout-label-left {
+  text-align: right;
+}
+
+.callout-label-right {
+  text-align: left;
+}
+
+.callout-title {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.callout-desc {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.3;
+  max-width: 160px;
+}
+
+.callout-label-left .callout-desc {
+  margin-left: auto;
+}
+
+/* Mobile adjustments */
+@media (max-width: 576px) {
+  .tutorial-title {
+    font-size: 20px;
+    top: max(env(safe-area-inset-top, 16px), 16px);
+    padding-top: 16px;
+  }
+  .tutorial-dismiss-hint {
+    font-size: 14px;
+    padding-bottom: 16px;
+  }
+  .callout-title {
+    font-size: 14px;
+  }
+  .callout-desc {
+    font-size: 11px;
+    max-width: 130px;
+    white-space: normal;
+  }
+}
+
+/* ============================================
    PWA Standalone Mode — Safe Area
    ============================================ */
 @media all and (display-mode: standalone) {

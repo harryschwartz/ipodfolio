@@ -40,6 +40,7 @@ class IPodApp {
     
     // Desktop QR screen or home
     this.desktopQRActive = false;
+    this.tutorialActive = false;
     console.log('[IPodApp] Init — ipodQROverlay available:', !!window.ipodQROverlay);
     if (window.ipodQROverlay && window.ipodQROverlay.shouldShow()) {
       console.log('[IPodApp] Showing desktop QR screen');
@@ -47,6 +48,8 @@ class IPodApp {
     } else {
       console.log('[IPodApp] Showing home screen (QR skipped)');
       this.showHome();
+      // On mobile, show tutorial overlay immediately
+      this.showTutorialOverlay();
     }
   }
 
@@ -61,6 +64,21 @@ class IPodApp {
     this.desktopQRActive = false;
     window.ipodQROverlay.dismiss();
     this.showHome();
+    // Show tutorial after QR screen is dismissed on desktop
+    this.showTutorialOverlay();
+  }
+
+  showTutorialOverlay() {
+    if (!window.ipodTutorialOverlay || !window.ipodTutorialOverlay.shouldShow()) return;
+    this.tutorialActive = true;
+    window.ipodTutorialOverlay.show();
+    // Poll for dismissal and update our state
+    const checkDismissed = setInterval(() => {
+      if (!window.ipodTutorialOverlay.isActive) {
+        this.tutorialActive = false;
+        clearInterval(checkDismissed);
+      }
+    }, 100);
   }
 
   applyTheme(themeId) {
