@@ -889,11 +889,11 @@ a {
   -webkit-box-reflect: none;
 }
 
-.coverflow-album.selected .coverflow-artwork {
+.coverflow-album.selected .coverflow-artwork-wrapper {
   opacity: 0;
 }
 
-.coverflow-album.playing .coverflow-artwork {
+.coverflow-album.playing .coverflow-artwork-wrapper {
   opacity: 1;
 }
 
@@ -901,16 +901,23 @@ a {
   opacity: 0;
 }
 
-.coverflow-artwork {
+.coverflow-artwork-wrapper {
   position: absolute;
   height: 8em;
   width: 8em;
-  transition: opacity 0.5s;
-  object-fit: cover;
+  overflow: hidden;
   border: 1px solid #555;
 }
 
+.coverflow-artwork {
+  height: 100%;
+  width: 100%;
+  transition: opacity 0.5s;
+  object-fit: cover;
+}
+
 .coverflow-artwork:not(img) {
+  position: absolute;
   top: 0;
   left: 0;
 }

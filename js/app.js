@@ -285,10 +285,12 @@ class IPodApp {
     
     // Initialize CoverFlow after DOM ready
     requestAnimationFrame(() => {
-      this.activeCoverFlow = new CoverFlow(container, albums, (playedSong) => {
+      this.activeCoverFlow = new CoverFlow(container, albums, (playedSong, navigateToNode) => {
         this.activeCoverFlow = null;
         if (playedSong) {
           this.showNowPlaying();
+        } else if (navigateToNode) {
+          this.navigateTo(navigateToNode, 'right');
         } else {
           this.navigateBack();
         }

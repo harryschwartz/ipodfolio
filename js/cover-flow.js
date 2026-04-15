@@ -29,9 +29,12 @@ class CoverFlow {
       const el = document.createElement('div');
       el.className = 'coverflow-album';
       
+      const wrapper = document.createElement('div');
+      wrapper.className = 'coverflow-artwork-wrapper';
       const cover = createCoverEl(album.metadata, 'coverflow-artwork', 'img/headphones-cover.jpg');
       cover.alt = album.title;
-      el.appendChild(cover);
+      wrapper.appendChild(cover);
+      el.appendChild(wrapper);
       
       this.albumsEl.appendChild(el);
       return el;
@@ -118,8 +121,8 @@ class CoverFlow {
     const existing = el.querySelector('.coverflow-backside');
     if (existing) existing.remove();
 
-    // Get children (songs) for this album
-    const children = getChildren(album.id).filter(c => c.type === 'song' || c.type === 'folder');
+    // Get all children for this album (songs, links, photo albums, videos, folders, etc.)
+    const children = getChildren(album.id);
     
     const backside = document.createElement('div');
     backside.className = 'coverflow-backside';
@@ -200,7 +203,7 @@ class CoverFlow {
           this.showBackside(album);
         }
       } else if (this.selectedAlbum && !this.playingAlbum) {
-        // Select a track from backside - play it
+        // Select an item from backside
         if (this.backsideChildren && this.backsideChildren[this.backsideScrollIndex]) {
           const track = this.backsideChildren[this.backsideScrollIndex];
           if (track.type === 'song') {
@@ -208,6 +211,12 @@ class CoverFlow {
             audioPlayer.play(track, songs, songs.indexOf(track));
             this.cleanup();
             if (this.onBack) this.onBack(true);
+          } else if (track.type === 'link' && track.metadata?.url) {
+            window.open(track.metadata.url, '_blank', 'noopener,noreferrer');
+          } else if (track.type === 'folder' || track.type === 'photo_album' || track.type === 'video') {
+            // Navigate into the item via the main app
+            this.cleanup();
+            if (this.onBack) this.onBack(false, track);
           }
         }
       }
