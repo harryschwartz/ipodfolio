@@ -28,13 +28,9 @@
   <canvas id="studio-grid" class="studio-backdrop"></canvas>
 
   <div class="ipod-shell" data-theme="pink">
-    <!-- Wear & scratch overlays -->
-    <div class="wear-overlay wear-frame-scratches" aria-hidden="true"></div>
-    <div class="wear-overlay wear-edge-wear" aria-hidden="true"></div>
 
     <!-- Screen -->
     <div class="ipod-screen">
-      <div class="wear-overlay wear-screen-marks" aria-hidden="true"></div>
       <!-- Header Bar -->
       <div class="ipod-header">
         <h3 id="header-title">Harry's iPodfolio</h3>
@@ -60,6 +56,10 @@
 
     <!-- Click Wheel -->
     <div class="clickwheel-container">
+      <!-- Cat-scratch wear marks around the click wheel -->
+      <div class="wear-overlay wear-cat-scratches-above" aria-hidden="true"></div>
+      <div class="wear-overlay wear-cat-scratches-below" aria-hidden="true"></div>
+      <div class="wear-overlay wear-cat-scratches-side" aria-hidden="true"></div>
       <div class="clickwheel" id="clickwheel">
         <!-- Menu button (top) -->
         <div class="wheel-button top">
