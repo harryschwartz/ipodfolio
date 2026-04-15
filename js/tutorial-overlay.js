@@ -66,7 +66,6 @@
     const svgEl = overlayEl.querySelector('.tutorial-lines');
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const isMobile = vw <= 576;
 
     svgEl.setAttribute('width', vw);
     svgEl.setAttribute('height', vh);
@@ -75,6 +74,10 @@
     svgEl.style.pointerEvents = 'none';
     svgEl.style.zIndex = '10001';
 
+    const lineColor = 'rgba(255,255,255,0.4)';
+    const dotColor = 'rgba(255,255,255,0.7)';
+
+    // Helper: get the center of an element in viewport coords
     function centerOf(el) {
       const r = el.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -85,9 +88,6 @@
     const wheelCy = wheelRect.top + wheelRect.height / 2;
     const wheelR = wheelRect.width / 2;
 
-    const lineColor = 'rgba(255,255,255,0.35)';
-    const dotColor = 'rgba(255,255,255,0.55)';
-
     function makeDot(x, y) {
       const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       dot.setAttribute('cx', x);
@@ -95,17 +95,6 @@
       dot.setAttribute('r', 3);
       dot.setAttribute('fill', dotColor);
       svgEl.appendChild(dot);
-    }
-
-    function makeLine(x1, y1, x2, y2) {
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', x1);
-      line.setAttribute('y1', y1);
-      line.setAttribute('x2', x2);
-      line.setAttribute('y2', y2);
-      line.setAttribute('stroke', lineColor);
-      line.setAttribute('stroke-width', 1);
-      svgEl.appendChild(line);
     }
 
     function makePath(d) {
@@ -121,20 +110,23 @@
       const el = document.createElement('div');
       el.className = 'tutorial-callout';
       el.style.position = 'fixed';
-      el.style.top = y + 'px';
-      el.style.transform = 'translateY(-50%)';
 
       const textDiv = document.createElement('div');
       textDiv.className = 'callout-label';
 
       if (align === 'right') {
         el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.transform = 'translateY(-50%)';
         textDiv.classList.add('callout-label-right');
       } else if (align === 'left') {
         el.style.right = (vw - x) + 'px';
+        el.style.top = y + 'px';
+        el.style.transform = 'translateY(-50%)';
         textDiv.classList.add('callout-label-left');
       } else if (align === 'center') {
         el.style.left = x + 'px';
+        el.style.top = y + 'px';
         el.style.transform = 'translate(-50%, -50%)';
         textDiv.style.textAlign = 'center';
       }
@@ -151,47 +143,83 @@
       content.appendChild(el);
     }
 
+    /**
+     * For each button, the dot goes right on the button center.
+     * The label goes to the left or right side of the wheel,
+     * with a connecting line (possibly angled) from dot to label.
+     *
+     * side: 'left' means label is to the left of the wheel
+     * side: 'right' means label is to the right of the wheel
+     */
+    function addCallout(title, desc, dotX, dotY, side, labelYOverride) {
+      const labelY = labelYOverride !== undefined ? labelYOverride : dotY;
+      const labelGap = 16;
+
+      makeDot(dotX, dotY);
+
+      if (side === 'left') {
+        const labelX = wheelRect.left - labelGap;
+        makeLabel(title, desc, labelX, labelY, 'left');
+        // Line from label to dot
+        if (Math.abs(dotY - labelY) > 4) {
+          const midX = labelX + (dotX - labelX) * 0.35;
+          makePath(`M${labelX + 4},${labelY} L${midX},${labelY} L${dotX},${dotY}`);
+        } else {
+          makePath(`M${labelX + 4},${labelY} L${dotX},${dotY}`);
+        }
+      } else {
+        const labelX = wheelRect.right + labelGap;
+        makeLabel(title, desc, labelX, labelY, 'right');
+        if (Math.abs(dotY - labelY) > 4) {
+          const midX = dotX + (labelX - dotX) * 0.65;
+          makePath(`M${dotX},${dotY} L${midX},${labelY} L${labelX - 4},${labelY}`);
+        } else {
+          makePath(`M${dotX},${dotY} L${labelX - 4},${labelY}`);
+        }
+      }
+    }
+
+    // For mobile, a different layout is needed since the wheel is nearly full-width
+    const isMobile = vw <= 576;
+
     if (isMobile) {
       // ---- MOBILE LAYOUT ----
-      // On mobile, the wheel is large and centered. Labels go above/below or
-      // very tight to the sides. Use compact labels.
       const gap = 8;
 
       // SCROLL WHEEL — label centered above the wheel
-      const scrollDotAngle = -70; // upper-left of wheel ring
-      const scrollRad = (scrollDotAngle * Math.PI) / 180;
-      const scrollDotX = wheelCx + Math.cos(scrollRad) * (wheelR - 4);
-      const scrollDotY = wheelCy + Math.sin(scrollRad) * (wheelR - 4);
+      // Dot on upper-left rim
+      const scrollAngle = -70 * Math.PI / 180;
+      const scrollDotX = wheelCx + Math.cos(scrollAngle) * (wheelR - 6);
+      const scrollDotY = wheelCy + Math.sin(scrollAngle) * (wheelR - 6);
       makeDot(scrollDotX, scrollDotY);
-      // Label above the wheel, centered
       const scrollLabelY = wheelRect.top - 28;
       makeLabel('Scroll Wheel', 'Slide finger in a circle to browse', wheelCx, scrollLabelY, 'center');
-      makeLine(scrollDotX, scrollDotY, wheelCx, scrollLabelY + 12);
+      makePath(`M${scrollDotX},${scrollDotY} L${wheelCx},${scrollLabelY + 12}`);
 
-      // MENU (top button)
+      // MENU (top button) — label to the left
       if (menuBtn) {
         const c = centerOf(menuBtn);
         makeDot(c.x, c.y);
-        // Put label to the upper-left, angled line
         const labelX = gap + 8;
-        const labelY = c.y - 12;
+        const labelY = c.y - 10;
         makeLabel('Menu', 'Go back', labelX, labelY, 'right');
-        // Measure label approximate right edge
-        makePath(`M${c.x},${c.y} L${labelX + 60},${labelY}`);
+        makePath(`M${c.x},${c.y} L${labelX + 55},${labelY}`);
       }
 
-      // SELECT (center button)
+      // SELECT (center button) — label to the right
       if (centerBtn) {
         const c = centerOf(centerBtn);
-        makeDot(c.x + 10, c.y - 10); // offset dot slightly so it's visible on center button edge
-        // Label to the right of the wheel
+        // Dot on center button edge (upper-right)
+        const dotX = c.x + 20;
+        const dotY = c.y - 20;
+        makeDot(dotX, dotY);
         const labelX = wheelRect.right + gap;
         const labelY = c.y - 20;
         makeLabel('Select', 'Press to choose', Math.min(labelX, vw - 100), labelY, 'right');
-        makePath(`M${c.x + 10},${c.y - 10} L${Math.min(labelX, vw - 100) - 4},${labelY}`);
+        makePath(`M${dotX},${dotY} L${Math.min(labelX, vw - 100) - 4},${labelY}`);
       }
 
-      // PREVIOUS (left button)
+      // PREVIOUS (left button) — label to the left
       if (rewindBtn) {
         const c = centerOf(rewindBtn);
         makeDot(c.x, c.y);
@@ -201,7 +229,7 @@
         makePath(`M${c.x},${c.y} L${labelX + 68},${labelY}`);
       }
 
-      // NEXT (right button)
+      // NEXT (right button) — label to the right
       if (forwardBtn) {
         const c = centerOf(forwardBtn);
         makeDot(c.x, c.y);
@@ -211,71 +239,60 @@
         makePath(`M${c.x},${c.y} L${Math.min(labelX, vw - 90) - 4},${labelY}`);
       }
 
-      // PLAY/PAUSE (bottom button)
+      // PLAY/PAUSE (bottom button) — label centered below
       if (playPauseBtn) {
         const c = centerOf(playPauseBtn);
         makeDot(c.x, c.y);
-        // Label below the wheel, centered
         const labelY = wheelRect.bottom + 28;
         makeLabel('Play / Pause', 'Control audio playback', wheelCx, labelY, 'center');
-        makeLine(c.x, c.y, wheelCx, labelY - 12);
+        makePath(`M${c.x},${c.y} L${wheelCx},${labelY - 12}`);
       }
 
     } else {
       // ---- DESKTOP LAYOUT ----
-      // Labels to left and right of the wheel with connecting lines
-      const labelGap = 16;
+      // Dot goes on the actual button center. Label goes to left or right of wheel.
+      // This ensures the diagram is always anchored to the real element positions.
 
-      function addDesktopCallout(title, desc, side, anchorAngleDeg, labelY) {
-        const rad = (anchorAngleDeg * Math.PI) / 180;
-        const dotX = wheelCx + Math.cos(rad) * (wheelR - 4);
-        const dotY = wheelCy + Math.sin(rad) * (wheelR - 4);
-        makeDot(dotX, dotY);
-
-        if (side === 'left') {
-          const labelRight = wheelRect.left - labelGap;
-          makeLabel(title, desc, labelRight, labelY, 'left');
-          if (Math.abs(dotY - labelY) > 4) {
-            const midX = labelRight + (dotX - labelRight) * 0.3;
-            makePath(`M${labelRight + 4},${labelY} L${midX},${labelY} L${dotX},${dotY}`);
-          } else {
-            makeLine(labelRight + 4, labelY, dotX, dotY);
-          }
-        } else {
-          const labelLeft = wheelRect.right + labelGap;
-          makeLabel(title, desc, labelLeft, labelY, 'right');
-          if (Math.abs(dotY - labelY) > 4) {
-            const midX = dotX + (labelLeft - dotX) * 0.7;
-            makePath(`M${dotX},${dotY} L${midX},${labelY} L${labelLeft - 4},${labelY}`);
-          } else {
-            makeLine(dotX, dotY, labelLeft - 4, labelY);
-          }
-        }
+      // Menu (top) — left side
+      if (menuBtn) {
+        const c = centerOf(menuBtn);
+        addCallout('Menu', 'Go back to the previous screen', c.x, c.y, 'left');
       }
 
-      // Menu (top) — left
-      const menuC = menuBtn ? centerOf(menuBtn) : { y: wheelCy - wheelR * 0.6 };
-      addDesktopCallout('Menu', 'Go back to the previous screen', 'left', -90, menuC.y);
+      // Scroll Wheel — right side, dot on upper-right rim of the wheel ring
+      {
+        const scrollAngle = -45 * Math.PI / 180;
+        const dotX = wheelCx + Math.cos(scrollAngle) * (wheelR - 6);
+        const dotY = wheelCy + Math.sin(scrollAngle) * (wheelR - 6);
+        // Label Y offset up so it doesn't collide with Select
+        addCallout('Scroll Wheel', 'Slide finger in a circle to browse', dotX, dotY, 'right', wheelCy - wheelR * 0.45);
+      }
 
-      // Scroll Wheel — right, upper rim
-      addDesktopCallout('Scroll Wheel', 'Slide finger in a circle to browse', 'right', -45, wheelCy - wheelR * 0.45);
+      // Previous (left) — left side
+      if (rewindBtn) {
+        const c = centerOf(rewindBtn);
+        addCallout('Previous', 'Skip back', c.x, c.y, 'left');
+      }
 
-      // Previous (left) — left
-      const rewC = rewindBtn ? centerOf(rewindBtn) : { y: wheelCy };
-      addDesktopCallout('Previous', 'Skip back', 'left', 180, rewC.y);
+      // Select (center) — right side
+      if (centerBtn) {
+        const c = centerOf(centerBtn);
+        addCallout('Select', 'Press to choose an item', c.x, c.y, 'right');
+      }
 
-      // Select (center) — right
-      const centerC = centerBtn ? centerOf(centerBtn) : { y: wheelCy };
-      addDesktopCallout('Select', 'Press to choose an item', 'right', 0, centerC.y);
+      // Next (right) — right side, offset label below Select if they'd overlap
+      if (forwardBtn) {
+        const fwdC = centerOf(forwardBtn);
+        const centerC = centerBtn ? centerOf(centerBtn) : { y: wheelCy };
+        const labelY = Math.abs(fwdC.y - centerC.y) < 40 ? centerC.y + 42 : fwdC.y;
+        addCallout('Next', 'Skip forward', fwdC.x, fwdC.y, 'right', labelY);
+      }
 
-      // Next (right) — right, offset below select
-      const fwdC = forwardBtn ? centerOf(forwardBtn) : { y: wheelCy };
-      const nextLabelY = Math.abs(fwdC.y - centerC.y) < 40 ? centerC.y + 42 : fwdC.y;
-      addDesktopCallout('Next', 'Skip forward', 'right', 15, nextLabelY);
-
-      // Play/Pause (bottom) — left
-      const ppC = playPauseBtn ? centerOf(playPauseBtn) : { y: wheelCy + wheelR * 0.6 };
-      addDesktopCallout('Play / Pause', 'Control audio playback', 'left', 90, ppC.y);
+      // Play/Pause (bottom) — left side
+      if (playPauseBtn) {
+        const c = centerOf(playPauseBtn);
+        addCallout('Play / Pause', 'Control audio playback', c.x, c.y, 'left');
+      }
     }
   }
 
