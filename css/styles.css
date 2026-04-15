@@ -1100,6 +1100,100 @@ a {
 }
 
 /* ============================================
+   Desktop Overlay — "Best on Mobile"
+   ============================================ */
+.desktop-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  align-items: center;
+  justify-content: center;
+  animation: overlayFadeIn 0.4s ease;
+}
+
+.desktop-overlay.dismissed {
+  display: none !important;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Show only on desktop (wider than mobile breakpoint) */
+@media (min-width: 577px) {
+  .desktop-overlay:not(.dismissed) {
+    display: flex;
+  }
+}
+
+/* Also hide in standalone PWA mode */
+@media all and (display-mode: standalone) {
+  .desktop-overlay {
+    display: none !important;
+  }
+}
+
+.desktop-overlay-card {
+  background: white;
+  border-radius: 20px;
+  padding: 40px 48px;
+  text-align: center;
+  max-width: 340px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3);
+  animation: cardSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cardSlideUp {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.desktop-overlay-ipod {
+  margin-bottom: 16px;
+}
+
+.desktop-overlay-card h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: -0.02em;
+}
+
+.desktop-overlay-card p {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: #888;
+}
+
+.desktop-overlay-card canvas {
+  display: block;
+  margin: 0 auto 24px;
+  border-radius: 12px;
+}
+
+.desktop-overlay-dismiss {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.desktop-overlay-dismiss:hover {
+  color: #555;
+  background: #f0f0f0;
+}
+
+/* ============================================
    PWA Standalone Mode — Safe Area
    ============================================ */
 @media all and (display-mode: standalone) {
