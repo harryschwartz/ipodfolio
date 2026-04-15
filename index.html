@@ -111,24 +111,23 @@
   <script src="js/views.js"></script>
   <script src="js/app.js"></script>
   <script>
-    // Mask body scratches so they don't cross the click wheel
+    // Fine-tune the scratch mask position to match the actual click wheel layout
     (function() {
-      function maskScratchesAroundWheel() {
+      function updateScratchMask() {
         var shell = document.querySelector('.ipod-shell');
         var wheel = document.querySelector('.clickwheel');
         var overlay = document.querySelector('.wear-scratches-body');
         if (!shell || !wheel || !overlay) return;
         var sr = shell.getBoundingClientRect();
         var wr = wheel.getBoundingClientRect();
-        var cx = ((wr.left + wr.width / 2) - sr.left) / sr.width * 100;
         var cy = ((wr.top + wr.height / 2) - sr.top) / sr.height * 100;
-        var rx = (wr.width / 2) / sr.width * 100;
-        var ry = (wr.height / 2) / sr.height * 100;
-        overlay.style.maskImage = 'radial-gradient(' + rx + '% ' + ry + '% at ' + cx + '% ' + cy + '%, transparent 99%, black 100%)';
-        overlay.style.webkitMaskImage = overlay.style.maskImage;
+        var r = wr.width / 2;
+        var mask = 'radial-gradient(circle at 50% ' + cy + '%, transparent ' + r + 'px, black ' + (r + 1) + 'px)';
+        overlay.style.webkitMaskImage = mask;
+        overlay.style.maskImage = mask;
       }
-      window.addEventListener('load', maskScratchesAroundWheel);
-      window.addEventListener('resize', maskScratchesAroundWheel);
+      window.addEventListener('load', updateScratchMask);
+      window.addEventListener('resize', updateScratchMask);
     })();
   </script>
   <script>
