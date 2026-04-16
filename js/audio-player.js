@@ -10,10 +10,6 @@ class AudioPlayer {
     this.queueIndex = 0;
     this.volume = 0.7;
     this.audio.volume = this.volume;
-    this.shuffle = false;
-    this.repeat = 0; // 0 = off, 1 = all, 2 = one
-    this._shuffleOrder = []; // shuffled indices
-    this._shufflePos = 0;
     
     // Set up audio events
     this.audio.addEventListener('ended', () => this._onEnded());
@@ -64,82 +60,23 @@ class AudioPlayer {
   }
 
   next() {
-    if (this.shuffle && this.queue.length > 1) {
-      this._shufflePos++;
-      if (this._shufflePos >= this._shuffleOrder.length) {
-        if (this.repeat === 1) {
-          this._buildShuffleOrder();
-          this._shufflePos = 0;
-        } else {
-          this.stop();
-          return;
-        }
-      }
-      this.queueIndex = this._shuffleOrder[this._shufflePos];
-      this.play(this.queue[this.queueIndex], this.queue, this.queueIndex);
-      return;
-    }
     if (this.queue.length > 0 && this.queueIndex < this.queue.length - 1) {
       this.queueIndex++;
       this.play(this.queue[this.queueIndex], this.queue, this.queueIndex);
-    } else if (this.repeat === 1 && this.queue.length > 0) {
-      this.queueIndex = 0;
-      this.play(this.queue[this.queueIndex], this.queue, this.queueIndex);
     } else {
+      // End of queue — stop playback
       this.stop();
     }
   }
 
   prev() {
-    if (this.shuffle && this.queue.length > 1) {
-      if (this._shufflePos > 0) {
-        this._shufflePos--;
-        this.queueIndex = this._shuffleOrder[this._shufflePos];
-        this.play(this.queue[this.queueIndex], this.queue, this.queueIndex);
-      }
-      return;
-    }
     if (this.queue.length > 0 && this.queueIndex > 0) {
       this.queueIndex--;
       this.play(this.queue[this.queueIndex], this.queue, this.queueIndex);
     }
   }
 
-  toggleShuffle() {
-    this.shuffle = !this.shuffle;
-    if (this.shuffle) {
-      this._buildShuffleOrder();
-    }
-    this._notify();
-  }
-
-  cycleRepeat() {
-    this.repeat = (this.repeat + 1) % 3;
-    this._notify();
-  }
-
-  _buildShuffleOrder() {
-    // Fisher-Yates shuffle, put current track first
-    const indices = Array.from({ length: this.queue.length }, (_, i) => i);
-    // Remove current index, shuffle rest, prepend current
-    const current = this.queueIndex;
-    const rest = indices.filter(i => i !== current);
-    for (let i = rest.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [rest[i], rest[j]] = [rest[j], rest[i]];
-    }
-    this._shuffleOrder = [current, ...rest];
-    this._shufflePos = 0;
-  }
-
   _onEnded() {
-    if (this.repeat === 2) {
-      // Repeat one: replay current track
-      this.audio.currentTime = 0;
-      this.audio.play().catch(() => {});
-      this._notify();
-      return;
-    }
     this.next();
   }
 

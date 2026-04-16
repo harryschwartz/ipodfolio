@@ -522,22 +522,6 @@ a {
   flex-shrink: 0;
 }
 
-.np-status-badge {
-  display: flex;
-  align-items: center;
-  color: #bbb;
-  transition: color 0.2s;
-}
-
-.np-status-badge.active {
-  color: #1976d2;
-}
-
-.np-status-icon {
-  width: 14px;
-  height: 14px;
-}
-
 .np-track-counter {
   margin-left: auto;
   font-size: 10px;

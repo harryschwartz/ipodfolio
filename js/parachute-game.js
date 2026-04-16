@@ -1,867 +1,1504 @@
-// Parachute Game — classic iPod Parachute port
-// Canvas-based shooting game controlled by click wheel
+// Parachute Game — full rebuild for iPod Classic web portfolio
+// Classic Paratrooper/Sabotage mechanics, canvas-based, click-wheel controlled.
 
-const PC_BASE = { WIDTH: 340, HEIGHT: 260 };
+// ─── Constants ────────────────────────────────────────────────────────────────
 
+const PC_BASE = { WIDTH: 392, HEIGHT: 262 };
+
+// All sizes in "base" pixels (scaled up by this.scale at runtime)
 const PC = {
   TURRET: {
-    BASE_W: 28, BASE_H: 14,
-    BARREL_LEN: 22, BARREL_W: 6,
-    ANGLE_MIN: -Math.PI * 0.85,   // left limit (from vertical)
-    ANGLE_MAX: Math.PI * 0.85,    // right limit
-    ANGLE_STEP: 0.08,             // radians per scroll tick
-    INITIAL_ANGLE: -Math.PI / 2, // straight up
+    BASE_W: 26,         // turret base width
+    BASE_H: 12,         // turret base height
+    DOME_R: 9,          // pivot dome radius
+    BARREL_LEN: 20,     // barrel length
+    BARREL_W: 5,        // barrel width
+    // Angle from vertical (up = 0). -Math.PI/2 is pointing left, +Math.PI/2 is right.
+    // We store as standard canvas angle: straight up = -PI/2
+    ANGLE_MIN: -Math.PI / 2 - (80 * Math.PI / 180),  // ~-80° left of straight-up
+    ANGLE_MAX: -Math.PI / 2 + (80 * Math.PI / 180),  // ~+80° right of straight-up
+    ANGLE_STEP: 0.09,
+    INITIAL_ANGLE: -Math.PI / 2,   // straight up
   },
   BULLET: {
-    RADIUS: 3, SPEED: 5,
+    RADIUS: 2.5,
+    SPEED: 320,   // pixels/sec in base units — scaled
     COLOR: '#ffe066',
-    MAX: 6,
+    MAX: 8,
+    COST: 1,      // score cost per shot
   },
   HELICOPTER: {
-    WIDTH: 52, HEIGHT: 20,
-    SPEED_INITIAL: 0.9,
-    SPEED_INCREMENT: 0.15,
-    Y_OFFSET: 22,         // from top
-    DROP_INTERVAL_INITIAL: 160, // frames between drops
-    DROP_INTERVAL_MIN: 60,
+    WIDTH: 56,
+    HEIGHT: 22,
+    SPEED_BASE: 50,          // base-pixels / second
+    SPEED_INC: 8,            // per wave
+    SPEED_MAX: 130,
+    Y_BAND: [18, 70],        // altitude range top/bottom of screen (base px from top)
+    DROP_INTERVAL_BASE: 3.5, // seconds between drops
+    DROP_INTERVAL_MIN: 1.2,
+    DROP_DEC: 0.25,          // seconds less per wave
+    SCORE: 5,
   },
   PARATROOPER: {
-    WIDTH: 10, HEIGHT: 14,
-    CHUTE_RADIUS: 14,
-    FALL_SPEED: 0.55,
-    FALL_SPEED_FAST: 2.8, // after chute shot
-    MAX_LANDED: 5,
-    SCORE_CHUTE: 10,      // chute popped (falling)
-    SCORE_HELI: 50,       // helicopter hit
+    W: 8,
+    H: 12,
+    CHUTE_R: 13,
+    FALL_SPEED: 30,       // base px/sec with chute
+    FALL_SPEED_FAST: 130, // without chute
+    SCORE: 2,
+    MAX_PER_SIDE: 4,      // 4 on one side → game over
+  },
+  JET: {
+    WIDTH: 52,
+    HEIGHT: 14,
+    SPEED: 220,          // base px/sec (fast!)
+    BOMB_SPEED: 80,
+    SCORE: 5,
+    BOMB_SCORE: 25,
+    INTERVAL: [12, 22],  // seconds between jet appearances
   },
   EXPLOSION: {
-    DURATION: 30,         // frames
-    RADIUS_MAX: 22,
+    DURATION: 0.55,      // seconds
+    RADIUS_MAX: 24,
   },
   GROUND: {
-    HEIGHT: 12,
-    COLOR_TOP: '#4c8c2e',
-    COLOR_BOT: '#2a5416',
+    HEIGHT: 14,
   },
-  SKY: {
-    TOP: '#4db8f0',
-    BOT: '#a8dff7',
+  LADDER: {
+    ANIM_DURATION: 2.5,  // seconds of ladder-climbing animation
   },
 };
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
 
-function lerpColor(a, b, t) {
-  const ar = parseInt(a.slice(1,3),16), ag = parseInt(a.slice(3,5),16), ab = parseInt(a.slice(5,7),16);
-  const br = parseInt(b.slice(1,3),16), bg = parseInt(b.slice(3,5),16), bb = parseInt(b.slice(5,7),16);
-  const r = Math.round(ar + (br-ar)*t);
-  const g = Math.round(ag + (bg-ag)*t);
-  const blue = Math.round(ab + (bb-ab)*t);
-  return `rgb(${r},${g},${blue})`;
-}
+function rnd(min, max) { return Math.random() * (max - min) + min; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function lerp(a, b, t) { return a + (b - a) * t; }
 
 // ─── ParachuteGame class ───────────────────────────────────────────────────────
 
 class ParachuteGame {
   constructor() {
-    this.canvas = null;
-    this.ctx = null;
-    this.cw = 0;
-    this.ch = 0;
-    this.scale = 1;
-    this.animId = null;
+    this.canvas    = null;
+    this.ctx       = null;
+    this.cw        = 0;
+    this.ch        = 0;
+    this.scale     = 1;
+    this.animId    = null;
     this.listeners = [];
-    this.hudEl = null;
-    this.hudRightEl = null;
+    this.hudEl     = null;
+    this.hudRightEl= null;
 
-    // State
-    this.state = 'start';  // 'start' | 'playing' | 'gameover'
+    // Game state machine
+    // 'start' | 'playing' | 'paused' | 'ladder' | 'gameover'
+    this.state = 'start';
     this.score = 0;
-    this.landed = 0;       // paratroopers that reached ground
-    this.wave = 0;
+    this.wave  = 1;
 
-    // Game objects
+    // Timing
+    this._lastTs   = null;
+    this._gameTime = 0;  // total game seconds (unpaused)
+
+    // Objects
     this.turretAngle = PC.TURRET.INITIAL_ANGLE;
-    this.bullets = [];
-    this.heli = null;
+    this.bullets     = [];
+    this.helis       = [];        // array — can have up to 2
     this.paratroopers = [];
-    this.explosions = [];
+    this.explosions  = [];
+    this.jets        = [];
+    this.bombs       = [];
 
-    // Helicopter state
-    this.heliDropTimer = 0;
-    this.heliDropInterval = PC.HELICOPTER.DROP_INTERVAL_INITIAL;
-    this.heliSpeed = PC.HELICOPTER.SPEED_INITIAL;
+    // Landed paratroopers per side: index 0 = left, 1 = right
+    this.landedLeft  = 0;
+    this.landedRight = 0;
+
+    // Helicopter spawn
+    this._heliTimer   = 0;
+    this._nextHeliIn  = 1.5;
+
+    // Jet spawn
+    this._jetTimer    = 0;
+    this._nextJetIn   = rnd(PC.JET.INTERVAL[0], PC.JET.INTERVAL[1]);
 
     // Rotor animation
-    this.rotorAngle = 0;
+    this._rotorPhase  = 0;
 
-    // Frame counter
-    this.frame = 0;
+    // Ladder animation state
+    this._ladderSide  = 0; // 0=left,1=right
+    this._ladderTimer = 0;
+
+    // Audio: Web Audio API for procedural SFX
+    this._audioCtx    = null;
+    this._audioReady  = false;
   }
 
   // ── Public API ──────────────────────────────────────────────────────────────
 
   init(canvasEl, hudEl, hudRightEl) {
-    this.canvas = canvasEl;
-    this.ctx = canvasEl.getContext('2d');
-    this.hudEl = hudEl;
-    this.hudRightEl = hudRightEl;
+    this.canvas       = canvasEl;
+    this.ctx          = canvasEl.getContext('2d');
+    this.hudEl        = hudEl;
+    this.hudRightEl   = hudRightEl;
 
-    const parent = canvasEl.parentElement;
-    this.cw = canvasEl.width = parent.clientWidth;
-    this.ch = canvasEl.height = parent.clientHeight;
-    this.scale = this.cw / PC_BASE.WIDTH;
+    const parent      = canvasEl.parentElement;
+    this.cw           = canvasEl.width  = parent.clientWidth;
+    this.ch           = canvasEl.height = parent.clientHeight;
+    this.scale        = this.cw / PC_BASE.WIDTH;
 
     this.ctx.imageSmoothingEnabled = true;
     this.ctx.imageSmoothingQuality = 'high';
 
     this._resetGame();
     this.state = 'start';
+    this._updateHUD();
 
-    // Event listeners
+    // ── Event listeners ──
     const onCenter = () => this._handleCenter();
     const onFwd    = () => this._handleFwd();
     const onBwd    = () => this._handleBwd();
-    const onMenu   = () => {};  // menu handled by parent
+    const onMenu   = () => this._handleMenu();
 
-    window.addEventListener('centerclick', onCenter);
-    window.addEventListener('forwardscroll', onFwd, true);
-    window.addEventListener('backwardscroll', onBwd, true);
-    window.addEventListener('menuclick', onMenu);
+    window.addEventListener('centerclick',    onCenter);
+    window.addEventListener('forwardscroll',  onFwd,    true);
+    window.addEventListener('backwardscroll', onBwd,    true);
+    window.addEventListener('menuclick',      onMenu);
 
     this.listeners = [
-      ['centerclick', onCenter],
-      ['forwardscroll', onFwd],
-      ['backwardscroll', onBwd],
-      ['menuclick', onMenu],
+      ['centerclick',    onCenter, false],
+      ['forwardscroll',  onFwd,    true],
+      ['backwardscroll', onBwd,    true],
+      ['menuclick',      onMenu,   false],
     ];
 
+    this._lastTs = null;
     this._loop();
   }
 
   cleanup() {
     if (this.animId) cancelAnimationFrame(this.animId);
     this.animId = null;
-    this.listeners.forEach(([evt, fn]) => window.removeEventListener(evt, fn, true));
+    this.listeners.forEach(([evt, fn, cap]) => window.removeEventListener(evt, fn, cap));
     this.listeners = [];
+    if (this._audioCtx) { try { this._audioCtx.close(); } catch(e) {} }
   }
 
   // ── Input Handlers ──────────────────────────────────────────────────────────
 
   _handleCenter() {
+    this._initAudio();
     if (this.state === 'start' || this.state === 'gameover') {
       this._resetGame();
       this.state = 'playing';
+      this._updateHUD();
+    } else if (this.state === 'paused') {
+      this.state = 'playing';
+      this._lastTs = null; // reset dt on resume to avoid jump
+      this._updateHUD();
     } else if (this.state === 'playing') {
       this._fire();
     }
   }
 
   _handleFwd() {
-    // Forward scroll → rotate turret clockwise (right)
     if (this.state !== 'playing') return;
-    this.turretAngle = Math.min(PC.TURRET.ANGLE_MAX, this.turretAngle + PC.TURRET.ANGLE_STEP);
+    this.turretAngle = clamp(
+      this.turretAngle + PC.TURRET.ANGLE_STEP,
+      PC.TURRET.ANGLE_MIN,
+      PC.TURRET.ANGLE_MAX
+    );
   }
 
   _handleBwd() {
-    // Backward scroll → rotate turret counter-clockwise (left)
     if (this.state !== 'playing') return;
-    this.turretAngle = Math.max(PC.TURRET.ANGLE_MIN, this.turretAngle - PC.TURRET.ANGLE_STEP);
+    this.turretAngle = clamp(
+      this.turretAngle - PC.TURRET.ANGLE_STEP,
+      PC.TURRET.ANGLE_MIN,
+      PC.TURRET.ANGLE_MAX
+    );
   }
 
-  // ── Game Logic ──────────────────────────────────────────────────────────────
+  _handleMenu() {
+    if (this.state === 'playing') {
+      this.state = 'paused';
+      this._updateHUD();
+    } else if (this.state === 'paused') {
+      this.state = 'playing';
+      this._lastTs = null;
+      this._updateHUD();
+    }
+  }
+
+  // ── Reset ────────────────────────────────────────────────────────────────────
 
   _resetGame() {
-    this.score = 0;
-    this.landed = 0;
-    this.wave = 1;
-    this.turretAngle = PC.TURRET.INITIAL_ANGLE;
-    this.bullets = [];
+    this.score        = 0;
+    this.wave         = 1;
+    this.turretAngle  = PC.TURRET.INITIAL_ANGLE;
+    this.bullets      = [];
+    this.helis        = [];
     this.paratroopers = [];
-    this.explosions = [];
-    this.heliDropTimer = 0;
-    this.heliDropInterval = PC.HELICOPTER.DROP_INTERVAL_INITIAL;
-    this.heliSpeed = PC.HELICOPTER.SPEED_INITIAL;
-    this.rotorAngle = 0;
-    this.frame = 0;
-    this._spawnHeli();
+    this.explosions   = [];
+    this.jets         = [];
+    this.bombs        = [];
+    this.landedLeft   = 0;
+    this.landedRight  = 0;
+    this._heliTimer   = 0;
+    this._nextHeliIn  = 1.5;
+    this._jetTimer    = 0;
+    this._nextJetIn   = rnd(PC.JET.INTERVAL[0], PC.JET.INTERVAL[1]);
+    this._rotorPhase  = 0;
+    this._gameTime    = 0;
+    this._ladderTimer = 0;
   }
 
-  _spawnHeli() {
-    const s = this.scale;
-    const hw = PC.HELICOPTER.WIDTH * s;
-    const y = PC.HELICOPTER.Y_OFFSET * s;
-    // Start from left or right randomly
-    const fromLeft = Math.random() > 0.5;
-    this.heli = {
-      x: fromLeft ? -hw : this.cw + hw,
-      y,
-      w: hw,
-      h: PC.HELICOPTER.HEIGHT * s,
-      dir: fromLeft ? 1 : -1,
-      alive: true,
-    };
-    this.heliDropTimer = Math.floor(this.heliDropInterval * 0.5);
+  // ── Audio ────────────────────────────────────────────────────────────────────
+
+  _initAudio() {
+    if (this._audioReady) return;
+    try {
+      this._audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
+      this._audioReady = true;
+    } catch(e) {}
   }
+
+  _sfx(type) {
+    if (!this._audioReady || !this._audioCtx) return;
+    const ac = this._audioCtx;
+    const now = ac.currentTime;
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain);
+    gain.connect(ac.destination);
+
+    switch (type) {
+      case 'fire':
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(220, now + 0.08);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.start(now); osc.stop(now + 0.1);
+        break;
+      case 'explode':
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.35);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.start(now); osc.stop(now + 0.38);
+        break;
+      case 'pop':
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(660, now);
+        osc.frequency.exponentialRampToValueAtTime(110, now + 0.18);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.start(now); osc.stop(now + 0.2);
+        break;
+      case 'land':
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(330, now);
+        osc.frequency.exponentialRampToValueAtTime(220, now + 0.12);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.start(now); osc.stop(now + 0.15);
+        break;
+      case 'gameover':
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(55, now + 0.9);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+        osc.start(now); osc.stop(now + 1.0);
+        break;
+    }
+  }
+
+  // ── Fire ─────────────────────────────────────────────────────────────────────
 
   _fire() {
     if (this.bullets.length >= PC.BULLET.MAX) return;
-    const s = this.scale;
-    const tx = this.cw / 2;
-    const groundY = this.ch - PC.GROUND.HEIGHT * s;
-    const ty = groundY - PC.TURRET.BASE_H * s;
+    const s      = this.scale;
+    const tx     = this.cw / 2;
+    const gY     = this._groundY();
+    const ty     = gY - (PC.TURRET.BASE_H + PC.TURRET.DOME_R) * s;
+    const bLen   = PC.TURRET.BARREL_LEN * s;
+    const angle  = this.turretAngle;
+    const speed  = PC.BULLET.SPEED * s;
 
-    // Bullet starts at barrel tip
-    const barrelLen = PC.TURRET.BARREL_LEN * s;
-    const bx = tx + Math.cos(this.turretAngle) * barrelLen;
-    const by = ty + Math.sin(this.turretAngle) * barrelLen;
-
-    const speed = PC.BULLET.SPEED * s;
     this.bullets.push({
-      x: bx, y: by,
-      vx: Math.cos(this.turretAngle) * speed,
-      vy: Math.sin(this.turretAngle) * speed,
+      x:  tx + Math.cos(angle) * bLen,
+      y:  ty + Math.sin(angle) * bLen,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
     });
+
+    this.score = Math.max(0, this.score - PC.BULLET.COST);
+    this._sfx('fire');
+    this._updateHUD();
   }
 
-  _update() {
+  // ── Ground Y ─────────────────────────────────────────────────────────────────
+
+  _groundY() {
+    return this.ch - PC.GROUND.HEIGHT * this.scale;
+  }
+
+  // ── Helicopter spawn ─────────────────────────────────────────────────────────
+
+  _spawnHeli() {
+    const s    = this.scale;
+    const hw   = PC.HELICOPTER.WIDTH * s;
+    // Altitude: each wave gets progressively lower
+    const bandTop = PC.HELICOPTER.Y_BAND[0] * s;
+    const bandBot = PC.HELICOPTER.Y_BAND[1] * s;
+    const waveT   = clamp((this.wave - 1) / 8, 0, 1);
+    const y       = lerp(bandTop, bandBot, waveT) + rnd(-4, 4) * s;
+    const fromLeft = Math.random() > 0.5;
+
+    const speed = clamp(
+      (PC.HELICOPTER.SPEED_BASE + (this.wave - 1) * PC.HELICOPTER.SPEED_INC) * s,
+      PC.HELICOPTER.SPEED_BASE * s,
+      PC.HELICOPTER.SPEED_MAX * s
+    );
+    const dropInterval = Math.max(
+      PC.HELICOPTER.DROP_INTERVAL_BASE - (this.wave - 1) * PC.HELICOPTER.DROP_DEC,
+      PC.HELICOPTER.DROP_INTERVAL_MIN
+    );
+
+    this.helis.push({
+      x:     fromLeft ? -hw : this.cw + hw,
+      y,
+      w:     hw,
+      h:     PC.HELICOPTER.HEIGHT * s,
+      dir:   fromLeft ? 1 : -1,
+      speed,
+      dropTimer: dropInterval * rnd(0.3, 0.7), // stagger first drop
+      dropInterval,
+      alive: true,
+    });
+
+    this._nextHeliIn = rnd(4, 8);
+    this._heliTimer  = 0;
+  }
+
+  // ── Jet spawn ────────────────────────────────────────────────────────────────
+
+  _spawnJet() {
+    const s       = this.scale;
+    const fromLeft = Math.random() > 0.5;
+    const jw      = PC.JET.WIDTH * s;
+    const y       = rnd(20, 55) * s;
+
+    this.jets.push({
+      x:        fromLeft ? -jw : this.cw + jw,
+      y,
+      w:        jw,
+      h:        PC.JET.HEIGHT * s,
+      dir:      fromLeft ? 1 : -1,
+      speed:    PC.JET.SPEED * s,
+      hasBombed: false,
+      alive:    true,
+    });
+
+    this._nextJetIn  = rnd(PC.JET.INTERVAL[0], PC.JET.INTERVAL[1]);
+    this._jetTimer   = 0;
+  }
+
+  // ── Update ────────────────────────────────────────────────────────────────────
+
+  _update(dt) {
+    if (this.state === 'ladder') {
+      this._ladderTimer += dt;
+      if (this._ladderTimer >= PC.LADDER.ANIM_DURATION) {
+        this.state = 'gameover';
+        this._sfx('gameover');
+        this._updateHUD();
+      }
+      return;
+    }
     if (this.state !== 'playing') return;
-    this.frame++;
-    const s = this.scale;
 
-    // Ground Y
-    const groundY = this.ch - PC.GROUND.HEIGHT * s;
+    this._gameTime += dt;
+    this._rotorPhase += dt * 18;
 
-    // ─ Helicopter ─
-    if (this.heli) {
-      if (this.heli.alive) {
-        this.heli.x += this.heli.dir * this.heliSpeed * s;
+    const s     = this.scale;
+    const gY    = this._groundY();
 
-        // Drop paratroopers
-        this.heliDropTimer++;
-        if (this.heliDropTimer >= this.heliDropInterval) {
-          this.heliDropTimer = 0;
-          this._dropParatrooper();
-        }
+    // ── Turret pivot (for bullets)
+    const tx    = this.cw / 2;
+    const ty    = gY - (PC.TURRET.BASE_H + PC.TURRET.DOME_R) * s;
 
-        // Wrap: if heli crosses screen, new wave
-        const hw = this.heli.w;
-        if ((this.heli.dir > 0 && this.heli.x > this.cw + hw) ||
-            (this.heli.dir < 0 && this.heli.x < -hw)) {
-          this._nextWave();
+    // ── Helicopter spawn ──
+    this._heliTimer += dt;
+    if (this._heliTimer >= this._nextHeliIn && this.helis.length < 2) {
+      this._spawnHeli();
+    }
+
+    // ── Jet spawn (waves 2+) ──
+    if (this.wave >= 2) {
+      this._jetTimer += dt;
+      if (this._jetTimer >= this._nextJetIn) {
+        this._spawnJet();
+        this._jetTimer  = 0;
+        this._nextJetIn = rnd(PC.JET.INTERVAL[0], PC.JET.INTERVAL[1]);
+      }
+    }
+
+    // ── Helicopters ──
+    for (let i = this.helis.length - 1; i >= 0; i--) {
+      const h = this.helis[i];
+      if (!h.alive) { this.helis.splice(i, 1); continue; }
+
+      h.x += h.dir * h.speed * dt;
+      h.dropTimer += dt;
+      if (h.dropTimer >= h.dropInterval) {
+        h.dropTimer = 0;
+        this._dropPara(h);
+      }
+
+      // Off-screen → next wave
+      const margin = h.w;
+      if ((h.dir > 0 && h.x > this.cw + margin) ||
+          (h.dir < 0 && h.x < -margin)) {
+        this.helis.splice(i, 1);
+        // Increment wave when last heli leaves
+        if (this.helis.length === 0) {
+          this.wave++;
+          this._heliTimer  = 0;
+          this._nextHeliIn = rnd(1.5, 3.5);
         }
       }
     }
 
-    // ─ Rotor animation ─
-    this.rotorAngle += 0.25;
+    // ── Jets ──
+    for (let i = this.jets.length - 1; i >= 0; i--) {
+      const j = this.jets[i];
+      if (!j.alive) { this.jets.splice(i, 1); continue; }
 
-    // ─ Bullets ─
+      j.x += j.dir * j.speed * dt;
+
+      // Drop bomb when passing over turret (once)
+      if (!j.hasBombed) {
+        const overTurret = (j.dir > 0 && j.x > tx - 20 * s && j.x < tx + 40 * s) ||
+                           (j.dir < 0 && j.x < tx + 20 * s && j.x > tx - 40 * s);
+        if (overTurret) {
+          j.hasBombed = true;
+          this.bombs.push({
+            x:  j.x,
+            y:  j.y + j.h,
+            vy: PC.JET.BOMB_SPEED * s,
+          });
+        }
+      }
+
+      const margin = j.w;
+      if ((j.dir > 0 && j.x > this.cw + margin) ||
+          (j.dir < 0 && j.x < -margin)) {
+        this.jets.splice(i, 1);
+      }
+    }
+
+    // ── Bombs ──
+    for (let i = this.bombs.length - 1; i >= 0; i--) {
+      const b = this.bombs[i];
+      b.y += b.vy * dt;
+
+      // Hit turret?
+      const distToTurret = Math.sqrt((b.x - tx) ** 2 + (b.y - ty) ** 2);
+      if (distToTurret < 18 * s) {
+        this._explode(b.x, b.y, 'bomb');
+        this.bombs.splice(i, 1);
+        this._triggerGameOver('bomb');
+        return;
+      }
+
+      // Hit ground
+      if (b.y >= gY) {
+        this._explode(b.x, gY, 'splat');
+        this.bombs.splice(i, 1);
+      }
+    }
+
+    // ── Bullets ──
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const b = this.bullets[i];
-      b.x += b.vx;
-      b.y += b.vy;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
 
-      // Out of bounds
       if (b.x < 0 || b.x > this.cw || b.y < 0 || b.y > this.ch) {
         this.bullets.splice(i, 1);
         continue;
       }
 
-      let removed = false;
+      let hit = false;
 
-      // ─ Check bullet vs helicopter ─
-      if (this.heli && this.heli.alive) {
-        const hw = this.heli.w / 2;
-        const hh = this.heli.h;
-        if (b.x >= this.heli.x - hw && b.x <= this.heli.x + hw &&
-            b.y >= this.heli.y && b.y <= this.heli.y + hh) {
-          this._explode(this.heli.x, this.heli.y + hh / 2, 'heli');
-          this.heli.alive = false;
-          this.score += PC.PARATROOPER.SCORE_HELI;
+      // ── Bullet vs Jets ──
+      for (let j = this.jets.length - 1; j >= 0; j--) {
+        const jet = this.jets[j];
+        if (!jet.alive) continue;
+        if (b.x >= jet.x - jet.w / 2 && b.x <= jet.x + jet.w / 2 &&
+            b.y >= jet.y && b.y <= jet.y + jet.h) {
+          this._explode(jet.x, jet.y + jet.h / 2, 'heli');
+          jet.alive = false;
+          this.score += PC.JET.SCORE;
+          this._sfx('explode');
           this.bullets.splice(i, 1);
-          removed = true;
-          // Respawn heli after short delay via frame counting
-          setTimeout(() => {
-            if (this.state === 'playing') this._spawnHeli();
-          }, 1200);
+          hit = true;
+          break;
         }
       }
+      if (hit) { this._updateHUD(); continue; }
 
-      if (removed) continue;
+      // ── Bullet vs Bombs ──
+      for (let j = this.bombs.length - 1; j >= 0; j--) {
+        const bm = this.bombs[j];
+        const dx = b.x - bm.x, dy = b.y - bm.y;
+        if (dx * dx + dy * dy < (6 * s) ** 2) {
+          this._explode(bm.x, bm.y, 'splat');
+          this.bombs.splice(j, 1);
+          this.score += PC.JET.BOMB_SCORE;
+          this._sfx('explode');
+          this.bullets.splice(i, 1);
+          hit = true;
+          break;
+        }
+      }
+      if (hit) { this._updateHUD(); continue; }
 
-      // ─ Check bullet vs paratroopers ─
+      // ── Bullet vs Helicopters ──
+      for (let j = this.helis.length - 1; j >= 0; j--) {
+        const h = this.helis[j];
+        if (!h.alive) continue;
+        if (b.x >= h.x - h.w / 2 && b.x <= h.x + h.w / 2 &&
+            b.y >= h.y && b.y <= h.y + h.h) {
+          this._explode(h.x, h.y + h.h / 2, 'heli');
+          h.alive = false;
+          this.score += PC.HELICOPTER.SCORE;
+          this._sfx('explode');
+          this.bullets.splice(i, 1);
+          hit = true;
+          break;
+        }
+      }
+      if (hit) { this._updateHUD(); continue; }
+
+      // ── Bullet vs Paratroopers ──
       for (let j = this.paratroopers.length - 1; j >= 0; j--) {
         const p = this.paratroopers[j];
+        if (p.landed) continue;
 
         if (p.chutePopped) {
-          // Hit the falling body
-          const bw = PC.PARATROOPER.WIDTH * s;
-          const bh = PC.PARATROOPER.HEIGHT * s;
-          if (b.x >= p.x - bw/2 && b.x <= p.x + bw/2 &&
+          // Shoot falling body
+          const bw = PC.PARATROOPER.W * s / 2;
+          const bh = PC.PARATROOPER.H * s;
+          if (b.x >= p.x - bw && b.x <= p.x + bw &&
               b.y >= p.y && b.y <= p.y + bh) {
-            this._explode(p.x, p.y + bh/2, 'para');
+            this._explode(p.x, p.y + bh / 2, 'para');
             this.paratroopers.splice(j, 1);
-            this.score += Math.floor(PC.PARATROOPER.SCORE_CHUTE / 2);
+            this.score += PC.PARATROOPER.SCORE;
+            this._sfx('pop');
             this.bullets.splice(i, 1);
-            removed = true;
+            hit = true;
             break;
           }
         } else {
-          // Hit the parachute dome
-          const cr = PC.PARATROOPER.CHUTE_RADIUS * s;
-          const dx = b.x - p.x;
-          const dy = b.y - (p.y - cr);
-          if (dx*dx + dy*dy <= cr*cr) {
+          // Shoot parachute dome
+          const cr  = PC.PARATROOPER.CHUTE_R * s;
+          const ccy = p.y - cr;
+          const dx  = b.x - p.x, dy = b.y - ccy;
+          if (dx * dx + dy * dy <= cr * cr) {
             p.chutePopped = true;
-            this.score += PC.PARATROOPER.SCORE_CHUTE;
+            this.score += PC.PARATROOPER.SCORE;
+            this._sfx('pop');
             this.bullets.splice(i, 1);
-            removed = true;
+            hit = true;
             break;
           }
         }
-        if (removed) break;
+        if (hit) break;
       }
+      if (hit) { this._updateHUD(); continue; }
     }
 
-    // ─ Paratroopers ─
+    // ── Paratroopers ──
     for (let i = this.paratroopers.length - 1; i >= 0; i--) {
       const p = this.paratroopers[i];
-      const fallSpeed = p.chutePopped
-        ? PC.PARATROOPER.FALL_SPEED_FAST * s
-        : PC.PARATROOPER.FALL_SPEED * s;
-      p.y += fallSpeed;
+      if (p.landed) continue;
 
-      const bh = PC.PARATROOPER.HEIGHT * s;
-      if (p.y + bh >= groundY) {
-        // Landed
-        this.paratroopers.splice(i, 1);
-        if (!p.chutePopped) {
-          // Safe landing
-          this.landed++;
-          if (this.landed >= PC.PARATROOPER.MAX_LANDED) {
-            this.state = 'gameover';
-          }
+      const fallSpeed = (p.chutePopped
+        ? PC.PARATROOPER.FALL_SPEED_FAST
+        : PC.PARATROOPER.FALL_SPEED) * s;
+
+      p.y += fallSpeed * dt;
+      p.swingPhase = (p.swingPhase || 0) + dt * 2.5;
+
+      const bh = PC.PARATROOPER.H * s;
+
+      // Hit turret directly?
+      const distTurret = Math.abs(p.x - tx);
+      if (distTurret < 12 * s && p.y + bh >= ty - 6 * s) {
+        this._explode(tx, ty, 'bomb');
+        this._triggerGameOver('para-direct');
+        return;
+      }
+
+      // Landed on ground
+      if (p.y + bh >= gY) {
+        p.y = gY - bh;
+        p.landed = true;
+
+        if (p.chutePopped) {
+          // Fell fast → splat
+          this._explode(p.x, gY, 'splat');
+          this.paratroopers.splice(i, 1);
         } else {
-          // Fell without chute — splat (no penalty, already scored on chute pop)
-          this._explode(p.x, groundY - bh / 2, 'splat');
+          // Safe landing — counts for the side
+          this._sfx('land');
+          if (p.x < tx) {
+            this.landedLeft++;
+            if (this.landedLeft >= PC.PARATROOPER.MAX_PER_SIDE) {
+              this._triggerLadder(0);
+              return;
+            }
+          } else {
+            this.landedRight++;
+            if (this.landedRight >= PC.PARATROOPER.MAX_PER_SIDE) {
+              this._triggerLadder(1);
+              return;
+            }
+          }
+          this._updateHUD();
         }
       }
     }
 
-    // ─ Explosions ─
+    // ── Explosions ──
     for (let i = this.explosions.length - 1; i >= 0; i--) {
-      this.explosions[i].frame++;
-      if (this.explosions[i].frame >= PC.EXPLOSION.DURATION) {
+      this.explosions[i].t += dt;
+      if (this.explosions[i].t >= PC.EXPLOSION.DURATION) {
         this.explosions.splice(i, 1);
       }
     }
-
-    this._updateHUD();
   }
 
-  _nextWave() {
-    this.wave++;
-    this.heliSpeed = Math.min(
-      PC.HELICOPTER.SPEED_INITIAL + (this.wave - 1) * PC.HELICOPTER.SPEED_INCREMENT,
-      4.0
-    );
-    this.heliDropInterval = Math.max(
-      PC.HELICOPTER.DROP_INTERVAL_INITIAL - (this.wave - 1) * 20,
-      PC.HELICOPTER.DROP_INTERVAL_MIN
-    );
-    this._spawnHeli();
-  }
-
-  _dropParatrooper() {
-    if (!this.heli || !this.heli.alive) return;
+  _dropPara(heli) {
     const s = this.scale;
     this.paratroopers.push({
-      x: this.heli.x,
-      y: this.heli.y + this.heli.h,
+      x:          heli.x,
+      y:          heli.y + heli.h,
       chutePopped: false,
+      landed:     false,
+      swingPhase: Math.random() * Math.PI * 2,
     });
   }
 
   _explode(x, y, type) {
-    this.explosions.push({ x, y, frame: 0, type });
+    this.explosions.push({ x, y, t: 0, type });
+  }
+
+  _triggerLadder(side) {
+    this._ladderSide  = side;
+    this._ladderTimer = 0;
+    this.state        = 'ladder';
+  }
+
+  _triggerGameOver(cause) {
+    this.state = 'gameover';
+    this._sfx('gameover');
+    this._updateHUD();
   }
 
   _updateHUD() {
-    if (this.hudEl)      this.hudEl.textContent = `Score: ${this.score}`;
-    if (this.hudRightEl) this.hudRightEl.textContent = `Landed: ${this.landed}/${PC.PARATROOPER.MAX_LANDED}`;
+    if (this.hudEl) {
+      this.hudEl.textContent = `Score: ${this.score}`;
+    }
+    if (this.hudRightEl) {
+      const lL = this.landedLeft, lR = this.landedRight;
+      const max = PC.PARATROOPER.MAX_PER_SIDE;
+      if (this.state === 'playing' || this.state === 'paused' || this.state === 'ladder') {
+        this.hudRightEl.textContent = `L:${lL}/${max}  R:${lR}/${max}`;
+      } else {
+        this.hudRightEl.textContent = '';
+      }
+    }
   }
 
-  // ── Draw ────────────────────────────────────────────────────────────────────
+  // ── Draw ──────────────────────────────────────────────────────────────────────
 
   _draw() {
     const ctx = this.ctx;
-    const s = this.scale;
-    const cw = this.cw, ch = this.ch;
+    const cw  = this.cw, ch = this.ch;
+    const s   = this.scale;
+    const gY  = this._groundY();
 
-    // Sky background
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, ch);
-    skyGrad.addColorStop(0, PC.SKY.TOP);
-    skyGrad.addColorStop(1, PC.SKY.BOT);
+    // ── Sky ──
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, gY);
+    skyGrad.addColorStop(0,   '#2e5fa3');
+    skyGrad.addColorStop(0.45,'#4a90d9');
+    skyGrad.addColorStop(1,   '#87ceeb');
     ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, cw, ch);
+    ctx.fillRect(0, 0, cw, gY);
 
-    // Ground
-    const groundY = ch - PC.GROUND.HEIGHT * s;
-    const groundGrad = ctx.createLinearGradient(0, groundY, 0, ch);
-    groundGrad.addColorStop(0, PC.GROUND.COLOR_TOP);
-    groundGrad.addColorStop(1, PC.GROUND.COLOR_BOT);
+    // ── Ground ──
+    const groundGrad = ctx.createLinearGradient(0, gY, 0, ch);
+    groundGrad.addColorStop(0,   '#4caf50');
+    groundGrad.addColorStop(0.25,'#388e3c');
+    groundGrad.addColorStop(1,   '#1b5e20');
     ctx.fillStyle = groundGrad;
-    ctx.fillRect(0, groundY, cw, ch - groundY);
+    ctx.fillRect(0, gY, cw, ch - gY);
 
-    // Ground highlight line
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    ctx.fillRect(0, groundY, cw, 1.5 * s);
+    // Ground edge highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.fillRect(0, gY, cw, 1.5 * s);
 
+    // ── State-specific screens ──
     if (this.state === 'start') {
+      this._drawTurret(gY);
       this._drawStartScreen();
       return;
     }
 
     if (this.state === 'gameover') {
-      this._drawTurret(groundY);
+      this._drawLandedTroopers(gY, false);
+      this._drawTurret(gY);
+      this._drawExplosions();
       this._drawGameOverScreen();
       return;
     }
 
-    // ─ Playing ─
-    this._drawHeli();
+    if (this.state === 'paused') {
+      this._drawAll(gY);
+      this._drawPauseScreen();
+      return;
+    }
+
+    if (this.state === 'ladder') {
+      this._drawLadderAnim(gY);
+      return;
+    }
+
+    // ── Playing ──
+    this._drawAll(gY);
+  }
+
+  _drawAll(gY) {
+    const ctx = this.ctx;
+    const s   = this.scale;
+
+    this._drawLandedTroopers(gY, false);
+    this._drawJets();
+    this._drawBombs();
+    this._drawHelis();
     this._drawParatroopers();
     this._drawBullets();
     this._drawExplosions();
-    this._drawTurret(groundY);
-
-    // Wave indicator (subtle)
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.font = `${Math.round(7 * s)}px "Chicago", "Helvetica Neue", sans-serif`;
-    ctx.textAlign = 'right';
-    ctx.fillText(`Wave ${this.wave}`, cw - 4 * s, 9 * s);
+    this._drawTurret(gY);
+    this._drawWaveIndicator();
   }
 
+  // ──────────────────────────────────────────────────────────────────────────────
+  // DRAW: Start screen
   _drawStartScreen() {
     const ctx = this.ctx;
-    const s = this.scale;
-    const cw = this.cw, ch = this.ch;
+    const s   = this.scale;
+    const cw  = this.cw, ch = this.ch;
 
-    // Draw a static turret for atmosphere
-    this._drawTurret(ch - PC.GROUND.HEIGHT * s);
-
-    // Overlay
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.38)';
-    ctx.beginPath();
-    const pw = 160 * s, ph = 68 * s;
-    const px = (cw - pw) / 2, py = (ch - ph) / 2 - 10 * s;
-    this._roundRect(ctx, px, py, pw, ph, 8 * s);
+    // Panel
+    const pw = 168 * s, ph = 70 * s;
+    const px = (cw - pw) / 2, py = (ch - ph) / 2 - 12 * s;
+    ctx.fillStyle = 'rgba(0,0,0,0.52)';
+    this._rr(ctx, px, py, pw, ph, 8 * s);
     ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = s;
+    this._rr(ctx, px, py, pw, ph, 8 * s);
+    ctx.stroke();
 
-    ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
-    ctx.font = `bold ${Math.round(13 * s)}px "Chicago", "Helvetica Neue", sans-serif`;
-    ctx.fillText('PARACHUTE', cw / 2, py + 24 * s);
-
-    ctx.font = `${Math.round(9 * s)}px "Chicago", "Helvetica Neue", sans-serif`;
     ctx.fillStyle = '#ffe066';
-    ctx.fillText('Press center to start', cw / 2, py + 42 * s);
+    ctx.font = `bold ${Math.round(15 * s)}px "Helvetica Neue", Helvetica, sans-serif`;
+    ctx.fillText('PARACHUTE', cw / 2, py + 22 * s);
 
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.font = `${Math.round(7.5 * s)}px "Chicago", "Helvetica Neue", sans-serif`;
-    ctx.fillText('Scroll = aim  •  Center = fire', cw / 2, py + 60 * s);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.font = `${Math.round(9 * s)}px "Helvetica Neue", Helvetica, sans-serif`;
+    ctx.fillText('Press ● to start', cw / 2, py + 40 * s);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = `${Math.round(7.5 * s)}px "Helvetica Neue", Helvetica, sans-serif`;
+    ctx.fillText('Scroll = aim  •  ● = fire  •  Menu = pause', cw / 2, py + 58 * s);
   }
 
+  // ──────────────────────────────────────────────────────────────────────────────
+  // DRAW: Game over screen
   _drawGameOverScreen() {
     const ctx = this.ctx;
-    const s = this.scale;
-    const cw = this.cw, ch = this.ch;
+    const s   = this.scale;
+    const cw  = this.cw, ch = this.ch;
 
-    // Overlay panel
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    const pw = 170 * s, ph = 76 * s;
-    const px = (cw - pw) / 2, py = (ch - ph) / 2 - 8 * s;
-    ctx.beginPath();
-    this._roundRect(ctx, px, py, pw, ph, 8 * s);
+    const pw = 178 * s, ph = 78 * s;
+    const px = (cw - pw) / 2, py = (ch - ph) / 2 - 10 * s;
+    ctx.fillStyle = 'rgba(0,0,0,0.62)';
+    this._rr(ctx, px, py, pw, ph, 8 * s);
     ctx.fill();
+    ctx.strokeStyle = 'rgba(255,80,80,0.5)';
+    ctx.lineWidth = 1.2 * s;
+    this._rr(ctx, px, py, pw, ph, 8 * s);
+    ctx.stroke();
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ff4444';
-    ctx.font = `bold ${Math.round(14 * s)}px "Chicago", "Helvetica Neue", sans-serif`;
+    ctx.font = `bold ${Math.round(15 * s)}px "Helvetica Neue", Helvetica, sans-serif`;
     ctx.fillText('GAME OVER', cw / 2, py + 22 * s);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = `${Math.round(9.5 * s)}px "Chicago", "Helvetica Neue", sans-serif`;
-    ctx.fillText(`Score: ${this.score}`, cw / 2, py + 42 * s);
+    ctx.font = `${Math.round(10 * s)}px "Helvetica Neue", Helvetica, sans-serif`;
+    ctx.fillText(`Score: ${this.score}`, cw / 2, py + 40 * s);
 
     ctx.fillStyle = '#ffe066';
-    ctx.font = `${Math.round(8 * s)}px "Chicago", "Helvetica Neue", sans-serif`;
-    ctx.fillText('Press center to play again', cw / 2, py + 62 * s);
+    ctx.font = `${Math.round(8.5 * s)}px "Helvetica Neue", Helvetica, sans-serif`;
+    ctx.fillText('Press ● to play again', cw / 2, py + 60 * s);
   }
 
-  _drawHeli() {
-    if (!this.heli || !this.heli.alive) return;
+  // ──────────────────────────────────────────────────────────────────────────────
+  // DRAW: Pause screen
+  _drawPauseScreen() {
     const ctx = this.ctx;
-    const s = this.scale;
-    const { x, y, w, h, dir } = this.heli;
+    const s   = this.scale;
+    const cw  = this.cw, ch = this.ch;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, 0, cw, ch);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.round(14 * s)}px "Helvetica Neue", Helvetica, sans-serif`;
+    ctx.fillText('PAUSED', cw / 2, ch / 2 - 8 * s);
+
+    ctx.fillStyle = '#ffe066';
+    ctx.font = `${Math.round(8.5 * s)}px "Helvetica Neue", Helvetica, sans-serif`;
+    ctx.fillText('Press Menu or ● to resume', cw / 2, ch / 2 + 10 * s);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // DRAW: Wave indicator
+  _drawWaveIndicator() {
+    const ctx = this.ctx;
+    const s   = this.scale;
+    const cw  = this.cw;
+
+    ctx.textAlign    = 'right';
+    ctx.fillStyle    = 'rgba(255,255,255,0.45)';
+    ctx.font         = `${Math.round(7 * s)}px "Helvetica Neue", Helvetica, sans-serif`;
+    ctx.fillText(`Wave ${this.wave}`, cw - 5 * s, 10 * s);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // DRAW: Turret
+  _drawTurret(gY) {
+    const ctx      = this.ctx;
+    const s        = this.scale;
+    const cw       = this.cw;
+    const tx       = cw / 2;
+    const baseW    = PC.TURRET.BASE_W * s;
+    const baseH    = PC.TURRET.BASE_H * s;
+    const domeR    = PC.TURRET.DOME_R * s;
+    const barrelL  = PC.TURRET.BARREL_LEN * s;
+    const barrelW  = PC.TURRET.BARREL_W * s;
+    const pivotY   = gY - baseH - domeR * 0.35;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.beginPath();
+    ctx.ellipse(tx, gY + 1 * s, baseW * 0.55, 2.5 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Base (trapezoid)
+    const baseGrad = ctx.createLinearGradient(tx - baseW / 2, pivotY, tx + baseW / 2, gY);
+    baseGrad.addColorStop(0,   '#b0b8c8');
+    baseGrad.addColorStop(0.4, '#7a8695');
+    baseGrad.addColorStop(1,   '#4a5260');
+    ctx.fillStyle = baseGrad;
+    ctx.beginPath();
+    ctx.moveTo(tx - baseW * 0.58, gY);
+    ctx.lineTo(tx - baseW * 0.38, pivotY + domeR * 0.6);
+    ctx.lineTo(tx + baseW * 0.38, pivotY + domeR * 0.6);
+    ctx.lineTo(tx + baseW * 0.58, gY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth   = 0.8 * s;
+    ctx.stroke();
+
+    // Pivot dome
+    const domeGrad = ctx.createRadialGradient(tx - domeR * 0.3, pivotY - domeR * 0.3, 1, tx, pivotY, domeR);
+    domeGrad.addColorStop(0,   '#d0d8e8');
+    domeGrad.addColorStop(0.5, '#8090a8');
+    domeGrad.addColorStop(1,   '#3a4558');
+    ctx.fillStyle = domeGrad;
+    ctx.beginPath();
+    ctx.arc(tx, pivotY, domeR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+    ctx.lineWidth   = 0.8 * s;
+    ctx.stroke();
+
+    // Barrel
+    ctx.save();
+    ctx.translate(tx, pivotY);
+    ctx.rotate(this.turretAngle);
+
+    const bGrad = ctx.createLinearGradient(-barrelW / 2, 0, barrelW / 2, 0);
+    bGrad.addColorStop(0,   '#4a5260');
+    bGrad.addColorStop(0.4, '#9aa5b8');
+    bGrad.addColorStop(1,   '#4a5260');
+    ctx.fillStyle = bGrad;
+    ctx.beginPath();
+    this._rr(ctx, -barrelW / 2, -barrelL, barrelW, barrelL, 2 * s);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+    ctx.lineWidth   = 0.7 * s;
+    ctx.stroke();
+
+    // Muzzle cap
+    ctx.fillStyle = '#2a3040';
+    ctx.beginPath();
+    ctx.arc(0, -barrelL, barrelW * 0.58, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+
+    // Aim guide (subtle dashed)
+    const aimStart = barrelL;
+    const aimEnd   = barrelL + 16 * s;
+    ctx.strokeStyle  = 'rgba(255,220,80,0.28)';
+    ctx.lineWidth    = 0.8 * s;
+    ctx.setLineDash([2 * s, 3 * s]);
+    ctx.beginPath();
+    ctx.moveTo(tx + Math.cos(this.turretAngle) * aimStart, pivotY + Math.sin(this.turretAngle) * aimStart);
+    ctx.lineTo(tx + Math.cos(this.turretAngle) * aimEnd,   pivotY + Math.sin(this.turretAngle) * aimEnd);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // DRAW: Helicopters
+  _drawHelis() {
+    this.helis.forEach(h => { if (h.alive) this._drawHeli(h); });
+  }
+
+  _drawHeli(h) {
+    const ctx  = this.ctx;
+    const s    = this.scale;
+    const { x, y, w, h: hh, dir } = h;
 
     ctx.save();
     ctx.translate(x, y);
+    if (dir < 0) { ctx.scale(-1, 1); } // flip if going left
 
-    // Body — main fuselage
-    ctx.fillStyle = '#556677';
+    // ── Fuselage ──
+    const bodyGrad = ctx.createLinearGradient(0, 0, 0, hh * 0.65);
+    bodyGrad.addColorStop(0,   '#6a7a8e');
+    bodyGrad.addColorStop(0.5, '#4a5a6e');
+    bodyGrad.addColorStop(1,   '#3a4a5a');
+    ctx.fillStyle = bodyGrad;
     ctx.beginPath();
-    this._roundRect(ctx, -w * 0.38, 0, w * 0.76, h * 0.6, 3 * s);
+    this._rr(ctx, -w * 0.38, 0, w * 0.76, hh * 0.65, 3 * s);
     ctx.fill();
 
-    // Cockpit bubble
-    const cockpitGrad = ctx.createRadialGradient(-w*0.05, h*0.1, 1, -w*0.05, h*0.15, w*0.22);
-    cockpitGrad.addColorStop(0, 'rgba(180,230,255,0.9)');
-    cockpitGrad.addColorStop(1, 'rgba(80,140,200,0.7)');
-    ctx.fillStyle = cockpitGrad;
+    // ── Cockpit glass ──
+    const glassBubble = ctx.createRadialGradient(-w * 0.08, hh * 0.12, 1, -w * 0.08, hh * 0.22, w * 0.2);
+    glassBubble.addColorStop(0,   'rgba(190,235,255,0.92)');
+    glassBubble.addColorStop(0.6, 'rgba(80,150,210,0.72)');
+    glassBubble.addColorStop(1,   'rgba(40,80,150,0.55)');
+    ctx.fillStyle = glassBubble;
     ctx.beginPath();
-    ctx.ellipse(-w * 0.05, h * 0.28, w * 0.22, h * 0.32, 0, 0, Math.PI * 2);
+    ctx.ellipse(-w * 0.08, hh * 0.3, w * 0.2, hh * 0.28, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-    ctx.lineWidth = 0.8 * s;
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth   = 0.7 * s;
     ctx.stroke();
 
-    // Tail boom
-    ctx.fillStyle = '#445566';
-    ctx.fillRect(w * 0.32, h * 0.1, w * 0.38, h * 0.28);
+    // ── Tail boom ──
+    ctx.fillStyle = '#3a4a5a';
+    ctx.fillRect(w * 0.3, hh * 0.1, w * 0.4, hh * 0.28);
 
-    // Tail fin
+    // ── Tail fin ──
     ctx.beginPath();
-    ctx.moveTo(w * 0.62, h * 0.1);
-    ctx.lineTo(w * 0.7, -h * 0.3);
-    ctx.lineTo(w * 0.7, h * 0.1);
-    ctx.fillStyle = '#445566';
-    ctx.fill();
-
-    // Landing skids
-    ctx.strokeStyle = '#778899';
-    ctx.lineWidth = 1.5 * s;
-    ctx.beginPath();
-    ctx.moveTo(-w * 0.32, h * 0.6);
-    ctx.lineTo(-w * 0.32, h * 0.82);
-    ctx.moveTo(w * 0.28, h * 0.6);
-    ctx.lineTo(w * 0.28, h * 0.82);
-    ctx.moveTo(-w * 0.42, h * 0.82);
-    ctx.lineTo(w * 0.38, h * 0.82);
-    ctx.stroke();
-
-    // Main rotor (spinning line)
-    const rotLen = w * 0.62;
-    ctx.strokeStyle = '#2a2a2a';
-    ctx.lineWidth = 2 * s;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(this.rotorAngle) * -rotLen, -2 * s);
-    ctx.lineTo(Math.cos(this.rotorAngle) * rotLen, -2 * s);
-    ctx.stroke();
-
-    // Rotor center nub
-    ctx.fillStyle = '#333';
-    ctx.beginPath();
-    ctx.arc(0, -2 * s, 2.5 * s, 0, Math.PI * 2);
+    ctx.moveTo(w * 0.62, hh * 0.1);
+    ctx.lineTo(w * 0.7,  -hh * 0.28);
+    ctx.lineTo(w * 0.72, hh * 0.1);
+    ctx.fillStyle = '#3a4a5a';
     ctx.fill();
 
-    // Tail rotor
-    ctx.strokeStyle = '#2a2a2a';
-    ctx.lineWidth = 1.5 * s;
-    const trLen = h * 0.22;
+    // ── Landing skids ──
+    ctx.strokeStyle = '#7a8898';
+    ctx.lineWidth   = 1.4 * s;
     ctx.beginPath();
-    ctx.moveTo(w * 0.68, h * 0.1 - Math.cos(this.rotorAngle * 1.5) * trLen);
-    ctx.lineTo(w * 0.68, h * 0.1 + Math.cos(this.rotorAngle * 1.5) * trLen);
+    // Left strut
+    ctx.moveTo(-w * 0.28, hh * 0.65);
+    ctx.lineTo(-w * 0.28, hh * 0.88);
+    // Right strut
+    ctx.moveTo(w * 0.24, hh * 0.65);
+    ctx.lineTo(w * 0.24, hh * 0.88);
+    // Skid bar
+    ctx.moveTo(-w * 0.38, hh * 0.88);
+    ctx.lineTo(w * 0.34,  hh * 0.88);
     ctx.stroke();
 
-    // Direction light
-    const lightX = dir > 0 ? -w * 0.38 : w * 0.38;
-    ctx.fillStyle = '#ff4444';
+    // ── Main rotor ──
+    const rotLen = w * 0.6;
+    ctx.save();
+    ctx.translate(0, -2 * s);
+    ctx.rotate(this._rotorPhase);
+    ctx.strokeStyle = '#1a2030';
+    ctx.lineWidth   = 2 * s;
+    // Two blades
     ctx.beginPath();
-    ctx.arc(lightX, h * 0.3, 2 * s, 0, Math.PI * 2);
+    ctx.moveTo(-rotLen, 0); ctx.lineTo(rotLen, 0);
+    ctx.stroke();
+    ctx.rotate(Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(-rotLen * 0.7, 0); ctx.lineTo(rotLen * 0.7, 0);
+    ctx.stroke();
+    // Hub
+    ctx.fillStyle = '#1a2030';
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.5 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // ── Tail rotor ──
+    const trLen = hh * 0.22;
+    ctx.strokeStyle = '#1a2030';
+    ctx.lineWidth   = 1.2 * s;
+    ctx.save();
+    ctx.translate(w * 0.69, hh * 0.08);
+    ctx.rotate(this._rotorPhase * 1.8);
+    ctx.beginPath();
+    ctx.moveTo(0, -trLen); ctx.lineTo(0, trLen);
+    ctx.stroke();
+    ctx.rotate(Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(0, -trLen * 0.7); ctx.lineTo(0, trLen * 0.7);
+    ctx.stroke();
+    ctx.restore();
+
+    // ── Nav light ──
+    ctx.fillStyle = (Math.floor(this._rotorPhase * 3) % 2 === 0) ? '#ff4444' : '#cc2222';
+    ctx.beginPath();
+    ctx.arc(-w * 0.38, hh * 0.32, 2 * s, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();
   }
 
-  _drawParatroopers() {
-    this.paratroopers.forEach(p => this._drawParatrooper(p));
+  // ──────────────────────────────────────────────────────────────────────────────
+  // DRAW: Jets
+  _drawJets() {
+    const ctx = this.ctx;
+    const s   = this.scale;
+
+    this.jets.forEach(j => {
+      if (!j.alive) return;
+      ctx.save();
+      ctx.translate(j.x, j.y + j.h / 2);
+      if (j.dir < 0) ctx.scale(-1, 1);
+
+      // Fuselage
+      ctx.fillStyle = '#8898a8';
+      ctx.beginPath();
+      ctx.moveTo(-j.w / 2, j.h * 0.1);
+      ctx.lineTo(j.w * 0.42, j.h * 0.1);
+      ctx.lineTo(j.w / 2, 0);
+      ctx.lineTo(j.w * 0.42, -j.h * 0.1);
+      ctx.lineTo(-j.w / 2, -j.h * 0.1);
+      ctx.closePath();
+      ctx.fill();
+
+      // Wings
+      ctx.fillStyle = '#6a7888';
+      ctx.beginPath();
+      ctx.moveTo(0, -j.h * 0.1);
+      ctx.lineTo(j.w * 0.15, -j.h * 0.55);
+      ctx.lineTo(-j.w * 0.15, -j.h * 0.55);
+      ctx.lineTo(-j.w * 0.28, -j.h * 0.1);
+      ctx.closePath();
+      ctx.fill();
+
+      // Tail fin
+      ctx.fillStyle = '#5a6878';
+      ctx.beginPath();
+      ctx.moveTo(-j.w * 0.3, j.h * 0.1);
+      ctx.lineTo(-j.w * 0.38, j.h * 0.52);
+      ctx.lineTo(-j.w * 0.15, j.h * 0.1);
+      ctx.closePath();
+      ctx.fill();
+
+      // Engine glow
+      ctx.fillStyle = 'rgba(255,160,30,0.7)';
+      ctx.beginPath();
+      ctx.ellipse(-j.w / 2, 0, 3 * s, j.h * 0.08, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    });
   }
 
-  _drawParatrooper(p) {
+  // ──────────────────────────────────────────────────────────────────────────────
+  // DRAW: Bombs
+  _drawBombs() {
     const ctx = this.ctx;
-    const s = this.scale;
-    const cr = PC.PARATROOPER.CHUTE_RADIUS * s;
-    const bw = PC.PARATROOPER.WIDTH * s;
-    const bh = PC.PARATROOPER.HEIGHT * s;
+    const s   = this.scale;
+
+    this.bombs.forEach(b => {
+      ctx.fillStyle = '#444';
+      ctx.beginPath();
+      ctx.ellipse(b.x, b.y, 3 * s, 5 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Tail fins
+      ctx.fillStyle = '#555';
+      ctx.beginPath();
+      ctx.moveTo(b.x - 3 * s, b.y - 3 * s);
+      ctx.lineTo(b.x - 6 * s, b.y - 7 * s);
+      ctx.lineTo(b.x, b.y - 3 * s);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(b.x + 3 * s, b.y - 3 * s);
+      ctx.lineTo(b.x + 6 * s, b.y - 7 * s);
+      ctx.lineTo(b.x, b.y - 3 * s);
+      ctx.fill();
+    });
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // DRAW: Paratroopers (falling)
+  _drawParatroopers() {
+    this.paratroopers.forEach(p => {
+      if (!p.landed) this._drawPara(p);
+    });
+  }
+
+  _drawPara(p) {
+    const ctx    = this.ctx;
+    const s      = this.scale;
+    const cr     = PC.PARATROOPER.CHUTE_R * s;
+    const bw     = PC.PARATROOPER.W * s;
+    const bh     = PC.PARATROOPER.H * s;
+    const swing  = p.chutePopped ? 0 : Math.sin(p.swingPhase || 0) * 0.1;
 
     ctx.save();
     ctx.translate(p.x, p.y);
 
     if (!p.chutePopped) {
       // Parachute dome
-      const chuteGrad = ctx.createRadialGradient(-cr*0.2, -cr*0.6, 0, 0, -cr*0.3, cr);
-      chuteGrad.addColorStop(0, '#ffffff');
-      chuteGrad.addColorStop(0.4, '#e0e8ff');
-      chuteGrad.addColorStop(1, '#8888cc');
-      ctx.fillStyle = chuteGrad;
+      const cGrad = ctx.createRadialGradient(-cr * 0.2, -cr * 0.7, 0, 0, -cr * 0.3, cr);
+      cGrad.addColorStop(0,   '#ffffff');
+      cGrad.addColorStop(0.35,'#dce8ff');
+      cGrad.addColorStop(1,   '#8899cc');
+      ctx.fillStyle = cGrad;
       ctx.beginPath();
-      ctx.arc(0, -cr, cr, Math.PI, 0);
+      ctx.arc(0, -cr, cr, Math.PI, 0, false);
       ctx.fill();
-
-      // Dome outline
-      ctx.strokeStyle = 'rgba(80,80,140,0.5)';
-      ctx.lineWidth = 0.8 * s;
+      ctx.strokeStyle = 'rgba(70,80,140,0.4)';
+      ctx.lineWidth   = 0.8 * s;
       ctx.beginPath();
-      ctx.arc(0, -cr, cr, Math.PI, 0);
+      ctx.arc(0, -cr, cr, Math.PI, 0, false);
       ctx.stroke();
 
-      // Panel lines on chute
-      ctx.strokeStyle = 'rgba(100,100,180,0.3)';
-      ctx.lineWidth = 0.6 * s;
-      for (let i = 1; i < 4; i++) {
-        const seg = (Math.PI / 4) * i;
+      // Chute panel lines
+      ctx.strokeStyle = 'rgba(100,110,180,0.25)';
+      ctx.lineWidth   = 0.6 * s;
+      for (let i = 1; i <= 3; i++) {
+        const angle = Math.PI + (Math.PI / 4) * i;
         ctx.beginPath();
         ctx.moveTo(0, -cr);
-        ctx.lineTo(Math.cos(Math.PI - seg) * cr, -cr + Math.sin(Math.PI - seg) * cr);
+        ctx.lineTo(Math.cos(angle) * cr, -cr + Math.sin(angle) * cr);
         ctx.stroke();
       }
 
-      // Suspension lines
-      ctx.strokeStyle = 'rgba(60,60,60,0.5)';
-      ctx.lineWidth = 0.7 * s;
-      // Left line
-      ctx.beginPath();
-      ctx.moveTo(-cr, -cr);
-      ctx.lineTo(-bw * 0.35, 0);
-      ctx.stroke();
-      // Right line
-      ctx.beginPath();
-      ctx.moveTo(cr, -cr);
-      ctx.lineTo(bw * 0.35, 0);
-      ctx.stroke();
-      // Center line
-      ctx.beginPath();
-      ctx.moveTo(0, -cr * 0.15);
-      ctx.lineTo(0, 0);
-      ctx.stroke();
+      // Suspension lines (3)
+      ctx.strokeStyle = 'rgba(50,50,50,0.45)';
+      ctx.lineWidth   = 0.65 * s;
+      const anchors = [-cr, -cr * 0.25, cr];
+      anchors.forEach((ax, idx) => {
+        const targetX = idx === 0 ? -bw * 0.35 : idx === 1 ? 0 : bw * 0.35;
+        ctx.beginPath();
+        ctx.moveTo(ax, -cr);
+        ctx.lineTo(targetX, 0);
+        ctx.stroke();
+      });
     }
 
     // Body (stick figure)
+    ctx.save();
+    ctx.rotate(swing);
     // Head
-    ctx.fillStyle = '#f5d0a0';
-    ctx.strokeStyle = '#885522';
-    ctx.lineWidth = 0.8 * s;
+    const headR = bw * 0.2;
+    ctx.fillStyle   = '#f0c090';
+    ctx.strokeStyle = '#a06030';
+    ctx.lineWidth   = 0.7 * s;
     ctx.beginPath();
-    ctx.arc(0, bh * 0.12, bw * 0.18, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    ctx.arc(0, headR, headR, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
 
     // Torso
-    ctx.strokeStyle = '#333333';
-    ctx.lineWidth = 1.4 * s;
+    ctx.strokeStyle = '#2a2a2a';
+    ctx.lineWidth   = 1.3 * s;
     ctx.beginPath();
-    ctx.moveTo(0, bh * 0.26);
+    ctx.moveTo(0, headR * 2);
+    ctx.lineTo(0, bh * 0.64);
+    ctx.stroke();
+
+    // Arms
+    ctx.beginPath();
+    ctx.moveTo(-bw * 0.35, bh * 0.36);
+    ctx.lineTo(bw * 0.35, bh * 0.36);
+    ctx.stroke();
+
+    // Legs
+    ctx.lineWidth = 1.1 * s;
+    const legSwing = p.chutePopped ? 0 : Math.sin((p.swingPhase || 0) * 1.6) * 0.15;
+    ctx.beginPath();
+    ctx.moveTo(0, bh * 0.64);
+    ctx.lineTo(-bw * (0.28 + legSwing), bh);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, bh * 0.64);
+    ctx.lineTo(bw * (0.28 - legSwing), bh);
+    ctx.stroke();
+
+    ctx.restore();
+    ctx.restore();
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // DRAW: Landed paratroopers on ground
+  _drawLandedTroopers(gY, highlight) {
+    const ctx    = this.ctx;
+    const s      = this.scale;
+    const tx     = this.cw / 2;
+    const bh     = PC.PARATROOPER.H * s;
+    const bw     = PC.PARATROOPER.W * s;
+    const spacing = 9 * s;
+    const groundBase = gY;
+
+    // Left side — stack from right-to-left
+    for (let i = 0; i < this.landedLeft; i++) {
+      const px = tx - 22 * s - i * spacing;
+      const py = groundBase - bh;
+      this._drawStandingTrooper(ctx, px, py, s, bh, bw, highlight && i === this.landedLeft - 1);
+    }
+
+    // Right side — stack from left-to-right
+    for (let i = 0; i < this.landedRight; i++) {
+      const px = tx + 22 * s + i * spacing;
+      const py = groundBase - bh;
+      this._drawStandingTrooper(ctx, px, py, s, bh, bw, highlight && i === this.landedRight - 1);
+    }
+  }
+
+  _drawStandingTrooper(ctx, px, py, s, bh, bw, highlight) {
+    ctx.save();
+    ctx.translate(px, py);
+
+    if (highlight) {
+      ctx.shadowColor = '#ff4444';
+      ctx.shadowBlur  = 8 * s;
+    }
+
+    // Head
+    const headR = bw * 0.2;
+    ctx.fillStyle   = '#f0c090';
+    ctx.strokeStyle = '#a06030';
+    ctx.lineWidth   = 0.6 * s;
+    ctx.beginPath();
+    ctx.arc(0, headR, headR, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+
+    // Torso
+    ctx.strokeStyle = '#2a3a2a';
+    ctx.lineWidth   = 1.2 * s;
+    ctx.beginPath();
+    ctx.moveTo(0, headR * 2);
     ctx.lineTo(0, bh * 0.65);
     ctx.stroke();
 
     // Arms
     ctx.beginPath();
-    ctx.moveTo(-bw * 0.38, bh * 0.38);
-    ctx.lineTo(bw * 0.38, bh * 0.38);
+    ctx.moveTo(-bw * 0.34, bh * 0.38);
+    ctx.lineTo(bw * 0.34, bh * 0.38);
     ctx.stroke();
 
-    // Legs (animated slight swing when floating)
-    const swing = p.chutePopped ? 0 : Math.sin(Date.now() / 300) * 0.12;
-    ctx.lineWidth = 1.2 * s;
+    // Legs (standing straight)
+    ctx.lineWidth = 1.0 * s;
     ctx.beginPath();
     ctx.moveTo(0, bh * 0.65);
-    ctx.lineTo(-bw * (0.3 + swing), bh);
+    ctx.lineTo(-bw * 0.22, bh);
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(0, bh * 0.65);
-    ctx.lineTo(bw * (0.3 - swing), bh);
+    ctx.lineTo(bw * 0.22, bh);
     ctx.stroke();
 
     ctx.restore();
   }
 
+  // ──────────────────────────────────────────────────────────────────────────────
+  // DRAW: Bullets
   _drawBullets() {
     const ctx = this.ctx;
-    const s = this.scale;
-    const r = PC.BULLET.RADIUS * s;
+    const s   = this.scale;
+    const r   = PC.BULLET.RADIUS * s;
 
     this.bullets.forEach(b => {
       const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
-      grad.addColorStop(0, '#ffffff');
-      grad.addColorStop(0.4, PC.BULLET.COLOR);
-      grad.addColorStop(1, '#ff8800');
+      grad.addColorStop(0,   '#ffffff');
+      grad.addColorStop(0.4, '#ffe066');
+      grad.addColorStop(1,   '#ff8800');
 
-      ctx.shadowColor = PC.BULLET.COLOR;
-      ctx.shadowBlur = 6 * s;
-
+      ctx.shadowColor = '#ffe066';
+      ctx.shadowBlur  = 5 * s;
       ctx.beginPath();
       ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
       ctx.fillStyle = grad;
       ctx.fill();
-
-      ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
     });
   }
 
+  // ──────────────────────────────────────────────────────────────────────────────
+  // DRAW: Explosions
   _drawExplosions() {
     const ctx = this.ctx;
-    const s = this.scale;
+    const s   = this.scale;
 
     this.explosions.forEach(ex => {
-      const t = ex.frame / PC.EXPLOSION.DURATION;
-      const maxR = PC.EXPLOSION.RADIUS_MAX * s;
-      const r = maxR * t;
+      const t     = ex.t / PC.EXPLOSION.DURATION;
+      const maxR  = PC.EXPLOSION.RADIUS_MAX * s;
+      const r     = maxR * Math.sqrt(t);
       const alpha = 1 - t;
 
-      // Outer ring
+      // Outer bloom
       ctx.beginPath();
       ctx.arc(ex.x, ex.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,80,0,${alpha * 0.6})`;
+      ctx.fillStyle = `rgba(255,90,0,${alpha * 0.55})`;
       ctx.fill();
 
-      // Inner bright core
+      // Mid ring
       ctx.beginPath();
-      ctx.arc(ex.x, ex.y, r * 0.5, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,220,0,${alpha})`;
+      ctx.arc(ex.x, ex.y, r * 0.62, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,200,0,${alpha * 0.8})`;
       ctx.fill();
 
-      // Flash (early)
-      if (t < 0.2) {
+      // Core flash (early)
+      if (t < 0.25) {
         ctx.beginPath();
-        ctx.arc(ex.x, ex.y, r * 0.2, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,255,${(0.2 - t) / 0.2})`;
+        ctx.arc(ex.x, ex.y, r * 0.28, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${(0.25 - t) / 0.25})`;
+        ctx.fill();
+      }
+
+      // Particles
+      const count = ex.type === 'heli' ? 6 : 4;
+      for (let k = 0; k < count; k++) {
+        const angle = (k / count) * Math.PI * 2 + t * 4;
+        const pr    = r * (0.6 + Math.sin(k * 2.3) * 0.3);
+        const px    = ex.x + Math.cos(angle) * pr;
+        const py    = ex.y + Math.sin(angle) * pr;
+        ctx.beginPath();
+        ctx.arc(px, py, 2 * s * alpha, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,150,0,${alpha * 0.7})`;
         ctx.fill();
       }
     });
   }
 
-  _drawTurret(groundY) {
-    const ctx = this.ctx;
-    const s = this.scale;
-    const cw = this.cw;
+  // ──────────────────────────────────────────────────────────────────────────────
+  // DRAW: Ladder animation (4 troopers climb and overtake turret)
+  _drawLadderAnim(gY) {
+    const ctx     = this.ctx;
+    const s       = this.scale;
+    const cw      = this.cw;
+    const t       = clamp(this._ladderTimer / PC.LADDER.ANIM_DURATION, 0, 1);
+    const tx      = cw / 2;
+    const side    = this._ladderSide;
+    const bh      = PC.PARATROOPER.H * s;
+    const bw      = PC.PARATROOPER.W * s;
+    const spacing = 9 * s;
 
-    const tx = cw / 2;
-    const baseW = PC.TURRET.BASE_W * s;
-    const baseH = PC.TURRET.BASE_H * s;
-    const barrelLen = PC.TURRET.BARREL_LEN * s;
-    const barrelW = PC.TURRET.BARREL_W * s;
-    const ty = groundY - baseH * 0.5;
+    // Draw all the landed troopers normally first
+    this._drawLandedTroopers(gY, false);
+    this._drawTurret(gY);
 
-    // Base shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.2)';
-    ctx.beginPath();
-    ctx.ellipse(tx, groundY + 2 * s, baseW * 0.55, 3 * s, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // The 4 troopers on the active side climb in a column toward the turret
+    const maxT  = PC.PARATROOPER.MAX_PER_SIDE;
+    const destX = tx + (side === 0 ? -16 * s : 16 * s);
 
-    // Turret base (trapezoid)
-    const baseGrad = ctx.createLinearGradient(tx - baseW/2, ty, tx + baseW/2, ty + baseH);
-    baseGrad.addColorStop(0, '#aab0bb');
-    baseGrad.addColorStop(0.4, '#7a8090');
-    baseGrad.addColorStop(1, '#555a66');
-    ctx.fillStyle = baseGrad;
-    ctx.beginPath();
-    ctx.moveTo(tx - baseW * 0.55, groundY);
-    ctx.lineTo(tx - baseW * 0.38, ty);
-    ctx.lineTo(tx + baseW * 0.38, ty);
-    ctx.lineTo(tx + baseW * 0.55, groundY);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-    ctx.lineWidth = 0.8 * s;
-    ctx.stroke();
+    for (let i = 0; i < maxT; i++) {
+      // Each trooper starts at their ground position and climbs to a stacked position
+      const startX = side === 0
+        ? tx - 22 * s - i * spacing
+        : tx + 22 * s + i * spacing;
+      const startY = gY - bh;
 
-    // Turret dome (pivot point)
-    const domeR = baseW * 0.36;
-    const domeGrad = ctx.createRadialGradient(tx - domeR*0.3, ty - domeR*0.3, 1, tx, ty, domeR);
-    domeGrad.addColorStop(0, '#c8cdd6');
-    domeGrad.addColorStop(0.5, '#888e99');
-    domeGrad.addColorStop(1, '#4a5060');
-    ctx.fillStyle = domeGrad;
-    ctx.beginPath();
-    ctx.arc(tx, ty, domeR, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-    ctx.lineWidth = 0.8 * s;
-    ctx.stroke();
+      // Climb height: bottom trooper stays, top ones rise
+      const stackY = gY - bh * (i + 1) - 2 * s * i;
 
-    // Barrel
-    ctx.save();
-    ctx.translate(tx, ty);
-    ctx.rotate(this.turretAngle);
+      const px = lerp(startX, destX, t);
+      const py = lerp(startY, stackY, t * (1 - 0.1 * i));
 
-    const barrelGrad = ctx.createLinearGradient(-barrelW/2, 0, barrelW/2, 0);
-    barrelGrad.addColorStop(0, '#555a66');
-    barrelGrad.addColorStop(0.4, '#9aa0aa');
-    barrelGrad.addColorStop(1, '#555a66');
-    ctx.fillStyle = barrelGrad;
-    ctx.beginPath();
-    this._roundRect(ctx, -barrelW/2, -barrelLen, barrelW, barrelLen, 2 * s);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-    ctx.lineWidth = 0.7 * s;
-    ctx.stroke();
+      this._drawStandingTrooper(ctx, px, py, s, bh, bw, false);
+    }
 
-    // Muzzle cap
-    ctx.fillStyle = '#333744';
-    ctx.beginPath();
-    ctx.arc(0, -barrelLen, barrelW * 0.6, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-
-    // Aim indicator line (subtle)
-    const aimLen = 18 * s;
-    const aimX = tx + Math.cos(this.turretAngle) * (barrelLen + aimLen);
-    const aimY = ty + Math.sin(this.turretAngle) * (barrelLen + aimLen);
-    ctx.strokeStyle = 'rgba(255,220,100,0.35)';
-    ctx.lineWidth = 0.8 * s;
-    ctx.setLineDash([2 * s, 3 * s]);
-    ctx.beginPath();
-    ctx.moveTo(tx + Math.cos(this.turretAngle) * barrelLen, ty + Math.sin(this.turretAngle) * barrelLen);
-    ctx.lineTo(aimX, aimY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
-  // ── Helper: roundRect (fallback for older environments) ─────────────────────
-
-  _roundRect(ctx, x, y, w, h, r) {
-    if (ctx.roundRect) {
-      ctx.roundRect(x, y, w, h, r);
-    } else {
-      r = Math.min(r, w / 2, h / 2);
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.lineTo(x + w - r, y);
-      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-      ctx.lineTo(x + w, y + h - r);
-      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-      ctx.lineTo(x + r, y + h);
-      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-      ctx.lineTo(x, y + r);
-      ctx.quadraticCurveTo(x, y, x + r, y);
-      ctx.closePath();
+    // Flash effect near end of animation
+    if (t > 0.85) {
+      const flashAlpha = (t - 0.85) / 0.15;
+      ctx.fillStyle = `rgba(255,80,0,${flashAlpha * 0.45})`;
+      ctx.fillRect(0, 0, cw, this.ch);
     }
   }
 
-  // ── Main Loop ───────────────────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────────────────────────
+  // HELPER: Rounded rect path
+  _rr(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    if (ctx.roundRect) {
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
 
-  _loop() {
-    this._update();
+  // ── Main Loop ────────────────────────────────────────────────────────────────
+
+  _loop(ts) {
+    this.animId = requestAnimationFrame(ts => this._loop(ts));
+
+    // Delta time, capped at 100ms to avoid spiral of death on tab refocus
+    let dt = 0;
+    if (this._lastTs !== null && ts !== undefined) {
+      dt = Math.min((ts - this._lastTs) / 1000, 0.1);
+    }
+    this._lastTs = ts;
+
+    this._update(dt);
     this._draw();
-    this.animId = requestAnimationFrame(() => this._loop());
   }
 }
 
-// Export
+// ── Module export (for non-browser environments) ──────────────────────────────
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { ParachuteGame };
 }

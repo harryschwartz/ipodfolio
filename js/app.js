@@ -926,10 +926,6 @@ class IPodApp {
     this._centerPressStart = Date.now();
     this._centerLongPressTimer = setTimeout(() => {
       this._centerLongPressed = true;
-      if (this.activeNowPlaying) {
-        audioPlayer.toggleShuffle();
-        this.updateNowPlayingUI();
-      }
     }, 600); // 600ms = long press threshold
   }
 
@@ -1235,6 +1231,12 @@ class IPodApp {
     
     this.updateHeaderIcons();
     
+    // If playback stopped (e.g. end of queue), navigate back from Now Playing
+    if (!audioPlayer.isPlaying && !audioPlayer.isPaused) {
+      this.onMenuClick();
+      return;
+    }
+    
     const track = audioPlayer.currentTrack;
     if (!track) return;
     
@@ -1365,21 +1367,8 @@ class IPodApp {
       if (scrubRemaining) scrubRemaining.textContent = '-' + formatTime(dur - curScrub);
     }
 
-    // Shuffle / Repeat indicators
-    const shuffleBadge = document.getElementById('np-shuffle-badge');
-    const repeatBadge = document.getElementById('np-repeat-badge');
+    // Track counter
     const trackCounter = document.getElementById('np-track-counter');
-    if (shuffleBadge) {
-      shuffleBadge.classList.toggle('active', audioPlayer.shuffle);
-    }
-    if (repeatBadge) {
-      repeatBadge.classList.toggle('active', audioPlayer.repeat > 0);
-      if (audioPlayer.repeat === 2) {
-        repeatBadge.innerHTML = REPEAT_ONE_SVG;
-      } else {
-        repeatBadge.innerHTML = REPEAT_SVG;
-      }
-    }
     if (trackCounter && audioPlayer.queue.length > 0) {
       trackCounter.textContent = `${audioPlayer.queueIndex + 1} of ${audioPlayer.queue.length}`;
     }

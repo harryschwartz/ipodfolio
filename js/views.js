@@ -48,9 +48,7 @@ function formatTime(seconds) {
 const ARROW_RIGHT_SVG = `<svg class="arrow-right" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L7 7L1 13" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>`;
 const VOLUME_MUTE_SVG = `<svg class="volume-icon" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 4h3l4-4v12L3 8H0V4z" fill="#666"/></svg>`;
 const VOLUME_FULL_SVG = `<svg class="volume-icon" viewBox="0 0 20 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 4h3l4-4v12L3 8H0V4z" fill="#666"/><path d="M12 1c2 1.5 3 3.5 3 5s-1 3.5-3 5" stroke="#666" stroke-width="1.5" fill="none"/><path d="M10 3c1.2.9 2 2.1 2 3s-.8 2.1-2 3" stroke="#666" stroke-width="1.5" fill="none"/></svg>`;
-const SHUFFLE_SVG = `<svg class="np-status-icon" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 11h3l5-8h4M13 3l2 2-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 3h3l5 8h4M13 9l2 2-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const REPEAT_SVG = `<svg class="np-status-icon" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 1l-3 2 3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 3h13a3 3 0 0 1 3 3v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M14 13l3-2-3-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 11H4a3 3 0 0 1-3-3V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
-const REPEAT_ONE_SVG = `<svg class="np-status-icon" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 1l-3 2 3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 3h13a3 3 0 0 1 3 3v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M14 13l3-2-3-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 11H4a3 3 0 0 1-3-3V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><text x="9" y="9.5" font-size="6" font-weight="bold" fill="currentColor" text-anchor="middle" font-family="sans-serif">1</text></svg>`;
+
 
 // ---- Folder View (List) ----
 function renderFolderView(node, children, isTopLevel) {
@@ -266,13 +264,11 @@ function renderNowPlayingView() {
   meta.appendChild(info);
   container.appendChild(meta);
 
-  // Shuffle / Repeat status row
+  // Track counter row
   const statusRow = document.createElement('div');
   statusRow.className = 'now-playing-status-row';
   statusRow.id = 'np-status-row';
   statusRow.innerHTML = `
-    <span class="np-status-badge" id="np-shuffle-badge">${SHUFFLE_SVG}</span>
-    <span class="np-status-badge" id="np-repeat-badge">${REPEAT_SVG}</span>
     <span class="np-track-counter" id="np-track-counter"></span>
   `;
   container.appendChild(statusRow);
