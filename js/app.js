@@ -431,8 +431,7 @@ class IPodApp {
       }
       case 'game': {
         this.setHeaderTitle(node.title);
-        const gameId = node.metadata?.gameId || 'brick';
-        const view = renderGameView(gameId);
+        const view = renderGameView();
         this.transitionTo(view, direction);
         // Initialize game after DOM is ready
         requestAnimationFrame(() => {
@@ -440,13 +439,7 @@ class IPodApp {
           const hud = this.screenContent.querySelector('.game-hud');
           const hudRight = this.screenContent.querySelector('.game-hud-right');
           if (canvas) {
-            if (gameId === 'solitaire' && typeof SolitaireGame !== 'undefined') {
-              this.activeBrickGame = new SolitaireGame();
-            } else if (gameId === 'parachute' && typeof ParachuteGame !== 'undefined') {
-              this.activeBrickGame = new ParachuteGame();
-            } else {
-              this.activeBrickGame = new BrickGame();
-            }
+            this.activeBrickGame = new BrickGame();
             this.activeBrickGame.init(canvas, hud, hudRight);
           }
         });
