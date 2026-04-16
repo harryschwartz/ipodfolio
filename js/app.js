@@ -771,27 +771,48 @@ class IPodApp {
       if (subtitles) subtitles.forEach(s => s.style.display = 'none');
       if (captionEl) {
         captionEl.style.display = '';
-        const segments = track.metadata.transcription.segments;
+        const transcription = track.metadata.transcription;
+        const segments = transcription.segments;
+        const words = transcription.words;
         const currentTime = audioPlayer.getCurrentTime();
-        // Find the active segment
-        let activeSegment = null;
-        for (let i = 0; i < segments.length; i++) {
-          if (currentTime >= segments[i].start && currentTime < segments[i].end) {
-            activeSegment = segments[i];
-            break;
+
+        let newText = '';
+
+        if (words && words.length > 0) {
+          // Build chunks of ~6 words from the words array
+          if (!transcription._chunks) {
+            const CHUNK_SIZE = 6;
+            const chunks = [];
+            for (let i = 0; i < words.length; i += CHUNK_SIZE) {
+              const group = words.slice(i, i + CHUNK_SIZE);
+              chunks.push({
+                start: group[0].start,
+                end: group[group.length - 1].end,
+                text: group.map(w => w.word).join(' ')
+              });
+            }
+            transcription._chunks = chunks;
+          }
+          // Find the active chunk
+          const chunks = transcription._chunks;
+          for (let i = 0; i < chunks.length; i++) {
+            if (currentTime >= chunks[i].start && currentTime < chunks[i].end) {
+              newText = chunks[i].text.trim();
+              break;
+            }
+          }
+        } else {
+          // Fallback: no words array, use segments truncated
+          for (let i = 0; i < segments.length; i++) {
+            if (currentTime >= segments[i].start && currentTime < segments[i].end) {
+              newText = segments[i].text.trim();
+              break;
+            }
           }
         }
-        // If between segments or before first, show nothing; if past last, show last
-        if (!activeSegment && currentTime > 0 && segments.length > 0) {
-          const last = segments[segments.length - 1];
-          if (currentTime >= last.end) {
-            activeSegment = null; // past end, show nothing
-          }
-        }
-        const newText = activeSegment ? activeSegment.text.trim() : '';
+
         if (captionEl.dataset.currentText !== newText) {
           captionEl.classList.remove('caption-fade-in');
-          // Force reflow to restart animation
           void captionEl.offsetWidth;
           captionEl.textContent = newText;
           captionEl.dataset.currentText = newText;
