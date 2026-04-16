@@ -109,6 +109,73 @@ class IPodApp {
     window.addEventListener('playpauseclick', () => this.onPlayPause());
     window.addEventListener('forwardclick', () => this.onForward());
     window.addEventListener('backclick', () => this.onBack());
+
+    // Touchscreen: tap on screen content to select items
+    this.screenContent.addEventListener('pointerup', (e) => this.onScreenTap(e));
+
+    // Touchscreen: tap header to go back
+    const header = document.querySelector('.ipod-header');
+    if (header) {
+      header.style.cursor = 'pointer';
+      header.addEventListener('pointerup', (e) => {
+        e.stopPropagation();
+        if (this.navStack.length > 0 || this.activeNowPlaying || this.photoFullscreen) {
+          header.classList.add('header-tap');
+          setTimeout(() => header.classList.remove('header-tap'), 150);
+          this.onMenuClick();
+        }
+      });
+    }
+  }
+
+  // ---- Touchscreen tap handler ----
+  onScreenTap(e) {
+    // Don't handle if sub-controllers are active
+    if (this.activeCoverFlow || this.activeBrickGame) return;
+    // Don't handle now-playing (no list items to tap)
+    if (this.activeNowPlaying) return;
+    // Don't interfere with native links (text view link rows)
+    if (e.target.closest('a')) return;
+
+    const target = e.target.closest('.list-item');
+    if (!target) {
+      // Check for photo grid tap
+      const photo = e.target.closest('.photo-thumb');
+      if (photo && this.currentNode?.type === 'photo_album' && !this.photoFullscreen) {
+        const idx = parseInt(photo.dataset.index, 10);
+        if (!isNaN(idx)) {
+          this.photoIndex = idx;
+          this.updatePhotoGridSelection();
+          photo.classList.add('tap-flash');
+          setTimeout(() => photo.classList.remove('tap-flash'), 200);
+          // Select it (enter fullscreen)
+          setTimeout(() => this.onCenterClick(), 100);
+        }
+      }
+      return;
+    }
+
+    const idx = parseInt(target.dataset.index, 10);
+    if (isNaN(idx)) return;
+
+    // Visual feedback
+    target.classList.add('tap-flash');
+    setTimeout(() => target.classList.remove('tap-flash'), 200);
+
+    // For settings view, select the tapped item
+    if (this.currentNode?.type === 'settings') {
+      this.scrollIndex = idx;
+      this.updateListSelection();
+      setTimeout(() => this.onCenterClick(), 100);
+      return;
+    }
+
+    // Set scroll index to tapped item and trigger selection
+    this.scrollIndex = idx;
+    this.updateListSelection();
+
+    // Small delay for visual feedback before navigating
+    setTimeout(() => this.onCenterClick(), 100);
   }
 
   // ---- Navigation ----
