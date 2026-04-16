@@ -109,17 +109,26 @@ class AudioPlayer {
   }
 
   getCurrentTime() {
-    if (this.audio.src && this.audio.duration) {
+    if (this.audio.src && this.audio.readyState > 0) {
       return this.audio.currentTime;
     }
     return this._simCurrentTime || 0;
   }
 
   getDuration() {
-    if (this.audio.src && this.audio.duration && isFinite(this.audio.duration)) {
+    if (this.audio.src && isFinite(this.audio.duration) && this.audio.duration > 0) {
       return this.audio.duration;
     }
-    return this.currentTrack ? (this.currentTrack.metadata.duration || 0) : 0;
+    // Fallback: use metadata duration or derive from transcription
+    if (this.currentTrack) {
+      if (this.currentTrack.metadata.duration) return this.currentTrack.metadata.duration;
+      const t = this.currentTrack.metadata.transcription;
+      if (t) {
+        const segs = t.segments;
+        if (segs && segs.length > 0) return segs[segs.length - 1].end;
+      }
+    }
+    return 0;
   }
 
   getPercent() {
