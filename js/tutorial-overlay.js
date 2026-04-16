@@ -143,8 +143,8 @@
     if (!wheel || !shell) return;
 
     var vw = window.innerWidth;
-    var lineColor = 'rgba(255,255,255,0.5)';
-    var dotColor = 'rgba(255,255,255,0.7)';
+    var lineColor = 'rgba(255,255,255,0.85)';
+    var dotColor = '#fff';
 
     // iPod shell bounds — all labels must stay inside
     var shellRect = shell.getBoundingClientRect();
