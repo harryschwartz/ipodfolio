@@ -44,7 +44,7 @@
 
     var hint = document.createElement('div');
     hint.className = 'boot-hint';
-    hint.textContent = 'Press select to enter';
+    hint.textContent = 'Press \u25CF to enter';
     container.appendChild(hint);
 
     return container;
@@ -235,13 +235,25 @@
 
     if (isMobile) {
       // ---- MOBILE LAYOUT ----
-      // Labels at same Y as their offset dots → straight horizontal lines.
-      // All labels constrained within iPod shell bounds.
+      // Short arms: labels halfway between wheel edge and shell edge.
+      // Select aligned with Play/Pause Y.
       //   LEFT: Menu, Previous, Play/Pause
-      //   RIGHT: Scroll Wheel, Next, Select (below Next)
+      //   RIGHT: Scroll Wheel, Next, Select
 
-      // Minimum Y for labels (must be below screen + gap)
       var minLabelY = screenBottom + 14;
+      var dotOff = 20;
+
+      // Label anchors: halfway between wheel edge and shell edge
+      var mLeftAnchor = shellLeft + (wheelRect.left - shellLeft) * 0.5;
+      var mRightAnchor = shellRight - (shellRight - wheelRect.right) * 0.5;
+
+      // Compute Play/Pause Y first (Select will share it)
+      var ppY = null;
+      if (playPauseBtn) {
+        var pc = centerOf(playPauseBtn);
+        ppY = pc.y + dotOff;
+        ppY = Math.min(ppY, shellBottom - 30);
+      }
 
       // --- SCROLL WHEEL (upper-right rim) → label RIGHT ---
       var scrollAngle = -55 * Math.PI / 180;
@@ -249,81 +261,73 @@
       var scrollDotY = wheelCy + Math.sin(scrollAngle) * (wheelR - 6);
       var scrollLabelY = Math.max(scrollDotY, minLabelY);
       makeDot(scrollDotX, scrollDotY);
-      makeLabel('Scroll Wheel', 'Slide to browse', labelRight, scrollLabelY, 'left');
-      makePath('M' + scrollDotX + ',' + scrollDotY + ' L' + (labelRight - 80) + ',' + scrollDotY +
-        (Math.abs(scrollLabelY - scrollDotY) > 3 ? ' L' + (labelRight - 80) + ',' + scrollLabelY : ''));
+      makeLabel('Scroll Wheel', 'Slide to browse', mRightAnchor, scrollLabelY, 'left');
+      makePath('M' + scrollDotX + ',' + scrollDotY + ' L' + mRightAnchor + ',' + scrollDotY +
+        (Math.abs(scrollLabelY - scrollDotY) > 3 ? ' L' + mRightAnchor + ',' + scrollLabelY : ''));
 
-      // Vertical dot offset: above center → UP, below center → DOWN.
-      var dotOff = 20;
-
-      // --- MENU (top button, above center) → dot & label shift UP → straight line LEFT ---
+      // --- MENU (top button, above center) → straight line LEFT ---
       if (menuBtn) {
         var mc = centerOf(menuBtn);
         var menuDotY = mc.y - dotOff;
-        var menuLabelY = Math.max(menuDotY, minLabelY);
+        var menuLY = Math.max(menuDotY, minLabelY);
         makeDot(mc.x, menuDotY);
-        makeLabel('Menu', 'Go back', labelLeft, menuLabelY, 'right');
-        makePath('M' + mc.x + ',' + menuDotY + ' L' + (labelLeft + 42) + ',' + menuDotY +
-          (Math.abs(menuLabelY - menuDotY) > 3 ? ' L' + (labelLeft + 42) + ',' + menuLabelY : ''));
+        makeLabel('Menu', 'Go back', mLeftAnchor, menuLY, 'right');
+        makePath('M' + mc.x + ',' + menuDotY + ' L' + mLeftAnchor + ',' + menuDotY +
+          (Math.abs(menuLY - menuDotY) > 3 ? ' L' + mLeftAnchor + ',' + menuLY : ''));
       }
 
-      // --- PREVIOUS (left button) → dot & label shift UP → straight line LEFT ---
+      // --- PREVIOUS (left button) → straight line LEFT ---
       if (rewindBtn) {
         var rc = centerOf(rewindBtn);
         var prevDotY = rc.y - dotOff;
         makeDot(rc.x, prevDotY);
-        makeLabel('Previous', 'Skip back', labelLeft, prevDotY, 'right');
-        makePath('M' + rc.x + ',' + prevDotY + ' L' + (labelLeft + 55) + ',' + prevDotY);
+        makeLabel('Previous', 'Skip back', mLeftAnchor, prevDotY, 'right');
+        makePath('M' + rc.x + ',' + prevDotY + ' L' + mLeftAnchor + ',' + prevDotY);
       }
 
-      // --- NEXT (right button) → dot & label shift DOWN → straight line RIGHT ---
+      // --- NEXT (right button) → straight line RIGHT ---
       if (forwardBtn) {
         var fc = centerOf(forwardBtn);
         var nextDotY = fc.y + dotOff;
         makeDot(fc.x, nextDotY);
-        makeLabel('Next', 'Skip forward', labelRight, nextDotY, 'left');
-        makePath('M' + fc.x + ',' + nextDotY + ' L' + (labelRight - 68) + ',' + nextDotY);
+        makeLabel('Next', 'Skip forward', mRightAnchor, nextDotY, 'left');
+        makePath('M' + fc.x + ',' + nextDotY + ' L' + mRightAnchor + ',' + nextDotY);
       }
 
-      // --- SELECT (center button) → dot at center, arm v-first down then right ---
+      // --- SELECT (center) → dot at center, elbow down to ppY, then right ---
       if (centerBtn) {
         var cc = centerOf(centerBtn);
+        var selectY = ppY !== null ? ppY : (wheelRect.bottom + 10);
+        selectY = Math.min(selectY, shellBottom - 30);
         makeDot(cc.x, cc.y);
-        var fcDotY = forwardBtn ? centerOf(forwardBtn).y + dotOff : cc.y;
-        var selectLabelY = fcDotY + 30;
-        selectLabelY = Math.min(selectLabelY, shellBottom - 30);
-        makeLabel('Select', 'Press to choose', labelRight, selectLabelY, 'left');
-        makePath(elbowPath(cc.x, cc.y, labelRight - 80, selectLabelY, 'v-first'));
+        makeLabel('Select', 'Press to choose', mRightAnchor, selectY, 'left');
+        makePath(elbowPath(cc.x, cc.y, mRightAnchor, selectY, 'v-first'));
       }
 
-      // --- PLAY/PAUSE (bottom button, below center) → dot & label shift DOWN → straight line LEFT ---
+      // --- PLAY/PAUSE (bottom button) → straight line LEFT ---
       if (playPauseBtn) {
-        var pc = centerOf(playPauseBtn);
-        var ppDotY = pc.y + dotOff;
-        var ppLabelY = Math.min(ppDotY, shellBottom - 30);
-        makeDot(pc.x, ppLabelY);
-        makeLabel('Play / Pause', 'Control playback', labelLeft, ppLabelY, 'right');
-        makePath('M' + pc.x + ',' + ppLabelY + ' L' + (labelLeft + 80) + ',' + ppLabelY);
+        makeDot(centerOf(playPauseBtn).x, ppY);
+        makeLabel('Play / Pause', 'Control playback', mLeftAnchor, ppY, 'right');
+        makePath('M' + centerOf(playPauseBtn).x + ',' + ppY + ' L' + mLeftAnchor + ',' + ppY);
       }
 
     } else {
       // ---- DESKTOP LAYOUT ----
-      // Labels at same Y as their offset dots → straight horizontal lines.
-      // All labels constrained within iPod shell bounds.
-      // Left side: Menu, Previous, Play/Pause
-      // Right side: Scroll Wheel, Next, Select (below Next)
+      // Short arms: labels close to wheel edge.
+      // Select aligned with Play/Pause Y.
+      // Left: Menu, Previous, Play/Pause
+      // Right: Scroll Wheel, Next, Select
 
-      var dLabelGap = 6;
-      var dLeftAnchor = wheelRect.left - dLabelGap;
-      var dRightAnchor = wheelRect.right + dLabelGap;
+      var dGap = 6;
+      var dLeftAnchor = wheelRect.left - dGap;
+      var dRightAnchor = wheelRect.right + dGap;
       var dMinY = screenBottom + 8;
+      var dDotOff = 20;
 
-      // Straight-line desktop callout: label Y = dot Y → horizontal line.
       function addDesktopCallout(title, desc, dotX, dotY, side) {
         var ly = Math.max(dotY, dMinY);
         ly = Math.min(ly, shellBottom - 28);
         makeDot(dotX, ly);
-
         if (side === 'left') {
           makeLabel(title, desc, dLeftAnchor, ly, 'left');
           makePath('M' + dotX + ',' + ly + ' L' + (dLeftAnchor + 4) + ',' + ly);
@@ -333,48 +337,52 @@
         }
       }
 
-      // Vertical offset: above center → UP, below → DOWN.
-      var dDotOff = 20;
+      // Compute Play/Pause Y first (Select will share it)
+      var dPPY = null;
+      if (playPauseBtn) {
+        var pc2 = centerOf(playPauseBtn);
+        dPPY = pc2.y + dDotOff;
+        dPPY = Math.min(dPPY, shellBottom - 28);
+      }
 
-      // Menu (top, above center) — shift UP — left side
+      // Menu (top, above center) — shift UP — left
       if (menuBtn) {
         var mc2 = centerOf(menuBtn);
         addDesktopCallout('Menu', 'Go back', mc2.x, mc2.y - dDotOff, 'left');
       }
 
-      // Scroll Wheel — right side, dot on upper-right rim
+      // Scroll Wheel — right, dot on upper-right rim
       var scrAngle = -45 * Math.PI / 180;
       var scrDotX = wheelCx + Math.cos(scrAngle) * (wheelR - 6);
       var scrDotY = wheelCy + Math.sin(scrAngle) * (wheelR - 6);
       addDesktopCallout('Scroll Wheel', 'Slide to browse', scrDotX, scrDotY, 'right');
 
-      // Previous (left, at center horizon) — shift UP — left side
+      // Previous (left) — shift UP — left
       if (rewindBtn) {
         var rc2 = centerOf(rewindBtn);
         addDesktopCallout('Previous', 'Skip back', rc2.x, rc2.y - dDotOff, 'left');
       }
 
-      // Next (right, at center horizon) — shift DOWN — right side
+      // Next (right) — shift DOWN — right
       if (forwardBtn) {
         var fc2 = centerOf(forwardBtn);
         addDesktopCallout('Next', 'Skip forward', fc2.x, fc2.y + dDotOff, 'right');
       }
 
-      // Select (center) — dot at center, arm v-first down then right
+      // Select (center) — dot at center, elbow down to ppY, then right
       if (centerBtn) {
         var cc2 = centerOf(centerBtn);
-        var fc2DotY = forwardBtn ? centerOf(forwardBtn).y + dDotOff : cc2.y;
-        var selectDesktopY = fc2DotY + 30;
-        selectDesktopY = Math.min(selectDesktopY, shellBottom - 28);
+        var selY = dPPY !== null ? dPPY : (wheelRect.bottom + 10);
+        selY = Math.min(selY, shellBottom - 28);
         makeDot(cc2.x, cc2.y);
-        makeLabel('Select', 'Press to choose', dRightAnchor, selectDesktopY, 'right');
-        makePath(elbowPath(cc2.x, cc2.y, dRightAnchor - 4, selectDesktopY, 'v-first'));
+        makeLabel('Select', 'Press to choose', dRightAnchor, selY, 'right');
+        makePath(elbowPath(cc2.x, cc2.y, dRightAnchor - 4, selY, 'v-first'));
       }
 
-      // Play/Pause (bottom, below center) — shift DOWN — left side
+      // Play/Pause (bottom) — at ppY — left
       if (playPauseBtn) {
-        var pc2 = centerOf(playPauseBtn);
-        addDesktopCallout('Play / Pause', 'Control playback', pc2.x, pc2.y + dDotOff, 'left');
+        var ppc2 = centerOf(playPauseBtn);
+        addDesktopCallout('Play / Pause', 'Control playback', ppc2.x, dPPY, 'left');
       }
     }
   }

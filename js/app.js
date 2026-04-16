@@ -38,17 +38,12 @@ class IPodApp {
     // Bind events
     this.bindEvents();
     
-    // Desktop QR screen or boot screen
+    // Desktop: boot screen (with tutorial callouts) FIRST, then QR screen, then home.
+    // Mobile: boot screen FIRST, then home (no QR).
     this.desktopQRActive = false;
     this.bootScreenActive = false;
     console.log('[IPodApp] Init — ipodQROverlay available:', !!window.ipodQROverlay);
-    if (window.ipodQROverlay && window.ipodQROverlay.shouldShow()) {
-      console.log('[IPodApp] Showing desktop QR screen');
-      this.showDesktopQR();
-    } else {
-      console.log('[IPodApp] Showing boot screen (QR skipped)');
-      this.showBootScreen();
-    }
+    this.showBootScreen();
   }
 
   showDesktopQR() {
@@ -61,8 +56,8 @@ class IPodApp {
   dismissDesktopQR() {
     this.desktopQRActive = false;
     window.ipodQROverlay.dismiss();
-    // After QR, show boot screen with callouts
-    this.showBootScreen();
+    // After QR, go straight to home (boot screen was already shown first)
+    this.showHome();
   }
 
   showBootScreen() {
@@ -84,7 +79,12 @@ class IPodApp {
     if (window.ipodTutorialOverlay) {
       window.ipodTutorialOverlay.dismiss();
     }
-    this.showHome();
+    // Desktop: show QR screen next. Mobile: go straight to home.
+    if (window.ipodQROverlay && window.ipodQROverlay.shouldShow()) {
+      this.showDesktopQR();
+    } else {
+      this.showHome();
+    }
   }
 
   applyTheme(themeId) {
