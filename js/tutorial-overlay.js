@@ -389,21 +389,6 @@
       }
     }
 
-    // Volume note on the frame between screen and wheel
-    var noteY = (screenBottom + wheelRect.top) / 2;
-    var noteCx = (shellLeft + shellRight) / 2;
-    var noteEl = document.createElement('div');
-    noteEl.className = 'tutorial-callout';
-    noteEl.style.position = 'fixed';
-    noteEl.style.left = noteCx + 'px';
-    noteEl.style.top = noteY + 'px';
-    noteEl.style.transform = 'translate(-50%, -50%)';
-    noteEl.style.textAlign = 'center';
-    noteEl.style.fontSize = '0.65rem';
-    noteEl.style.color = 'rgba(0,0,0,0.5)';
-    noteEl.style.whiteSpace = 'nowrap';
-    noteEl.textContent = '\uD83D\uDD0A Ringer on and volume up for full experience';
-    calloutContainer.appendChild(noteEl);
   }
 
   function hideCallouts() {
