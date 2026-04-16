@@ -57,15 +57,42 @@ function triggerIOSClickHaptic() {
   }
 }
 
-// Web Audio tick sound for scroll feedback on iOS
-// The checkbox switch trick does NOT work during pan/move gestures (iOS limitation).
-// Web Audio API plays during touchmove once the AudioContext is unlocked on first touch.
-// This mimics the real iPod click wheel's audible tick.
+// Web Audio tick sound for scroll feedback — works on ALL platforms including
+// iOS silent mode. On iOS, the ringer switch mutes the default "ambient" audio
+// session. To bypass it, we play a tiny silent clip through an <audio> element
+// on the first user gesture. This switches the page's audio session to
+// "playback" mode, which ignores the silent switch. The Web Audio API
+// AudioContext then inherits this routing.
 let _audioCtx = null;
 let _tickBuffer = null;
 let _audioUnlocked = false;
+let _silentModeUnlocked = false;
 let _lastTickTime = 0;
 const TICK_MIN_INTERVAL = 30; // ms between ticks
+
+// Tiny silent WAV — base64-encoded 44-byte header + 1 sample of silence.
+// Playing this through <audio> forces iOS into "playback" audio session.
+const SILENT_WAV_URI = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+
+function unlockSilentMode() {
+  if (_silentModeUnlocked) return;
+  try {
+    const audio = new Audio(SILENT_WAV_URI);
+    audio.setAttribute('playsinline', '');
+    audio.volume = 0.01;
+    // play() must be called inside a user gesture handler
+    const p = audio.play();
+    if (p && p.then) {
+      p.then(() => {
+        _silentModeUnlocked = true;
+        // Clean up — element no longer needed
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+      }).catch(() => {});
+    }
+  } catch {}
+}
 
 function ensureAudioContext() {
   if (_audioCtx) return;
@@ -96,12 +123,16 @@ function unlockAudioContext() {
 
 // Unlock audio on the very first user gesture anywhere on the page.
 // This covers the tutorial overlay dismiss tap, so by the time the user
-// starts scrolling the wheel, the AudioContext is already running.
+// starts scrolling the wheel, the AudioContext is already running and
+// iOS silent mode has been bypassed.
 (function earlyUnlock() {
   function onFirstGesture() {
+    // 1. Switch iOS audio session to "playback" (bypasses silent switch)
+    unlockSilentMode();
+    // 2. Create and resume the AudioContext
     ensureAudioContext();
     unlockAudioContext();
-    // Also play a silent buffer to fully warm up the audio pipeline
+    // 3. Play a silent buffer through Web Audio to warm up the pipeline
     if (_audioCtx && _audioCtx.state !== 'suspended') {
       try {
         const silent = _audioCtx.createBufferSource();
@@ -264,6 +295,7 @@ class ClickWheel {
     this.el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       // Ensure audio is unlocked on wheel interaction too
+      unlockSilentMode();
       unlockAudioContext();
       this.isPanning = true;
       this.hasScrolled = false;
