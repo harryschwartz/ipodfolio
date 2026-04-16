@@ -761,9 +761,50 @@ class IPodApp {
     // Info
     const title = this.currentView?.querySelector('.now-playing-title');
     const subtitles = this.currentView?.querySelectorAll('.now-playing-subtitle');
+    const captionEl = this.currentView?.querySelector('.now-playing-caption');
     if (title) title.textContent = track.title || '--';
-    if (subtitles && subtitles[0]) subtitles[0].textContent = track.metadata?.artistName || '--';
-    if (subtitles && subtitles[1]) subtitles[1].textContent = track.metadata?.albumName || '--';
+
+    const hasTranscription = track.metadata?.transcription?.segments?.length > 0;
+
+    if (hasTranscription) {
+      // Hide artist/album subtitles, show caption
+      if (subtitles) subtitles.forEach(s => s.style.display = 'none');
+      if (captionEl) {
+        captionEl.style.display = '';
+        const segments = track.metadata.transcription.segments;
+        const currentTime = audioPlayer.getCurrentTime();
+        // Find the active segment
+        let activeSegment = null;
+        for (let i = 0; i < segments.length; i++) {
+          if (currentTime >= segments[i].start && currentTime < segments[i].end) {
+            activeSegment = segments[i];
+            break;
+          }
+        }
+        // If between segments or before first, show nothing; if past last, show last
+        if (!activeSegment && currentTime > 0 && segments.length > 0) {
+          const last = segments[segments.length - 1];
+          if (currentTime >= last.end) {
+            activeSegment = null; // past end, show nothing
+          }
+        }
+        const newText = activeSegment ? activeSegment.text : '';
+        if (captionEl.dataset.currentText !== newText) {
+          captionEl.classList.remove('caption-fade-in');
+          // Force reflow to restart animation
+          void captionEl.offsetWidth;
+          captionEl.textContent = newText;
+          captionEl.dataset.currentText = newText;
+          captionEl.classList.add('caption-fade-in');
+        }
+      }
+    } else {
+      // No transcription — show artist/album as normal
+      if (subtitles) subtitles.forEach(s => s.style.display = '');
+      if (subtitles && subtitles[0]) subtitles[0].textContent = track.metadata?.artistName || '--';
+      if (subtitles && subtitles[1]) subtitles[1].textContent = track.metadata?.albumName || '--';
+      if (captionEl) captionEl.style.display = 'none';
+    }
     
     // Progress
     const currentTime = document.getElementById('np-current-time');

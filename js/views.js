@@ -239,6 +239,7 @@ function renderNowPlayingView() {
     <div class="now-playing-title">--</div>
     <div class="now-playing-subtitle">--</div>
     <div class="now-playing-subtitle">--</div>
+    <div class="now-playing-caption"></div>
   `;
   meta.appendChild(info);
   container.appendChild(meta);

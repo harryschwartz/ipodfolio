@@ -468,6 +468,28 @@ a {
   text-overflow: ellipsis;
 }
 
+.now-playing-caption {
+  margin: 0.15rem 0 0;
+  font-size: 0.7rem;
+  color: rgb(99, 101, 103);
+  font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.now-playing-caption.caption-fade-in {
+  animation: captionFade 0.3s ease-in;
+}
+
+@keyframes captionFade {
+  0% { opacity: 0; transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
 /* Controls area */
 .now-playing-controls {
   display: flex;
