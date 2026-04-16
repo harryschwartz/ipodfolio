@@ -262,52 +262,52 @@
       makePath('M' + scrollDotX + ',' + scrollDotY + ' L' + (labelRight - 80) + ',' + scrollDotY +
         (Math.abs(scrollLabelY - scrollDotY) > 3 ? ' L' + (labelRight - 80) + ',' + scrollLabelY : ''));
 
-      // Offset so dots don't sit dead-center on buttons
-      var dotOffset = 14;
+      // Offset dots vertically away from the select button horizon.
+      // Above center → shift UP, below center → shift DOWN.
+      // Select itself stays dead center.
+      var dotOff = 20;
 
-      // --- MENU (top button) → label LEFT ---
+      // --- MENU (top button, above center) → dot shifts UP ---
       if (menuBtn) {
         var mc = centerOf(menuBtn);
-        var menuDotX = mc.x - dotOffset;
-        makeDot(menuDotX, mc.y);
+        var menuDotY = mc.y - dotOff;
+        makeDot(mc.x, menuDotY);
         makeLabel('Menu', 'Go back', labelLeft, mc.y, 'right');
-        makePath('M' + menuDotX + ',' + mc.y + ' L' + (labelLeft + 42) + ',' + mc.y);
+        makePath(elbowPath(mc.x, menuDotY, labelLeft + 42, mc.y, 'v-first'));
       }
 
-      // --- PREVIOUS (left button) → label LEFT ---
+      // --- PREVIOUS (left button, same Y as center) → dot shifts UP ---
       if (rewindBtn) {
         var rc = centerOf(rewindBtn);
-        var prevDotX = rc.x - dotOffset;
-        makeDot(prevDotX, rc.y);
+        var prevDotY = rc.y - dotOff;
+        makeDot(rc.x, prevDotY);
         makeLabel('Previous', 'Skip back', labelLeft, rc.y, 'right');
-        makePath('M' + prevDotX + ',' + rc.y + ' L' + (labelLeft + 55) + ',' + rc.y);
+        makePath(elbowPath(rc.x, prevDotY, labelLeft + 55, rc.y, 'v-first'));
       }
 
-      // --- NEXT (right button) → label RIGHT, at forward button Y ---
+      // --- NEXT (right button, same Y as center) → dot shifts DOWN ---
       if (forwardBtn) {
         var fc = centerOf(forwardBtn);
-        var nextDotX = fc.x + dotOffset;
-        makeDot(nextDotX, fc.y);
+        var nextDotY = fc.y + dotOff;
+        makeDot(fc.x, nextDotY);
         makeLabel('Next', 'Skip forward', labelRight, fc.y, 'left');
-        makePath('M' + nextDotX + ',' + fc.y + ' L' + (labelRight - 68) + ',' + fc.y);
+        makePath(elbowPath(fc.x, nextDotY, labelRight - 68, fc.y, 'v-first'));
       }
 
-      // --- SELECT (center button) → label RIGHT, BELOW Next ---
-      // Arm goes DOWN from center dot, then RIGHT to label.
+      // --- SELECT (center button) → dot stays at center ---
       if (centerBtn) {
         var cc = centerOf(centerBtn);
-        var selectDotY = cc.y + dotOffset;
-        makeDot(cc.x, selectDotY);
+        makeDot(cc.x, cc.y);
         var fcY = forwardBtn ? centerOf(forwardBtn).y : cc.y;
         var selectLabelY = fcY + 36;
         makeLabel('Select', 'Press to choose', labelRight, selectLabelY, 'left');
-        makePath(elbowPath(cc.x, selectDotY, labelRight - 80, selectLabelY, 'v-first'));
+        makePath(elbowPath(cc.x, cc.y, labelRight - 80, selectLabelY, 'v-first'));
       }
 
-      // --- PLAY/PAUSE (bottom button) → label BELOW wheel ---
+      // --- PLAY/PAUSE (bottom button, below center) → dot shifts DOWN ---
       if (playPauseBtn) {
         var pc = centerOf(playPauseBtn);
-        var ppDotY = pc.y + dotOffset;
+        var ppDotY = pc.y + dotOff;
         makeDot(pc.x, ppDotY);
         var ppLabelY = wheelRect.bottom + 16;
         ppLabelY = Math.min(ppLabelY, shellBottom - 40);
@@ -342,48 +342,51 @@
         }
       }
 
-      var dDotOffset = 12;
+      // Vertical offset — same logic as mobile:
+      // Above select-button horizon → shift UP, below → shift DOWN,
+      // Select dot stays dead center.
+      var dDotOff = 20;
 
-      // Menu (top) — left side
+      // Menu (top, above center) — dot shifts UP — left side
       if (menuBtn) {
         var mc2 = centerOf(menuBtn);
-        addDesktopCallout('Menu', 'Go back', mc2.x - dDotOffset, mc2.y, 'left');
+        addDesktopCallout('Menu', 'Go back', mc2.x, mc2.y - dDotOff, 'left', mc2.y);
       }
 
-      // Scroll Wheel — right side, dot on upper-right rim (already offset)
+      // Scroll Wheel — right side, dot on upper-right rim (already offset from center)
       var scrAngle = -45 * Math.PI / 180;
       var scrDotX = wheelCx + Math.cos(scrAngle) * (wheelR - 6);
       var scrDotY = wheelCy + Math.sin(scrAngle) * (wheelR - 6);
       var scrLabelY = wheelCy - wheelR * 0.5;
       addDesktopCallout('Scroll Wheel', 'Slide to browse', scrDotX, scrDotY, 'right', scrLabelY);
 
-      // Previous (left) — left side
+      // Previous (left, at center horizon) — dot shifts UP — left side
       if (rewindBtn) {
         var rc2 = centerOf(rewindBtn);
-        addDesktopCallout('Previous', 'Skip back', rc2.x - dDotOffset, rc2.y, 'left');
+        addDesktopCallout('Previous', 'Skip back', rc2.x, rc2.y - dDotOff, 'left', rc2.y);
       }
 
-      // Next (right) — right side, at forward button Y
+      // Next (right, at center horizon) — dot shifts DOWN — right side
       if (forwardBtn) {
         var fc2 = centerOf(forwardBtn);
-        addDesktopCallout('Next', 'Skip forward', fc2.x + dDotOffset, fc2.y, 'right');
+        addDesktopCallout('Next', 'Skip forward', fc2.x, fc2.y + dDotOff, 'right', fc2.y);
       }
 
-      // Select (center) — right side, BELOW Next
+      // Select (center) — dot stays dead center — right side, BELOW Next
       // Arm: v-first (down from center, then right)
       if (centerBtn) {
         var cc2 = centerOf(centerBtn);
         var fc2Y = forwardBtn ? centerOf(forwardBtn).y : cc2.y;
         var selectDesktopY = fc2Y + 46;
-        makeDot(cc2.x, cc2.y + dDotOffset);
+        makeDot(cc2.x, cc2.y);
         makeLabel('Select', 'Press to choose', dRightAnchor, selectDesktopY, 'right');
-        makePath(elbowPath(cc2.x, cc2.y + dDotOffset, dRightAnchor - 4, selectDesktopY, 'v-first'));
+        makePath(elbowPath(cc2.x, cc2.y, dRightAnchor - 4, selectDesktopY, 'v-first'));
       }
 
-      // Play/Pause (bottom) — left side
+      // Play/Pause (bottom, below center) — dot shifts DOWN — left side
       if (playPauseBtn) {
         var pc2 = centerOf(playPauseBtn);
-        addDesktopCallout('Play / Pause', 'Control playback', pc2.x, pc2.y + dDotOffset, 'left');
+        addDesktopCallout('Play / Pause', 'Control playback', pc2.x, pc2.y + dDotOff, 'left', pc2.y);
       }
     }
   }
