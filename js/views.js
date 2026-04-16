@@ -511,6 +511,206 @@ function renderPlaylistView(node, songs) {
   return container;
 }
 
+// ---- Music Library Views ----
+
+// Music menu: Playlists, Artists, Albums, Songs
+function renderMusicMenuView() {
+  const container = document.createElement('div');
+  container.className = 'selectable-list';
+  const items = [
+    { id: '_music_playlists', title: 'Playlists', type: '_music_menu' },
+    { id: '_music_artists', title: 'Artists', type: '_music_menu' },
+    { id: '_music_albums', title: 'Albums', type: '_music_menu' },
+    { id: '_music_songs', title: 'Songs', type: '_music_menu' },
+  ];
+  container.appendChild(createSelectableList(items, 0, true));
+  container._listEl = container;
+  return { view: container, items };
+}
+
+// Songs list view (flat alphabetical list of all library songs)
+function renderMusicSongsView(songs) {
+  const container = document.createElement('div');
+  container.className = 'selectable-list';
+  container.appendChild(createSelectableList(songs, 0, true));
+  container._listEl = container;
+  return container;
+}
+
+// Artists list view (distinct artist names)
+function renderMusicArtistsView(artists) {
+  const container = document.createElement('div');
+  container.className = 'selectable-list';
+  const items = artists.map(a => ({
+    id: '_artist_' + a.name,
+    title: a.name,
+    type: '_music_artist',
+  }));
+  container.appendChild(createSelectableList(items, 0, true));
+  container._listEl = container;
+  return { view: container, items };
+}
+
+// Artist songs view (songs by a specific artist)
+function renderMusicArtistSongsView(artistName, songs) {
+  const container = document.createElement('div');
+  container.className = 'album-view';
+
+  const header = document.createElement('div');
+  header.className = 'album-header';
+  const info = document.createElement('div');
+  info.className = 'album-header-info';
+  info.innerHTML = `
+    <div class="album-header-title">${artistName}</div>
+    <div class="album-header-artist">${songs.length} song${songs.length !== 1 ? 's' : ''}</div>
+  `;
+  header.appendChild(info);
+  container.appendChild(header);
+
+  const tracks = document.createElement('div');
+  tracks.className = 'album-tracks';
+  tracks.appendChild(createSelectableList(songs, 0, true));
+  container.appendChild(tracks);
+  container._listEl = tracks;
+  return container;
+}
+
+// Albums list view (album name + cover art + artist)
+function renderMusicAlbumsView(albums) {
+  const container = document.createElement('div');
+  container.className = 'selectable-list';
+  const items = albums.map(a => ({
+    id: '_album_' + a.name,
+    title: a.name,
+    type: '_music_album',
+    metadata: {
+      coverImage: a.coverImage,
+      artistName: a.artistName,
+    },
+  }));
+
+  const frag = document.createDocumentFragment();
+  items.forEach((item, i) => {
+    const el = document.createElement('div');
+    el.className = 'list-item' + (i === 0 ? ' active' : '');
+    el.dataset.index = i;
+
+    // Album art thumbnail
+    if (item.metadata.coverImage) {
+      const img = document.createElement('img');
+      img.className = 'list-item-image';
+      img.src = item.metadata.coverImage;
+      img.alt = item.title;
+      el.appendChild(img);
+    }
+
+    const labelContainer = document.createElement('div');
+    labelContainer.className = 'list-label-container';
+    const label = document.createElement('h3');
+    label.className = 'list-label';
+    label.textContent = item.title;
+    labelContainer.appendChild(label);
+    if (item.metadata.artistName) {
+      const sub = document.createElement('h3');
+      sub.className = 'list-sublabel';
+      sub.textContent = item.metadata.artistName;
+      labelContainer.appendChild(sub);
+    }
+    el.appendChild(labelContainer);
+
+    const arrow = document.createElement('span');
+    arrow.className = 'list-arrow';
+    arrow.innerHTML = ARROW_RIGHT_SVG;
+    el.appendChild(arrow);
+
+    frag.appendChild(el);
+  });
+  container.appendChild(frag);
+  container._listEl = container;
+  return { view: container, items };
+}
+
+// Album tracks view (tracks sorted by track number, with header)
+function renderMusicAlbumTracksView(album) {
+  const container = document.createElement('div');
+  container.className = 'album-view';
+
+  const header = document.createElement('div');
+  header.className = 'album-header';
+
+  if (album.coverImage) {
+    const clip = document.createElement('div');
+    clip.className = 'album-cover-clip';
+    const img = document.createElement('img');
+    img.className = 'album-cover-small';
+    img.src = album.coverImage;
+    img.alt = album.name;
+    clip.appendChild(img);
+    header.appendChild(clip);
+  }
+
+  const info = document.createElement('div');
+  info.className = 'album-header-info';
+  info.innerHTML = `
+    <div class="album-header-title">${album.name}</div>
+    <div class="album-header-artist">${album.artistName || ''}</div>
+  `;
+  header.appendChild(info);
+  container.appendChild(header);
+
+  const tracks = document.createElement('div');
+  tracks.className = 'album-tracks';
+  tracks.appendChild(createSelectableList(album.songs, 0, true));
+  container.appendChild(tracks);
+  container._listEl = tracks;
+  return container;
+}
+
+// Playlists list view
+function renderMusicPlaylistsView(playlists) {
+  const container = document.createElement('div');
+  container.className = 'selectable-list';
+  container.appendChild(createSelectableList(playlists, 0, true));
+  container._listEl = container;
+  return container;
+}
+
+// Playlist songs view (with header)
+function renderMusicPlaylistSongsView(playlist, songs) {
+  const container = document.createElement('div');
+  container.className = 'playlist-view';
+
+  const header = document.createElement('div');
+  header.className = 'playlist-header';
+
+  if (playlist.metadata?.coverImage) {
+    const clip = document.createElement('div');
+    clip.className = 'playlist-cover-clip';
+    const img = document.createElement('img');
+    img.className = 'playlist-cover';
+    img.src = playlist.metadata.coverImage;
+    img.alt = playlist.title;
+    clip.appendChild(img);
+    header.appendChild(clip);
+  }
+
+  const info = document.createElement('div');
+  info.className = 'playlist-header-info';
+  info.innerHTML = `
+    <div class="playlist-header-title">${playlist.title}</div>
+    <div class="playlist-header-count">${songs.length} song${songs.length !== 1 ? 's' : ''}</div>
+  `;
+  header.appendChild(info);
+  container.appendChild(header);
+
+  const tracks = document.createElement('div');
+  tracks.className = 'playlist-tracks';
+  tracks.appendChild(createSelectableList(songs, 0, true));
+  container.appendChild(tracks);
+  container._listEl = tracks;
+  return container;
+}
+
 // ---- Ken Burns helpers ----
 function startKenBurns(container) {
   const kb = container._kenBurns;

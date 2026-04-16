@@ -23,6 +23,14 @@ class IPodApp {
     this.activeNowPlaying = false;
     this.nowPlayingControlState = 0; // 0=progress, 1=volume, 2=scrubber
     this.scrubPercent = 0;
+
+    // Music library state
+    this.musicViewType = null; // 'menu', 'songs', 'artists', 'artist_songs', 'albums', 'album_tracks', 'playlists', 'playlist_songs'
+    this.musicArtists = null;
+    this.musicAlbums = null;
+    this.musicCurrentArtist = null;
+    this.musicCurrentAlbum = null;
+    this.musicCurrentPlaylist = null;
     
     // Photo state
     this.photoFullscreen = false;
@@ -108,6 +116,7 @@ class IPodApp {
     this.currentNode = null;
     this.currentItems = getRootNodes();
     this.scrollIndex = 0;
+    this.musicViewType = null;
     this.setHeaderTitle("Harry's iPortfolio");
     
     const view = renderFolderView(null, this.currentItems, true);
@@ -134,13 +143,18 @@ class IPodApp {
   navigateBack() {
     // Clean up active sub-controllers
     this.cleanupSubControllers();
-    
+
     if (this.activeNowPlaying) {
       this.activeNowPlaying = false;
       this.nowPlayingControlState = 0;
       // Go back to previous view
       if (this.navStack.length > 0) {
         const prev = this.navStack.pop();
+        this._restoreMusicState(prev);
+        if (prev.musicViewType) {
+          this._restoreMusicView(prev, 'left');
+          return;
+        }
         if (prev.nodeId === null) {
           this.showHome();
         } else {
@@ -150,19 +164,27 @@ class IPodApp {
           this.renderNode(node, 'left', prev.scrollIndex);
         }
       } else {
+        this.musicViewType = null;
         this.showHome();
       }
       return;
     }
-    
+
     if (this.photoFullscreen) {
       this.photoFullscreen = false;
       this.renderNode(this.photoNode, 'left');
       return;
     }
-    
+
     if (this.navStack.length > 0) {
       const prev = this.navStack.pop();
+      this._restoreMusicState(prev);
+      if (prev.musicViewType) {
+        this._restoreMusicView(prev, 'left');
+        return;
+      }
+      // Leaving music views entirely
+      this.musicViewType = null;
       if (prev.nodeId === null) {
         this.currentNode = null;
         this.currentItems = getRootNodes();
@@ -181,6 +203,107 @@ class IPodApp {
     }
   }
 
+  _restoreMusicState(prev) {
+    if (prev.musicViewType) {
+      this.musicArtists = prev.musicArtists;
+      this.musicAlbums = prev.musicAlbums;
+      this.musicCurrentArtist = prev.musicCurrentArtist;
+      this.musicCurrentAlbum = prev.musicCurrentAlbum;
+      this.musicCurrentPlaylist = prev.musicCurrentPlaylist;
+    }
+  }
+
+  _restoreMusicView(prev, direction) {
+    this.scrollIndex = prev.scrollIndex;
+    const vt = prev.musicViewType;
+
+    if (vt === 'menu') {
+      // Re-render the Music menu
+      const musicNode = getNode(MUSIC_FOLDER_ID);
+      this.currentNode = musicNode;
+      this.showMusicMenu(direction, prev.scrollIndex);
+      return;
+    }
+    if (vt === 'songs') {
+      this.musicViewType = 'songs';
+      this.setHeaderTitle('Songs');
+      const songs = getMusicSongs();
+      this.currentItems = songs;
+      const view = renderMusicSongsView(songs);
+      this.transitionTo(view, direction);
+      this.scrollIndex = prev.scrollIndex;
+      this.updateListSelection();
+      return;
+    }
+    if (vt === 'artists') {
+      this.musicViewType = 'artists';
+      this.setHeaderTitle('Artists');
+      const { view, items } = renderMusicArtistsView(this.musicArtists);
+      this.currentItems = items;
+      this.transitionTo(view, direction);
+      this.scrollIndex = prev.scrollIndex;
+      this.updateListSelection();
+      return;
+    }
+    if (vt === 'artist_songs') {
+      this.musicViewType = 'artist_songs';
+      const artist = this.musicCurrentArtist;
+      this.setHeaderTitle(artist.name);
+      const songs = artist.songs.slice().sort((a, b) => a.title.localeCompare(b.title));
+      this.currentItems = songs;
+      const view = renderMusicArtistSongsView(artist.name, songs);
+      this.transitionTo(view, direction);
+      this.scrollIndex = prev.scrollIndex;
+      this.updateListSelection();
+      return;
+    }
+    if (vt === 'albums') {
+      this.musicViewType = 'albums';
+      this.setHeaderTitle('Albums');
+      const { view, items } = renderMusicAlbumsView(this.musicAlbums);
+      this.currentItems = items;
+      this.transitionTo(view, direction);
+      this.scrollIndex = prev.scrollIndex;
+      this.updateListSelection();
+      return;
+    }
+    if (vt === 'album_tracks') {
+      this.musicViewType = 'album_tracks';
+      const album = this.musicCurrentAlbum;
+      this.setHeaderTitle(album.name);
+      this.currentItems = album.songs;
+      const view = renderMusicAlbumTracksView(album);
+      this.transitionTo(view, direction);
+      this.scrollIndex = prev.scrollIndex;
+      this.updateListSelection();
+      return;
+    }
+    if (vt === 'playlists') {
+      this.musicViewType = 'playlists';
+      this.setHeaderTitle('Playlists');
+      const playlists = getMusicPlaylists();
+      this.currentItems = playlists;
+      const view = renderMusicPlaylistsView(playlists);
+      this.transitionTo(view, direction);
+      this.scrollIndex = prev.scrollIndex;
+      this.updateListSelection();
+      return;
+    }
+    if (vt === 'playlist_songs') {
+      this.musicViewType = 'playlist_songs';
+      const playlist = this.musicCurrentPlaylist;
+      this.setHeaderTitle(playlist.title);
+      fetchPlaylistSongs(playlist.id).then(songs => {
+        this.currentItems = songs;
+        const view = renderMusicPlaylistSongsView(playlist, songs);
+        this.transitionTo(view, direction);
+        this.scrollIndex = prev.scrollIndex;
+        this.updateListSelection();
+      });
+      return;
+    }
+  }
+
   renderNode(node, direction, restoreIndex) {
     const children = getChildren(node.id);
     this.currentItems = children;
@@ -191,6 +314,11 @@ class IPodApp {
     
     switch (node.type) {
       case 'folder': {
+        // Intercept Music folder — show computed iPod-style menu
+        if (isMusicFolder(node.id)) {
+          this.showMusicMenu(direction, restoreIndex);
+          return;
+        }
         const isTopLevel = node.metadata?.splitScreen ?? (node.parentId === null);
         this.setHeaderTitle(node.title);
         const view = renderFolderView(node, children, isTopLevel);
@@ -299,6 +427,147 @@ class IPodApp {
         this.transitionTo(view, direction);
       }
     }
+  }
+
+  // ---- Music Library Navigation ----
+
+  showMusicMenu(direction, restoreIndex) {
+    this.setHeaderTitle('Music');
+    this.musicViewType = 'menu';
+    // Start fetching library data in background
+    fetchMusicLibrary();
+    const { view, items } = renderMusicMenuView();
+    this.currentItems = items;
+    this.transitionTo(view, direction);
+    if (restoreIndex !== undefined) {
+      this.scrollIndex = restoreIndex;
+      this.updateListSelection();
+    }
+  }
+
+  showMusicSongs(direction) {
+    this.setHeaderTitle('Songs');
+    this.musicViewType = 'songs';
+    fetchMusicLibrary().then(lib => {
+      const songs = getMusicSongs();
+      if (songs.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.textContent = 'No songs';
+        this.currentItems = [];
+        this.transitionTo(empty, direction);
+        return;
+      }
+      this.currentItems = songs;
+      const view = renderMusicSongsView(songs);
+      this.transitionTo(view, direction);
+    });
+  }
+
+  showMusicArtists(direction) {
+    this.setHeaderTitle('Artists');
+    this.musicViewType = 'artists';
+    fetchMusicLibrary().then(lib => {
+      this.musicArtists = getMusicArtists();
+      if (this.musicArtists.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.textContent = 'No artists';
+        this.currentItems = [];
+        this.transitionTo(empty, direction);
+        return;
+      }
+      const { view, items } = renderMusicArtistsView(this.musicArtists);
+      this.currentItems = items;
+      this.transitionTo(view, direction);
+    });
+  }
+
+  showMusicArtistSongs(artistIndex, direction) {
+    const artist = this.musicArtists[artistIndex];
+    if (!artist) return;
+    this.musicCurrentArtist = artist;
+    this.setHeaderTitle(artist.name);
+    this.musicViewType = 'artist_songs';
+    const songs = artist.songs.slice().sort((a, b) => a.title.localeCompare(b.title));
+    this.currentItems = songs;
+    const view = renderMusicArtistSongsView(artist.name, songs);
+    this.transitionTo(view, direction);
+  }
+
+  showMusicAlbums(direction) {
+    this.setHeaderTitle('Albums');
+    this.musicViewType = 'albums';
+    fetchMusicLibrary().then(lib => {
+      this.musicAlbums = getMusicAlbums();
+      if (this.musicAlbums.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.textContent = 'No albums';
+        this.currentItems = [];
+        this.transitionTo(empty, direction);
+        return;
+      }
+      const { view, items } = renderMusicAlbumsView(this.musicAlbums);
+      this.currentItems = items;
+      this.transitionTo(view, direction);
+    });
+  }
+
+  showMusicAlbumTracks(albumIndex, direction) {
+    const album = this.musicAlbums[albumIndex];
+    if (!album) return;
+    this.musicCurrentAlbum = album;
+    this.setHeaderTitle(album.name);
+    this.musicViewType = 'album_tracks';
+    this.currentItems = album.songs;
+    const view = renderMusicAlbumTracksView(album);
+    this.transitionTo(view, direction);
+  }
+
+  showMusicPlaylists(direction) {
+    this.setHeaderTitle('Playlists');
+    this.musicViewType = 'playlists';
+    fetchMusicLibrary().then(lib => {
+      const playlists = getMusicPlaylists();
+      if (playlists.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.textContent = 'No playlists';
+        this.currentItems = [];
+        this.transitionTo(empty, direction);
+        return;
+      }
+      this.currentItems = playlists;
+      const view = renderMusicPlaylistsView(playlists);
+      this.transitionTo(view, direction);
+    });
+  }
+
+  showMusicPlaylistSongs(playlist, direction) {
+    this.musicCurrentPlaylist = playlist;
+    this.setHeaderTitle(playlist.title);
+    this.musicViewType = 'playlist_songs';
+    fetchPlaylistSongs(playlist.id).then(songs => {
+      if (songs.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.textContent = 'No songs in playlist';
+        this.currentItems = [];
+        this.transitionTo(empty, direction);
+        return;
+      }
+      this.currentItems = songs;
+      const view = renderMusicPlaylistSongsView(playlist, songs);
+      this.transitionTo(view, direction);
+    });
+  }
+
+  // Play a song with the correct music library context
+  playMusicSong(song, contextSongs) {
+    const idx = contextSongs.findIndex(s => s.id === song.id);
+    audioPlayer.play(song, contextSongs, idx >= 0 ? idx : 0);
+    this.showNowPlaying();
   }
 
   showCoverFlow(type) {
@@ -601,6 +870,69 @@ class IPodApp {
     // Select current item
     const item = this.currentItems[this.scrollIndex];
     if (!item) return;
+
+    // Music library navigation
+    if (this.musicViewType) {
+      this.navStack.push({
+        nodeId: this.currentNode ? this.currentNode.id : null,
+        scrollIndex: this.scrollIndex,
+        type: this.currentNode ? this.currentNode.type : 'home',
+        musicViewType: this.musicViewType,
+        musicArtists: this.musicArtists,
+        musicAlbums: this.musicAlbums,
+        musicCurrentArtist: this.musicCurrentArtist,
+        musicCurrentAlbum: this.musicCurrentAlbum,
+        musicCurrentPlaylist: this.musicCurrentPlaylist,
+      });
+      this.scrollIndex = 0;
+
+      if (this.musicViewType === 'menu') {
+        if (item.id === '_music_songs') { this.showMusicSongs('right'); return; }
+        if (item.id === '_music_artists') { this.showMusicArtists('right'); return; }
+        if (item.id === '_music_albums') { this.showMusicAlbums('right'); return; }
+        if (item.id === '_music_playlists') { this.showMusicPlaylists('right'); return; }
+      }
+      if (this.musicViewType === 'songs') {
+        if (item.type === 'song') {
+          this.playMusicSong(item, this.currentItems);
+          return;
+        }
+      }
+      if (this.musicViewType === 'artists') {
+        const artistIdx = this.navStack[this.navStack.length - 1].scrollIndex;
+        this.showMusicArtistSongs(artistIdx, 'right');
+        return;
+      }
+      if (this.musicViewType === 'artist_songs') {
+        if (item.type === 'song') {
+          this.playMusicSong(item, this.currentItems);
+          return;
+        }
+      }
+      if (this.musicViewType === 'albums') {
+        const albumIdx = this.navStack[this.navStack.length - 1].scrollIndex;
+        this.showMusicAlbumTracks(albumIdx, 'right');
+        return;
+      }
+      if (this.musicViewType === 'album_tracks') {
+        if (item.type === 'song') {
+          this.playMusicSong(item, this.currentItems);
+          return;
+        }
+      }
+      if (this.musicViewType === 'playlists') {
+        this.showMusicPlaylistSongs(item, 'right');
+        return;
+      }
+      if (this.musicViewType === 'playlist_songs') {
+        if (item.type === 'song') {
+          this.playMusicSong(item, this.currentItems);
+          return;
+        }
+      }
+      // Fallback: undo the push
+      this.navStack.pop();
+    }
 
     // Songs: play and show Now Playing
     if (item.type === 'song') {
