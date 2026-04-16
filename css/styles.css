@@ -1288,29 +1288,29 @@ a {
   width: 100%;
   height: 100%;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='370' height='600' fill='none'%3E%3C!-- Main bold diagonal scratch group 1: top-left to bottom-right --%3E%3Cline x1='40' y1='180' x2='280' y2='520' stroke='white' stroke-opacity='0.55' stroke-width='3' stroke-linecap='round'/%3E%3Cline x1='41' y1='181' x2='281' y2='521' stroke='black' stroke-opacity='0.12' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='50' y1='175' x2='290' y2='510' stroke='white' stroke-opacity='0.35' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='51' y1='176' x2='291' y2='511' stroke='black' stroke-opacity='0.08' stroke-width='0.8' stroke-linecap='round'/%3E%3C!-- Bold scratch group 2: steeper angle --%3E%3Cline x1='120' y1='160' x2='310' y2='540' stroke='white' stroke-opacity='0.6' stroke-width='3.5' stroke-linecap='round'/%3E%3Cline x1='121.5' y1='161' x2='311.5' y2='541' stroke='black' stroke-opacity='0.15' stroke-width='1.8' stroke-linecap='round'/%3E%3Cline x1='128' y1='165' x2='315' y2='530' stroke='white' stroke-opacity='0.3' stroke-width='1.2' stroke-linecap='round'/%3E%3C!-- Long thin scratch from top area sweeping down --%3E%3Cline x1='200' y1='140' x2='340' y2='480' stroke='white' stroke-opacity='0.45' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='201' y1='141' x2='341' y2='481' stroke='black' stroke-opacity='0.1' stroke-width='1' stroke-linecap='round'/%3E%3C!-- Cluster of 3 parallel thin scratches --%3E%3Cline x1='60' y1='250' x2='180' y2='490' stroke='white' stroke-opacity='0.4' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='66' y1='248' x2='186' y2='488' stroke='white' stroke-opacity='0.35' stroke-width='1' stroke-linecap='round'/%3E%3Cline x1='72' y1='252' x2='192' y2='492' stroke='white' stroke-opacity='0.3' stroke-width='0.8' stroke-linecap='round'/%3E%3Cline x1='61' y1='251' x2='181' y2='491' stroke='black' stroke-opacity='0.08' stroke-width='0.8' stroke-linecap='round'/%3E%3C!-- Short bold gouge mark --%3E%3Cline x1='250' y1='320' x2='330' y2='450' stroke='white' stroke-opacity='0.65' stroke-width='4' stroke-linecap='round'/%3E%3Cline x1='252' y1='321' x2='332' y2='451' stroke='black' stroke-opacity='0.15' stroke-width='2' stroke-linecap='round'/%3E%3C!-- Scratch crossing the click wheel area --%3E%3Cline x1='80' y1='300' x2='300' y2='500' stroke='white' stroke-opacity='0.35' stroke-width='2.5' stroke-linecap='round'/%3E%3Cline x1='81' y1='301' x2='301' y2='501' stroke='black' stroke-opacity='0.1' stroke-width='1.2' stroke-linecap='round'/%3E%3C!-- Wide shallow-angle scratch near bottom --%3E%3Cline x1='20' y1='460' x2='350' y2='540' stroke='white' stroke-opacity='0.4' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='21' y1='461' x2='351' y2='541' stroke='black' stroke-opacity='0.08' stroke-width='1' stroke-linecap='round'/%3E%3C!-- Pair of fine scratches near the right edge --%3E%3Cline x1='280' y1='200' x2='340' y2='420' stroke='white' stroke-opacity='0.45' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='286' y1='205' x2='346' y2='425' stroke='white' stroke-opacity='0.35' stroke-width='1' stroke-linecap='round'/%3E%3Cline x1='281' y1='201' x2='341' y2='421' stroke='black' stroke-opacity='0.08' stroke-width='0.7' stroke-linecap='round'/%3E%3C!-- Extra bold scratch from upper-left crossing the body --%3E%3Cline x1='15' y1='200' x2='220' y2='560' stroke='white' stroke-opacity='0.5' stroke-width='2.5' stroke-linecap='round'/%3E%3Cline x1='16.5' y1='201' x2='221.5' y2='561' stroke='black' stroke-opacity='0.12' stroke-width='1.3' stroke-linecap='round'/%3E%3C!-- Fine hairline scratch cluster near top-right of body --%3E%3Cline x1='240' y1='170' x2='350' y2='300' stroke='white' stroke-opacity='0.3' stroke-width='1' stroke-linecap='round'/%3E%3Cline x1='245' y1='168' x2='355' y2='295' stroke='white' stroke-opacity='0.25' stroke-width='0.7' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat top left / 100% 100%;
-  /* Mask out the click wheel area so scratches only appear on the body frame.
-     Desktop: wheel is 220px (r=110px) centered in a 370×592px shell.
-     Center Y ≈ 74.7% calculated from flex layout. */
-  -webkit-mask-image: radial-gradient(circle at 50% 74.7%, transparent 110px, black 111px);
-  mask-image: radial-gradient(circle at 50% 74.7%, transparent 110px, black 111px);
+  /* CSS fallback mask — excludes wheel circle AND screen rectangle.
+     JS refines the exact positions at runtime via updateScratchMask().
+     Desktop: shell 370×592, screen at (24,24) size 322×260, wheel r=113px at 50% 74.7%. */
+  -webkit-mask-image:
+    radial-gradient(circle at 50% 74.7%, transparent 113px, black 114px),
+    linear-gradient(black, black);
+  mask-image:
+    radial-gradient(circle at 50% 74.7%, transparent 113px, black 114px),
+    linear-gradient(black, black);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
 }
 
-/* ----- Screen scratches — subtle, just 2 fine marks ----- */
-.wear-scratches-screen {
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 45%;
-  z-index: 9;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='370' height='270' fill='none'%3E%3Cline x1='50' y1='40' x2='250' y2='200' stroke='white' stroke-opacity='0.2' stroke-width='1' stroke-linecap='round'/%3E%3Cline x1='51' y1='41' x2='251' y2='201' stroke='black' stroke-opacity='0.06' stroke-width='0.5' stroke-linecap='round'/%3E%3Cline x1='180' y1='30' x2='310' y2='180' stroke='white' stroke-opacity='0.15' stroke-width='0.8' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat top left / 100% 100%;
-}
-
-/* Mobile: wheel is 280px (r=140px), shell is full-viewport.
+/* Mobile: wheel is 280px (r=143px), shell is full-viewport.
    JS fine-tunes the Y position at runtime; this is a reasonable CSS fallback. */
 @media (max-width: 576px) {
   .wear-scratches-body {
-    -webkit-mask-image: radial-gradient(circle at 50% 69%, transparent 140px, black 141px);
-    mask-image: radial-gradient(circle at 50% 69%, transparent 140px, black 141px);
+    -webkit-mask-image:
+      radial-gradient(circle at 50% 69%, transparent 143px, black 144px),
+      linear-gradient(black, black);
+    mask-image:
+      radial-gradient(circle at 50% 69%, transparent 143px, black 144px),
+      linear-gradient(black, black);
   }
 }
 

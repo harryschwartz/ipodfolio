@@ -54,9 +54,8 @@
       </div>
     </div>
 
-    <!-- Dramatic wear scratches — covers entire iPod shell -->
+    <!-- Dramatic wear scratches — covers entire iPod shell (wheel + screen masked out) -->
     <div class="wear-overlay wear-scratches-body" aria-hidden="true"></div>
-    <div class="wear-overlay wear-scratches-screen" aria-hidden="true"></div>
 
     <!-- Click Wheel -->
     <div class="clickwheel-container">
@@ -111,20 +110,91 @@
   <script src="js/views.js"></script>
   <script src="js/app.js"></script>
   <script>
-    // Fine-tune the scratch mask position to match the actual click wheel layout
+    // Fine-tune the scratch mask to exclude both the click wheel and screen areas.
+    // Uses an inline SVG mask with userSpaceOnUse coordinates for pixel-perfect cutouts.
     (function() {
+      var svgNS = 'http://www.w3.org/2000/svg';
+      var maskSvg, maskEl, whiteRect, screenRect, wheelCircle;
+
+      function ensureMaskSvg() {
+        if (maskSvg) return;
+        maskSvg = document.createElementNS(svgNS, 'svg');
+        maskSvg.setAttribute('width', '0');
+        maskSvg.setAttribute('height', '0');
+        maskSvg.style.position = 'absolute';
+
+        var defs = document.createElementNS(svgNS, 'defs');
+        maskEl = document.createElementNS(svgNS, 'mask');
+        maskEl.setAttribute('id', 'scratch-mask');
+        maskEl.setAttribute('maskUnits', 'userSpaceOnUse');
+
+        // White background = visible scratches
+        whiteRect = document.createElementNS(svgNS, 'rect');
+        whiteRect.setAttribute('fill', 'white');
+
+        // Black rect = screen cutout (no scratches on screen)
+        screenRect = document.createElementNS(svgNS, 'rect');
+        screenRect.setAttribute('fill', 'black');
+        screenRect.setAttribute('rx', '4');
+        screenRect.setAttribute('ry', '4');
+
+        // Black circle = wheel cutout (no scratches on wheel)
+        wheelCircle = document.createElementNS(svgNS, 'circle');
+        wheelCircle.setAttribute('fill', 'black');
+
+        maskEl.appendChild(whiteRect);
+        maskEl.appendChild(screenRect);
+        maskEl.appendChild(wheelCircle);
+        defs.appendChild(maskEl);
+        maskSvg.appendChild(defs);
+        document.body.appendChild(maskSvg);
+      }
+
       function updateScratchMask() {
         var shell = document.querySelector('.ipod-shell');
         var wheel = document.querySelector('.clickwheel');
+        var screen = document.querySelector('.ipod-screen');
         var overlay = document.querySelector('.wear-scratches-body');
-        if (!shell || !wheel || !overlay) return;
+        if (!shell || !wheel || !screen || !overlay) return;
+
+        ensureMaskSvg();
+
         var sr = shell.getBoundingClientRect();
         var wr = wheel.getBoundingClientRect();
-        var cy = ((wr.top + wr.height / 2) - sr.top) / sr.height * 100;
-        var r = wr.width / 2;
-        var mask = 'radial-gradient(circle at 50% ' + cy + '%, transparent ' + r + 'px, black ' + (r + 1) + 'px)';
-        overlay.style.webkitMaskImage = mask;
-        overlay.style.maskImage = mask;
+        var scr = screen.getBoundingClientRect();
+        var shellW = sr.width;
+        var shellH = sr.height;
+
+        // SVG mask covers the full shell
+        maskEl.setAttribute('x', '0');
+        maskEl.setAttribute('y', '0');
+        maskEl.setAttribute('width', shellW);
+        maskEl.setAttribute('height', shellH);
+
+        whiteRect.setAttribute('width', shellW);
+        whiteRect.setAttribute('height', shellH);
+
+        // Screen cutout (relative to shell)
+        var screenLeft = scr.left - sr.left;
+        var screenTop = scr.top - sr.top;
+        screenRect.setAttribute('x', screenLeft);
+        screenRect.setAttribute('y', screenTop);
+        screenRect.setAttribute('width', scr.width);
+        screenRect.setAttribute('height', scr.height);
+
+        // Wheel cutout — full clickwheel circle with 3px buffer
+        var wheelCx = (wr.left + wr.width / 2) - sr.left;
+        var wheelCy = (wr.top + wr.height / 2) - sr.top;
+        var wheelR = wr.width / 2 + 3;
+        wheelCircle.setAttribute('cx', wheelCx);
+        wheelCircle.setAttribute('cy', wheelCy);
+        wheelCircle.setAttribute('r', wheelR);
+
+        // Apply SVG mask
+        overlay.style.webkitMaskImage = '';
+        overlay.style.maskImage = '';
+        overlay.style.webkitMask = 'url(#scratch-mask)';
+        overlay.style.mask = 'url(#scratch-mask)';
       }
       window.addEventListener('load', updateScratchMask);
       window.addEventListener('resize', updateScratchMask);
