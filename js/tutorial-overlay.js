@@ -303,7 +303,6 @@
         makeLabel('Select', 'Press to choose', mRightAnchor, selectY, 'left');
         // Diagonal from center toward bottom-right, then horizontal before the text
         var midX = (cc.x + mRightAnchor) / 2;
-        makeDot(midX, selectY);
         makePath('M' + cc.x + ',' + cc.y + ' L' + midX + ',' + selectY + ' L' + mRightAnchor + ',' + selectY);
       }
 
@@ -380,7 +379,6 @@
         makeDot(cc2.x, cc2.y);
         makeLabel('Select', 'Press to choose', dRightAnchor, selY, 'right');
         var dMidX = (cc2.x + dRightAnchor) / 2;
-        makeDot(dMidX, selY);
         makePath('M' + cc2.x + ',' + cc2.y + ' L' + dMidX + ',' + selY + ' L' + (dRightAnchor - 4) + ',' + selY);
       }
 
