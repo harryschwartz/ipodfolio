@@ -1190,25 +1190,7 @@ a {
 }
 
 /* ============================================
-   Tutorial Blur Overlay — covers everything except screen
-   ============================================ */
-.tutorial-blur-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  transition: opacity 0.4s ease;
-}
-
-.tutorial-blur-overlay.tutorial-blur-hiding {
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-/* ============================================
-   Tutorial Callouts — floating labels
+   Tutorial Callouts — floating labels on iPod body
    ============================================ */
 .tutorial-callouts-container {
   opacity: 0;
@@ -1256,7 +1238,7 @@ svg.tutorial-callouts-hiding {
 
 .callout-title {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   color: #fff;
   line-height: 1.2;
@@ -1264,10 +1246,10 @@ svg.tutorial-callouts-hiding {
 
 .callout-desc {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.65);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.6);
   line-height: 1.3;
-  max-width: 160px;
+  max-width: 120px;
 }
 
 .callout-label-left .callout-desc {
@@ -1287,11 +1269,11 @@ svg.tutorial-callouts-hiding {
     font-size: 12px;
   }
   .callout-title {
-    font-size: 12px;
+    font-size: 10px;
   }
   .callout-desc {
-    font-size: 10px;
-    max-width: 110px;
+    font-size: 8px;
+    max-width: 90px;
     white-space: normal;
   }
 }
