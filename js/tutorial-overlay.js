@@ -294,14 +294,14 @@
         makePath('M' + fc.x + ',' + nextDotY + ' L' + mRightAnchor + ',' + nextDotY);
       }
 
-      // --- SELECT (center) → dot at center, elbow down to ppY, then right ---
+      // --- SELECT (center) → dot at center, diagonal line to label ---
       if (centerBtn) {
         var cc = centerOf(centerBtn);
         var selectY = ppY !== null ? ppY : (wheelRect.bottom + 10);
         selectY = Math.min(selectY, shellBottom - 30);
         makeDot(cc.x, cc.y);
         makeLabel('Select', 'Press to choose', mRightAnchor, selectY, 'left');
-        makePath(elbowPath(cc.x, cc.y, mRightAnchor, selectY, 'v-first'));
+        makePath('M' + cc.x + ',' + cc.y + ' L' + mRightAnchor + ',' + selectY);
       }
 
       // --- PLAY/PAUSE (bottom button) → straight line LEFT ---
@@ -369,14 +369,14 @@
         addDesktopCallout('Next', 'Skip forward', fc2.x, fc2.y + dDotOff, 'right');
       }
 
-      // Select (center) — dot at center, elbow down to ppY, then right
+      // Select (center) — dot at center, diagonal line to label
       if (centerBtn) {
         var cc2 = centerOf(centerBtn);
         var selY = dPPY !== null ? dPPY : (wheelRect.bottom + 10);
         selY = Math.min(selY, shellBottom - 28);
         makeDot(cc2.x, cc2.y);
         makeLabel('Select', 'Press to choose', dRightAnchor, selY, 'right');
-        makePath(elbowPath(cc2.x, cc2.y, dRightAnchor - 4, selY, 'v-first'));
+        makePath('M' + cc2.x + ',' + cc2.y + ' L' + (dRightAnchor - 4) + ',' + selY);
       }
 
       // Play/Pause (bottom) — at ppY — left
