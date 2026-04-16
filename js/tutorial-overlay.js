@@ -5,6 +5,11 @@
 // On desktop: shown after dismissing the QR "best on mobile" screen.
 // On mobile: shown immediately on first visit.
 // Dismissed when the user presses the select (center) button or menu button.
+//
+// Architecture: SVG + label container are placed INSIDE the .ipod-shell as
+// position:absolute children. All coordinates are relative to the shell's top-left.
+// This avoids position:fixed vs getBoundingClientRect() viewport mismatches
+// across iOS browsers (Safari, Chrome, Comet).
 
 (function () {
   'use strict';
@@ -52,30 +57,41 @@
 
   /**
    * Show the floating callout labels + SVG connector lines.
+   * Container and SVG are placed inside the iPod shell as absolute-positioned children.
    */
   function showCallouts() {
     if (dismissed || calloutContainer) return;
 
+    var shell = document.querySelector('.ipod-shell');
+    if (!shell) return;
+
+    // Ensure shell is a positioning context
+    var shellPos = getComputedStyle(shell).position;
+    if (shellPos === 'static') shell.style.position = 'relative';
+
     calloutContainer = document.createElement('div');
     calloutContainer.className = 'tutorial-callouts-container';
-    calloutContainer.style.position = 'fixed';
-    calloutContainer.style.inset = '0';
+    calloutContainer.style.position = 'absolute';
+    calloutContainer.style.left = '0';
+    calloutContainer.style.top = '0';
+    calloutContainer.style.width = '100%';
+    calloutContainer.style.height = '100%';
     calloutContainer.style.zIndex = '10001';
     calloutContainer.style.pointerEvents = 'none';
     calloutContainer.style.overflow = 'hidden';
 
     svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svgEl.style.position = 'fixed';
+    svgEl.style.position = 'absolute';
     svgEl.style.left = '0';
     svgEl.style.top = '0';
-    svgEl.style.width = '100vw';
-    svgEl.style.height = '100vh';
+    svgEl.style.width = '100%';
+    svgEl.style.height = '100%';
     svgEl.style.overflow = 'hidden';
     svgEl.style.pointerEvents = 'none';
     svgEl.style.zIndex = '10000';
 
-    document.body.appendChild(svgEl);
-    document.body.appendChild(calloutContainer);
+    shell.appendChild(svgEl);
+    shell.appendChild(calloutContainer);
 
     // Wait for layout to settle
     setTimeout(function () {
@@ -103,9 +119,13 @@
     if (!calloutContainer || !svgEl) return;
     calloutContainer.innerHTML = '';
     while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
-    var vw = window.innerWidth;
-    var vh = window.innerHeight;
-    svgEl.setAttribute('viewBox', '0 0 ' + vw + ' ' + vh);
+
+    var shell = document.querySelector('.ipod-shell');
+    if (!shell) return;
+    var shellRect = shell.getBoundingClientRect();
+    var shellW = shellRect.width;
+    var shellH = shellRect.height;
+    svgEl.setAttribute('viewBox', '0 0 ' + shellW + ' ' + shellH);
     buildCallouts();
   }
 
@@ -142,37 +162,45 @@
 
     if (!wheel || !shell) return;
 
-    var vw = window.innerWidth;
     var lineColor = 'rgba(0,0,0,0.5)';
     var dotColor = 'rgba(0,0,0,0.6)';
 
-    // iPod shell bounds — all labels must stay inside
+    // All coordinates are relative to shell's top-left
     var shellRect = shell.getBoundingClientRect();
-    var shellLeft = shellRect.left;
-    var shellRight = shellRect.right;
-    var shellTop = shellRect.top;
-    var shellBottom = shellRect.bottom;
+    var shellW = shellRect.width;
+    var shellH = shellRect.height;
 
-    // Screen bounds — labels must stay below screen
-    var screenEl = document.querySelector('.ipod-screen');
-    var screenRect = screenEl ? screenEl.getBoundingClientRect() : null;
-    var screenBottom = screenRect ? screenRect.bottom : shellTop;
+    // Convert an element's getBoundingClientRect to shell-relative coords
+    function toShell(rect) {
+      return {
+        left: rect.left - shellRect.left,
+        top: rect.top - shellRect.top,
+        width: rect.width,
+        height: rect.height,
+        right: rect.right - shellRect.left,
+        bottom: rect.bottom - shellRect.top,
+      };
+    }
 
-    // Padding from shell edges
-    var pad = 8;
-    var labelLeft = shellLeft + pad;
-    var labelRight = shellRight - pad;
-
-    function centerOf(el) {
-      var r = el.getBoundingClientRect();
+    function centerOfEl(el) {
+      var r = toShell(el.getBoundingClientRect());
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
     }
 
-    var wheelRect = wheel.getBoundingClientRect();
-    var wheelCx = wheelRect.left + wheelRect.width / 2;
-    var wheelCy = wheelRect.top + wheelRect.height / 2;
-    var wheelR = wheelRect.width / 2;
-    var isMobile = vw <= 576;
+    // Screen bounds (shell-relative)
+    var screenEl = document.querySelector('.ipod-screen');
+    var screenR = screenEl ? toShell(screenEl.getBoundingClientRect()) : null;
+    var screenBottom = screenR ? screenR.bottom : 0;
+
+    // Wheel bounds (shell-relative)
+    var wr = toShell(wheel.getBoundingClientRect());
+    var wheelCx = wr.left + wr.width / 2;
+    var wheelCy = wr.top + wr.height / 2;
+    var wheelR = wr.width / 2;
+    var isMobile = shellW <= 576;
+
+    // Padding from shell edges
+    var pad = 8;
 
     function makeDot(x, y) {
       var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -195,7 +223,7 @@
     function makeLabel(title, desc, x, y, align) {
       var el = document.createElement('div');
       el.className = 'tutorial-callout';
-      el.style.position = 'fixed';
+      el.style.position = 'absolute';
 
       var textDiv = document.createElement('div');
       textDiv.className = 'callout-label';
@@ -206,7 +234,7 @@
         el.style.transform = 'translateY(-50%)';
         textDiv.classList.add('callout-label-right');
       } else if (align === 'left') {
-        el.style.right = (vw - x) + 'px';
+        el.style.right = (shellW - x) + 'px';
         el.style.top = y + 'px';
         el.style.transform = 'translateY(-50%)';
         textDiv.classList.add('callout-label-left');
@@ -242,23 +270,23 @@
       var minLabelY = screenBottom + 14;
 
       // Label anchors: halfway between wheel edge and shell edge
-      var mLeftAnchor = shellLeft + (wheelRect.left - shellLeft) * 0.5;
-      var mRightAnchor = shellRight - (shellRight - wheelRect.right) * 0.5;
+      var mLeftAnchor = pad + (wr.left - pad) * 0.5;
+      var mRightAnchor = shellW - pad - (shellW - pad - wr.right) * 0.5;
 
       // Dot positions derived from wheel center + radius
       var menuDotX = wheelCx;
-      var menuDotY = wheelRect.top + 6;
-      var prevDotX = wheelRect.left + 6;
+      var menuDotY = wr.top + 6;
+      var prevDotX = wr.left + 6;
       var prevDotY = wheelCy;
-      var nextDotX = wheelRect.right - 6;
+      var nextDotX = wr.right - 6;
       var nextDotY = wheelCy;
       var ppDotX = wheelCx;
-      var ppDotY = wheelRect.bottom - 6;
+      var ppDotY = wr.bottom - 6;
       var selectDotX = wheelCx;
       var selectDotY = wheelCy;
 
       // Play/Pause Y (Select label will share this Y)
-      var ppLabelY = Math.min(ppDotY, shellBottom - 30);
+      var ppLabelY = Math.min(ppDotY, shellH - 30);
 
       // --- SCROLL WHEEL (upper-right rim) → label RIGHT ---
       var scrollAngle = -55 * Math.PI / 180;
@@ -288,7 +316,7 @@
       makePath('M' + nextDotX + ',' + nextDotY + ' L' + mRightAnchor + ',' + nextDotY);
 
       // --- SELECT (center of wheel) → diagonal then horizontal ---
-      var selectLabelY = Math.min(ppLabelY, shellBottom - 30);
+      var selectLabelY = Math.min(ppLabelY, shellH - 30);
       makeDot(selectDotX, selectDotY);
       makeLabel('Select', 'Press to choose', mRightAnchor, selectLabelY, 'left');
       var selMidX = (selectDotX + mRightAnchor) / 2;
@@ -309,14 +337,14 @@
       // Right: Scroll Wheel, Next, Select
 
       var dGap = 6;
-      var dLeftAnchor = wheelRect.left - dGap;
-      var dRightAnchor = wheelRect.right + dGap;
+      var dLeftAnchor = wr.left - dGap;
+      var dRightAnchor = wr.right + dGap;
       var dMinY = screenBottom + 8;
       var dDotOff = 20;
 
       function addDesktopCallout(title, desc, dotX, dotY, side) {
         var ly = Math.max(dotY, dMinY);
-        ly = Math.min(ly, shellBottom - 28);
+        ly = Math.min(ly, shellH - 28);
         makeDot(dotX, ly);
         if (side === 'left') {
           makeLabel(title, desc, dLeftAnchor, ly, 'left');
@@ -330,14 +358,14 @@
       // Compute Play/Pause Y first (Select will share it)
       var dPPY = null;
       if (playPauseBtn) {
-        var pc2 = centerOf(playPauseBtn);
+        var pc2 = centerOfEl(playPauseBtn);
         dPPY = pc2.y + dDotOff;
-        dPPY = Math.min(dPPY, shellBottom - 28);
+        dPPY = Math.min(dPPY, shellH - 28);
       }
 
       // Menu (top, above center) — shift UP — left
       if (menuBtn) {
-        var mc2 = centerOf(menuBtn);
+        var mc2 = centerOfEl(menuBtn);
         addDesktopCallout('Menu', 'Go back', mc2.x, mc2.y - dDotOff, 'left');
       }
 
@@ -349,21 +377,21 @@
 
       // Previous (left) — shift UP — left
       if (rewindBtn) {
-        var rc2 = centerOf(rewindBtn);
+        var rc2 = centerOfEl(rewindBtn);
         addDesktopCallout('Previous', 'Skip back', rc2.x, rc2.y - dDotOff, 'left');
       }
 
       // Next (right) — shift DOWN — right
       if (forwardBtn) {
-        var fc2 = centerOf(forwardBtn);
+        var fc2 = centerOfEl(forwardBtn);
         addDesktopCallout('Next', 'Skip forward', fc2.x, fc2.y + dDotOff, 'right');
       }
 
       // Select (center) — dot at center, diagonal then horizontal to label
       if (centerBtn) {
-        var cc2 = centerOf(centerBtn);
-        var selY = dPPY !== null ? dPPY : (wheelRect.bottom + 10);
-        selY = Math.min(selY, shellBottom - 28);
+        var cc2 = centerOfEl(centerBtn);
+        var selY = dPPY !== null ? dPPY : (wr.bottom + 10);
+        selY = Math.min(selY, shellH - 28);
         makeDot(cc2.x, cc2.y);
         makeLabel('Select', 'Press to choose', dRightAnchor, selY, 'right');
         var dMidX = (cc2.x + dRightAnchor) / 2;
@@ -372,7 +400,7 @@
 
       // Play/Pause (bottom) — at ppY — left
       if (playPauseBtn) {
-        var ppc2 = centerOf(playPauseBtn);
+        var ppc2 = centerOfEl(playPauseBtn);
         addDesktopCallout('Play / Pause', 'Control playback', ppc2.x, dPPY, 'left');
       }
     }
