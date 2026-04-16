@@ -61,31 +61,33 @@
           <span class="wheel-menu-text">MENU</span>
         </div>
         
-        <!-- Rewind button (left) -->
+        <!-- Rewind/Previous button (left): |◀◀ -->
         <div class="wheel-button left">
-          <svg width="18" height="14" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="9,0 0,7 9,14" style="fill: var(--wheel-button)"/>
-            <polygon points="18,0 9,7 18,14" style="fill: var(--wheel-button)"/>
+          <svg viewBox="0 0 33 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0.5" width="4" height="15" style="fill: var(--wheel-button)"/>
+            <path d="M17 8L29 1.07V14.93L17 8Z" style="fill: var(--wheel-button)"/>
+            <path d="M4 8L16 1.07V14.93L4 8Z" style="fill: var(--wheel-button)"/>
           </svg>
         </div>
         
         <!-- Center button -->
         <div class="center-button"></div>
         
-        <!-- Fast Forward button (right) -->
+        <!-- Fast Forward/Next button (right): ▶▶| -->
         <div class="wheel-button right">
-          <svg width="18" height="14" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="0,0 9,7 0,14" style="fill: var(--wheel-button)"/>
-            <polygon points="9,0 18,7 9,14" style="fill: var(--wheel-button)"/>
+          <svg viewBox="0 0 33 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 8L4 14.93V1.07L16 8Z" style="fill: var(--wheel-button)"/>
+            <path d="M29 8L17 14.93V1.07L29 8Z" style="fill: var(--wheel-button)"/>
+            <rect x="29" y="0.5" width="4" height="15" style="fill: var(--wheel-button)"/>
           </svg>
         </div>
         
-        <!-- Play/Pause button (bottom) -->
+        <!-- Play/Pause button (bottom): ▶ || -->
         <div class="wheel-button bottom">
-          <svg width="18" height="14" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="0,0 8,7 0,14" style="fill: var(--wheel-button)"/>
-            <rect x="11" y="0" width="3" height="14" style="fill: var(--wheel-button)"/>
-            <rect x="16" y="0" width="3" height="14" style="fill: var(--wheel-button)"/>
+          <svg viewBox="0 0 39 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 9L4.5 16.79V1.21L18 9Z" style="fill: var(--wheel-button)"/>
+            <rect x="26" y="1" width="4" height="16" style="fill: var(--wheel-button)"/>
+            <rect x="35" y="1" width="4" height="16" style="fill: var(--wheel-button)"/>
           </svg>
         </div>
       </div>
