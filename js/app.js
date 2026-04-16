@@ -495,9 +495,23 @@ class IPodApp {
       el.classList.toggle('active', i === this.scrollIndex);
     });
 
-    // Scroll into view
-    if (items[this.scrollIndex]) {
-      items[this.scrollIndex].scrollIntoView({ block: 'nearest' });
+    // Scroll active item into view within its scroll container
+    const activeItem = items[this.scrollIndex];
+    if (activeItem) {
+      const scrollContainer = this.currentView?._listEl;
+      if (scrollContainer && scrollContainer.scrollHeight > scrollContainer.clientHeight) {
+        const itemTop = activeItem.offsetTop - scrollContainer.offsetTop;
+        const itemBottom = itemTop + activeItem.offsetHeight;
+        const viewTop = scrollContainer.scrollTop;
+        const viewBottom = viewTop + scrollContainer.clientHeight;
+        if (itemBottom > viewBottom) {
+          scrollContainer.scrollTop = itemBottom - scrollContainer.clientHeight;
+        } else if (itemTop < viewTop) {
+          scrollContainer.scrollTop = itemTop;
+        }
+      } else {
+        activeItem.scrollIntoView({ block: 'nearest' });
+      }
     }
 
     // Swap Ken Burns pool when scrolling the home split-screen

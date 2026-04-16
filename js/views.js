@@ -138,8 +138,8 @@ function createSelectableList(items, activeIndex, showArrow) {
     el.className = 'list-item' + (i === activeIndex ? ' active' : '');
     el.dataset.index = i;
     
-    // Image if available
-    if (item.metadata?.coverEmoji || item.metadata?.coverImage || item.metadata?.thumbnailUrl) {
+    // Image if available (skip for songs — album art shows only in Now Playing)
+    if (item.type !== 'song' && (item.metadata?.coverEmoji || item.metadata?.coverImage || item.metadata?.thumbnailUrl)) {
       const cover = createCoverEl(
         item.metadata?.coverEmoji ? item.metadata : { coverImage: item.metadata?.coverImage || item.metadata?.thumbnailUrl },
         'list-item-image'
@@ -203,9 +203,12 @@ function renderAlbumView(node, children) {
   header.className = 'album-header';
   
   if (node.metadata?.coverEmoji || node.metadata?.coverImage) {
+    const clip = document.createElement('div');
+    clip.className = 'album-cover-clip';
     const cover = createCoverEl(node.metadata, 'album-cover-small');
     cover.alt = node.title;
-    header.appendChild(cover);
+    clip.appendChild(cover);
+    header.appendChild(clip);
   }
   
   const info = document.createElement('div');
@@ -475,9 +478,12 @@ function renderPlaylistView(node, songs) {
   header.className = 'playlist-header';
   
   if (node.metadata?.coverEmoji || node.metadata?.coverImage) {
+    const clip = document.createElement('div');
+    clip.className = 'playlist-cover-clip';
     const cover = createCoverEl(node.metadata, 'playlist-cover');
     cover.alt = node.title;
-    header.appendChild(cover);
+    clip.appendChild(cover);
+    header.appendChild(clip);
   }
   
   const info = document.createElement('div');
