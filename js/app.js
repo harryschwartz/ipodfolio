@@ -721,10 +721,12 @@ class IPodApp {
     // For photo grid
     if (this.currentNode?.type === 'photo_album' && !this.photoFullscreen) {
       const photos = this.currentNode.metadata?.photos || [];
-      if (direction === 'forward' && this.photoIndex < photos.length - 1) {
-        this.photoIndex++;
-      } else if (direction === 'backward' && this.photoIndex > 0) {
-        this.photoIndex--;
+      if (photos.length > 0) {
+        if (direction === 'forward') {
+          this.photoIndex = (this.photoIndex + 1) % photos.length;
+        } else if (direction === 'backward') {
+          this.photoIndex = (this.photoIndex - 1 + photos.length) % photos.length;
+        }
       }
       this.updatePhotoGridSelection();
       return;
@@ -1213,10 +1215,11 @@ class IPodApp {
 
   handlePhotoFullscreenScroll(direction) {
     const photos = this.photoNode?.metadata?.photos || [];
-    if (direction === 'forward' && this.photoIndex < photos.length - 1) {
-      this.photoIndex++;
-    } else if (direction === 'backward' && this.photoIndex > 0) {
-      this.photoIndex--;
+    if (photos.length === 0) return;
+    if (direction === 'forward') {
+      this.photoIndex = (this.photoIndex + 1) % photos.length;
+    } else if (direction === 'backward') {
+      this.photoIndex = (this.photoIndex - 1 + photos.length) % photos.length;
     }
     const view = renderPhotoFullscreen(photos[this.photoIndex]);
     this.transitionTo(view, direction === 'forward' ? 'right' : 'left');
