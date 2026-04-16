@@ -23,6 +23,11 @@ class IPodApp {
     this.activeNowPlaying = false;
     this.nowPlayingControlState = 0; // 0=progress, 1=volume, 2=scrubber
     this.scrubPercent = 0;
+    
+    // Long-press tracking for center button
+    this._centerPressStart = 0;
+    this._centerLongPressTimer = null;
+    this._centerLongPressed = false;
 
     // Music library state
     this.musicViewType = null; // 'menu', 'songs', 'artists', 'artist_songs', 'albums', 'album_tracks', 'playlists', 'playlist_songs'
@@ -109,12 +114,27 @@ class IPodApp {
     window.addEventListener('playpauseclick', () => this.onPlayPause());
     window.addEventListener('forwardclick', () => this.onForward());
     window.addEventListener('backclick', () => this.onBack());
+    // Long-press detection for center button (toggle shuffle on Now Playing)
+    window.addEventListener('centerpressstart', () => this._onCenterPressStart());
+    window.addEventListener('centerpressend', () => this._onCenterPressEnd());
   }
 
   // ---- Navigation ----
+  // Build the home item list with optional Now Playing injection
+  _getHomeItems() {
+    const items = getRootNodes();
+    if (audioPlayer.isPlaying || audioPlayer.isPaused) {
+      return [
+        { id: '_now_playing', title: 'Now Playing', type: '_now_playing' },
+        ...items
+      ];
+    }
+    return items;
+  }
+
   showHome() {
     this.currentNode = null;
-    this.currentItems = getRootNodes();
+    this.currentItems = this._getHomeItems();
     this.scrollIndex = 0;
     this.musicViewType = null;
     this.setHeaderTitle("Harry's iPortfolio");
@@ -180,7 +200,7 @@ class IPodApp {
         this._restoreMusicState(prev);
         if (prev.nodeId === null) {
           this.currentNode = null;
-          this.currentItems = getRootNodes();
+          this.currentItems = this._getHomeItems();
           this.scrollIndex = prev.scrollIndex;
           this.setHeaderTitle("Harry's iPortfolio");
           const view = renderFolderView(null, this.currentItems, true);
@@ -208,7 +228,7 @@ class IPodApp {
       this.musicViewType = null;
       if (prev.nodeId === null) {
         this.currentNode = null;
-        this.currentItems = getRootNodes();
+        this.currentItems = this._getHomeItems();
         this.scrollIndex = prev.scrollIndex;
         this.setHeaderTitle("Harry's iPortfolio");
         const view = renderFolderView(null, this.currentItems, true);
@@ -411,15 +431,22 @@ class IPodApp {
       }
       case 'game': {
         this.setHeaderTitle(node.title);
-        const view = renderBrickGameView();
+        const gameId = node.metadata?.gameId || 'brick';
+        const view = renderGameView(gameId);
         this.transitionTo(view, direction);
-        // Initialize brick game after DOM is ready
+        // Initialize game after DOM is ready
         requestAnimationFrame(() => {
-          const canvas = document.getElementById('brickBreakerCanvas');
+          const canvas = this.screenContent.querySelector('.game-canvas');
           const hud = this.screenContent.querySelector('.game-hud');
           const hudRight = this.screenContent.querySelector('.game-hud-right');
           if (canvas) {
-            this.activeBrickGame = new BrickGame();
+            if (gameId === 'solitaire' && typeof SolitaireGame !== 'undefined') {
+              this.activeBrickGame = new SolitaireGame();
+            } else if (gameId === 'parachute' && typeof ParachuteGame !== 'undefined') {
+              this.activeBrickGame = new ParachuteGame();
+            } else {
+              this.activeBrickGame = new BrickGame();
+            }
             this.activeBrickGame.init(canvas, hud, hudRight);
           }
         });
@@ -893,8 +920,31 @@ class IPodApp {
     }
   }
 
+  // ---- Center Button Long Press ----
+  _onCenterPressStart() {
+    this._centerLongPressed = false;
+    this._centerPressStart = Date.now();
+    this._centerLongPressTimer = setTimeout(() => {
+      this._centerLongPressed = true;
+      if (this.activeNowPlaying) {
+        audioPlayer.toggleShuffle();
+        this.updateNowPlayingUI();
+      }
+    }, 600); // 600ms = long press threshold
+  }
+
+  _onCenterPressEnd() {
+    clearTimeout(this._centerLongPressTimer);
+    this._centerLongPressTimer = null;
+  }
+
   // ---- Center Click ----
   onCenterClick() {
+    // If this was a long-press, don't also fire the regular click action
+    if (this._centerLongPressed) {
+      this._centerLongPressed = false;
+      return;
+    }
     if (this.desktopQRActive) {
       this.dismissDesktopQR();
       return;
@@ -1026,6 +1076,17 @@ class IPodApp {
       }
       // Fallback: undo the push
       this.navStack.pop();
+    }
+
+    // "Now Playing" menu item — jump to Now Playing screen
+    if (item.type === '_now_playing') {
+      this.navStack.push({
+        nodeId: this.currentNode ? this.currentNode.id : null,
+        scrollIndex: this.scrollIndex,
+        type: this.currentNode ? this.currentNode.type : 'home',
+      });
+      this.showNowPlaying();
+      return;
     }
 
     // Songs: play and show Now Playing
@@ -1302,6 +1363,25 @@ class IPodApp {
       const curScrub = (this.scrubPercent / 100) * dur;
       if (scrubTime) scrubTime.textContent = formatTime(curScrub);
       if (scrubRemaining) scrubRemaining.textContent = '-' + formatTime(dur - curScrub);
+    }
+
+    // Shuffle / Repeat indicators
+    const shuffleBadge = document.getElementById('np-shuffle-badge');
+    const repeatBadge = document.getElementById('np-repeat-badge');
+    const trackCounter = document.getElementById('np-track-counter');
+    if (shuffleBadge) {
+      shuffleBadge.classList.toggle('active', audioPlayer.shuffle);
+    }
+    if (repeatBadge) {
+      repeatBadge.classList.toggle('active', audioPlayer.repeat > 0);
+      if (audioPlayer.repeat === 2) {
+        repeatBadge.innerHTML = REPEAT_ONE_SVG;
+      } else {
+        repeatBadge.innerHTML = REPEAT_SVG;
+      }
+    }
+    if (trackCounter && audioPlayer.queue.length > 0) {
+      trackCounter.textContent = `${audioPlayer.queueIndex + 1} of ${audioPlayer.queue.length}`;
     }
   }
 

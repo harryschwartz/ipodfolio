@@ -302,6 +302,10 @@ class ClickWheel {
       this.startPoint = { x: e.clientX, y: e.clientY };
       this.lastPoint = { x: e.clientX, y: e.clientY };
       this.el.setPointerCapture(e.pointerId);
+      // Emit center press start for long-press detection
+      if (this.isPointInCenter({ x: e.clientX, y: e.clientY })) {
+        this.dispatch('centerpressstart');
+      }
     });
 
     this.el.addEventListener('pointermove', (e) => {
@@ -315,6 +319,7 @@ class ClickWheel {
       if (!this.isPanning) return;
       e.preventDefault();
       this.isPanning = false;
+      this.dispatch('centerpressend');
       
       const dx = e.clientX - this.startPoint.x;
       const dy = e.clientY - this.startPoint.y;

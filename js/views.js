@@ -48,6 +48,9 @@ function formatTime(seconds) {
 const ARROW_RIGHT_SVG = `<svg class="arrow-right" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L7 7L1 13" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>`;
 const VOLUME_MUTE_SVG = `<svg class="volume-icon" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 4h3l4-4v12L3 8H0V4z" fill="#666"/></svg>`;
 const VOLUME_FULL_SVG = `<svg class="volume-icon" viewBox="0 0 20 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 4h3l4-4v12L3 8H0V4z" fill="#666"/><path d="M12 1c2 1.5 3 3.5 3 5s-1 3.5-3 5" stroke="#666" stroke-width="1.5" fill="none"/><path d="M10 3c1.2.9 2 2.1 2 3s-.8 2.1-2 3" stroke="#666" stroke-width="1.5" fill="none"/></svg>`;
+const SHUFFLE_SVG = `<svg class="np-status-icon" viewBox="0 0 16 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 11h3l5-8h4M13 3l2 2-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 3h3l5 8h4M13 9l2 2-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const REPEAT_SVG = `<svg class="np-status-icon" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 1l-3 2 3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 3h13a3 3 0 0 1 3 3v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M14 13l3-2-3-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 11H4a3 3 0 0 1-3-3V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+const REPEAT_ONE_SVG = `<svg class="np-status-icon" viewBox="0 0 18 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 1l-3 2 3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 3h13a3 3 0 0 1 3 3v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M14 13l3-2-3-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 11H4a3 3 0 0 1-3-3V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><text x="9" y="9.5" font-size="6" font-weight="bold" fill="currentColor" text-anchor="middle" font-family="sans-serif">1</text></svg>`;
 
 // ---- Folder View (List) ----
 function renderFolderView(node, children, isTopLevel) {
@@ -76,6 +79,12 @@ function renderFolderView(node, children, isTopLevel) {
       : [];
 
     const urlsPerItem = children.map(item => {
+      if (item.type === '_now_playing') {
+        // Now Playing uses the current track's artwork or fallback
+        const track = typeof audioPlayer !== 'undefined' ? audioPlayer.currentTrack : null;
+        const coverUrl = track?.metadata?.coverImage || track?.metadata?.coverImageUrl || 'img/headphones-cover.jpg';
+        return [coverUrl];
+      }
       if (item.type === 'cover_flow_home' || item.type === 'cover_flow_music') {
         return projectsPool.length ? projectsPool : ['img/projects-preview.jpg'];
       }
@@ -256,6 +265,17 @@ function renderNowPlayingView() {
   `;
   meta.appendChild(info);
   container.appendChild(meta);
+
+  // Shuffle / Repeat status row
+  const statusRow = document.createElement('div');
+  statusRow.className = 'now-playing-status-row';
+  statusRow.id = 'np-status-row';
+  statusRow.innerHTML = `
+    <span class="np-status-badge" id="np-shuffle-badge">${SHUFFLE_SVG}</span>
+    <span class="np-status-badge" id="np-repeat-badge">${REPEAT_SVG}</span>
+    <span class="np-track-counter" id="np-track-counter"></span>
+  `;
+  container.appendChild(statusRow);
   
   // Controls
   const controls = document.createElement('div');
@@ -667,16 +687,90 @@ function renderMusicAlbumTracksView(album) {
   return container;
 }
 
-// Playlists list view
+// Playlists list view — with album art mosaics
 function renderMusicPlaylistsView(playlists) {
   const container = document.createElement('div');
   container.className = 'selectable-list';
-  container.appendChild(createSelectableList(playlists, 0, true));
+
+  const frag = document.createDocumentFragment();
+  playlists.forEach((playlist, i) => {
+    const el = document.createElement('div');
+    el.className = 'list-item' + (i === 0 ? ' active' : '');
+    el.dataset.index = i;
+
+    // Mosaic placeholder — will be filled with album art from playlist songs
+    const mosaicEl = document.createElement('div');
+    mosaicEl.className = 'list-item-mosaic';
+    el.appendChild(mosaicEl);
+
+    // Fetch playlist songs and build mosaic
+    fetchPlaylistSongs(playlist.id).then(songs => {
+      const uniqueCovers = [];
+      const seen = new Set();
+      for (const s of songs) {
+        const cover = s.metadata?.coverImage || s.metadata?.coverImageUrl;
+        if (cover && !seen.has(cover)) {
+          seen.add(cover);
+          uniqueCovers.push(cover);
+          if (uniqueCovers.length >= 4) break;
+        }
+      }
+      if (uniqueCovers.length === 0) {
+        // No cover art — use emoji or default
+        mosaicEl.style.backgroundColor = '#6366f1';
+        mosaicEl.style.display = 'flex';
+        mosaicEl.style.alignItems = 'center';
+        mosaicEl.style.justifyContent = 'center';
+        mosaicEl.textContent = '🎵';
+        return;
+      }
+      // Build 2×2 grid mosaic
+      mosaicEl.classList.add('mosaic-grid');
+      const count = Math.min(uniqueCovers.length, 4);
+      // If only 1 cover, show it full; 2-3 pad with repeats to fill 4 cells
+      const cells = count === 1 ? [uniqueCovers[0]]
+        : [uniqueCovers[0], uniqueCovers[1] || uniqueCovers[0],
+           uniqueCovers[2] || uniqueCovers[0], uniqueCovers[3] || uniqueCovers[1] || uniqueCovers[0]];
+      if (count === 1) {
+        // Single cover — full size
+        mosaicEl.classList.remove('mosaic-grid');
+        const img = document.createElement('img');
+        img.src = cells[0];
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        mosaicEl.appendChild(img);
+      } else {
+        cells.forEach(src => {
+          const img = document.createElement('img');
+          img.className = 'mosaic-cell';
+          img.src = src;
+          mosaicEl.appendChild(img);
+        });
+      }
+    });
+
+    const labelContainer = document.createElement('div');
+    labelContainer.className = 'list-label-container';
+    const label = document.createElement('h3');
+    label.className = 'list-label';
+    label.textContent = playlist.title;
+    labelContainer.appendChild(label);
+    el.appendChild(labelContainer);
+
+    const arrow = document.createElement('span');
+    arrow.className = 'list-arrow';
+    arrow.innerHTML = ARROW_RIGHT_SVG;
+    el.appendChild(arrow);
+
+    frag.appendChild(el);
+  });
+  container.appendChild(frag);
   container._listEl = container;
   return container;
 }
 
-// Playlist songs view (with header)
+// Playlist songs view (with header) — uses album art mosaic
 function renderMusicPlaylistSongsView(playlist, songs) {
   const container = document.createElement('div');
   container.className = 'playlist-view';
@@ -684,7 +778,43 @@ function renderMusicPlaylistSongsView(playlist, songs) {
   const header = document.createElement('div');
   header.className = 'playlist-header';
 
-  if (playlist.metadata?.coverImage) {
+  // Build mosaic from unique album art in playlist songs
+  const uniqueCovers = [];
+  const seen = new Set();
+  for (const s of songs) {
+    const cover = s.metadata?.coverImage || s.metadata?.coverImageUrl;
+    if (cover && !seen.has(cover)) {
+      seen.add(cover);
+      uniqueCovers.push(cover);
+      if (uniqueCovers.length >= 4) break;
+    }
+  }
+
+  if (uniqueCovers.length > 0) {
+    const clip = document.createElement('div');
+    clip.className = 'playlist-cover-clip';
+
+    if (uniqueCovers.length === 1) {
+      const img = document.createElement('img');
+      img.className = 'playlist-cover';
+      img.src = uniqueCovers[0];
+      img.alt = playlist.title;
+      clip.appendChild(img);
+    } else {
+      const mosaic = document.createElement('div');
+      mosaic.className = 'playlist-cover-mosaic';
+      const cells = [uniqueCovers[0], uniqueCovers[1] || uniqueCovers[0],
+                     uniqueCovers[2] || uniqueCovers[0], uniqueCovers[3] || uniqueCovers[1] || uniqueCovers[0]];
+      cells.forEach(src => {
+        const img = document.createElement('img');
+        img.className = 'mosaic-cell';
+        img.src = src;
+        mosaic.appendChild(img);
+      });
+      clip.appendChild(mosaic);
+    }
+    header.appendChild(clip);
+  } else if (playlist.metadata?.coverImage) {
     const clip = document.createElement('div');
     clip.className = 'playlist-cover-clip';
     const img = document.createElement('img');
@@ -765,14 +895,17 @@ function swapKenBurnsPool(container, itemIndex) {
   startKenBurns(container);
 }
 
-// ---- Brick Game View ----
-function renderBrickGameView() {
+// ---- Game View (shared for all canvas games) ----
+function renderGameView(gameId) {
   const container = document.createElement('div');
   container.className = 'brick-game-container';
   container.style.position = 'relative';
   
   const canvas = document.createElement('canvas');
-  canvas.id = 'brickBreakerCanvas';
+  canvas.className = 'game-canvas';
+  canvas.id = gameId === 'solitaire' ? 'solitaireCanvas'
+            : gameId === 'parachute' ? 'parachuteCanvas'
+            : 'brickBreakerCanvas';
   container.appendChild(canvas);
   
   const hud = document.createElement('div');
@@ -782,8 +915,13 @@ function renderBrickGameView() {
   
   const hudRight = document.createElement('div');
   hudRight.className = 'game-hud-right';
-  hudRight.textContent = 'Lives: 3';
+  hudRight.textContent = gameId === 'solitaire' ? '' : 'Lives: 3';
   container.appendChild(hudRight);
   
   return container;
+}
+
+// Legacy alias
+function renderBrickGameView() {
+  return renderGameView('brick');
 }
