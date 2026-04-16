@@ -138,8 +138,8 @@ function createSelectableList(items, activeIndex, showArrow) {
     el.className = 'list-item' + (i === activeIndex ? ' active' : '');
     el.dataset.index = i;
     
-    // Image if available (skip for songs — album art shows only in Now Playing)
-    if (item.type !== 'song' && (item.metadata?.coverEmoji || item.metadata?.coverImage || item.metadata?.thumbnailUrl)) {
+    // Inline cover art only for playlist items
+    if (item.type === 'playlist' && (item.metadata?.coverEmoji || item.metadata?.coverImage || item.metadata?.thumbnailUrl)) {
       const cover = createCoverEl(
         item.metadata?.coverEmoji ? item.metadata : { coverImage: item.metadata?.coverImage || item.metadata?.thumbnailUrl },
         'list-item-image'
