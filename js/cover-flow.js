@@ -165,6 +165,21 @@ class CoverFlow {
     const items = el.querySelectorAll('.coverflow-backside .list-item');
     items.forEach((item, i) => {
       item.classList.toggle('active', i === this.backsideScrollIndex);
+      if (i === this.backsideScrollIndex) {
+        // Scroll the active item into view within the backside list container
+        const list = el.querySelector('.coverflow-backside-list');
+        if (list) {
+          const itemTop = item.offsetTop;
+          const itemBottom = itemTop + item.offsetHeight;
+          const listTop = list.scrollTop;
+          const listBottom = listTop + list.clientHeight;
+          if (itemBottom > listBottom) {
+            list.scrollTop = itemBottom - list.clientHeight;
+          } else if (itemTop < listTop) {
+            list.scrollTop = itemTop;
+          }
+        }
+      }
     });
   }
 
