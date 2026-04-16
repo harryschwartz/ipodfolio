@@ -172,7 +172,28 @@ class IPodApp {
 
     if (this.photoFullscreen) {
       this.photoFullscreen = false;
-      this.renderNode(this.photoNode, 'left');
+      this.photoNode = null;
+      // Pop the photo grid entry, then pop again to reach the parent folder
+      if (this.navStack.length > 0) this.navStack.pop(); // discard photo_album grid
+      if (this.navStack.length > 0) {
+        const prev = this.navStack.pop();
+        this._restoreMusicState(prev);
+        if (prev.nodeId === null) {
+          this.currentNode = null;
+          this.currentItems = getRootNodes();
+          this.scrollIndex = prev.scrollIndex;
+          this.setHeaderTitle("Harry's iPortfolio");
+          const view = renderFolderView(null, this.currentItems, true);
+          this.transitionTo(view, 'left');
+          startKenBurns(view);
+          this.updateListSelection();
+        } else {
+          const node = getNode(prev.nodeId);
+          this.currentNode = node;
+          this.scrollIndex = prev.scrollIndex;
+          this.renderNode(node, 'left', prev.scrollIndex);
+        }
+      }
       return;
     }
 
