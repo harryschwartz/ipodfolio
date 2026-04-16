@@ -162,25 +162,29 @@ class CoverFlow {
   updateBacksideSelection() {
     const el = this.coverEls[this.activeIndex];
     if (!el) return;
+    const list = el.querySelector('.coverflow-backside-list');
     const items = el.querySelectorAll('.coverflow-backside .list-item');
     items.forEach((item, i) => {
       item.classList.toggle('active', i === this.backsideScrollIndex);
-      if (i === this.backsideScrollIndex) {
-        // Scroll the active item into view within the backside list container
-        const list = el.querySelector('.coverflow-backside-list');
-        if (list) {
-          const itemTop = item.offsetTop;
-          const itemBottom = itemTop + item.offsetHeight;
-          const listTop = list.scrollTop;
-          const listBottom = listTop + list.clientHeight;
-          if (itemBottom > listBottom) {
-            list.scrollTop = itemBottom - list.clientHeight;
-          } else if (itemTop < listTop) {
-            list.scrollTop = itemTop;
-          }
+    });
+    // Scroll the active item into view within the backside list container
+    if (list && items[this.backsideScrollIndex]) {
+      const item = items[this.backsideScrollIndex];
+      if (this.backsideScrollIndex === 0) {
+        // At the top — always reset scroll to 0 so nothing is above
+        list.scrollTop = 0;
+      } else {
+        const itemTop = item.offsetTop;
+        const itemBottom = itemTop + item.offsetHeight;
+        const listTop = list.scrollTop;
+        const listBottom = listTop + list.clientHeight;
+        if (itemBottom > listBottom) {
+          list.scrollTop = itemBottom - list.clientHeight;
+        } else if (itemTop < listTop) {
+          list.scrollTop = itemTop;
         }
       }
-    });
+    }
   }
 
   bindEvents() {

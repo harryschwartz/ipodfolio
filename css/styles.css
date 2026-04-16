@@ -1027,7 +1027,7 @@ a {
 
 .coverflow-backside-list {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
 }
 
 /* ---- Brick Game ---- */
