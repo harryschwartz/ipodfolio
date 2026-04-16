@@ -1121,62 +1121,66 @@ class IPodApp {
     const hasTranscription = track.metadata?.transcription?.segments?.length > 0;
 
     if (hasTranscription) {
-      // Hide artist/album subtitles, show caption
-      if (subtitles) subtitles.forEach(s => s.style.display = 'none');
-      if (captionEl) {
-        captionEl.style.display = '';
-        const transcription = track.metadata.transcription;
-        const segments = transcription.segments;
-        const words = transcription.words;
-        const currentTime = audioPlayer.getCurrentTime();
+      // Use subtitle elements for caption text so title position never shifts
+      if (captionEl) captionEl.style.display = 'none';
+      const transcription = track.metadata.transcription;
+      const segments = transcription.segments;
+      const words = transcription.words;
+      const currentTime = audioPlayer.getCurrentTime();
 
-        let newText = '';
+      let newText = '';
 
-        if (words && words.length > 0) {
-          // Build chunks of ~6 words from the words array
-          if (!transcription._chunks) {
-            const CHUNK_SIZE = 6;
-            const chunks = [];
-            for (let i = 0; i < words.length; i += CHUNK_SIZE) {
-              const group = words.slice(i, i + CHUNK_SIZE);
-              chunks.push({
-                start: group[0].start,
-                end: group[group.length - 1].end,
-                text: group.map(w => w.word).join(' ')
-              });
-            }
-            transcription._chunks = chunks;
+      if (words && words.length > 0) {
+        // Build chunks of ~6 words from the words array
+        if (!transcription._chunks) {
+          const CHUNK_SIZE = 6;
+          const chunks = [];
+          for (let i = 0; i < words.length; i += CHUNK_SIZE) {
+            const group = words.slice(i, i + CHUNK_SIZE);
+            chunks.push({
+              start: group[0].start,
+              end: group[group.length - 1].end,
+              text: group.map(w => w.word).join(' ')
+            });
           }
-          // Find the active chunk
-          const chunks = transcription._chunks;
-          for (let i = 0; i < chunks.length; i++) {
-            if (currentTime >= chunks[i].start && currentTime < chunks[i].end) {
-              newText = chunks[i].text.trim();
-              break;
-            }
-          }
-        } else {
-          // Fallback: no words array, use segments truncated
-          for (let i = 0; i < segments.length; i++) {
-            if (currentTime >= segments[i].start && currentTime < segments[i].end) {
-              newText = segments[i].text.trim();
-              break;
-            }
+          transcription._chunks = chunks;
+        }
+        // Find the active chunk
+        const chunks = transcription._chunks;
+        for (let i = 0; i < chunks.length; i++) {
+          if (currentTime >= chunks[i].start && currentTime < chunks[i].end) {
+            newText = chunks[i].text.trim();
+            break;
           }
         }
-
-        if (captionEl.dataset.currentText !== newText) {
-          captionEl.classList.remove('caption-fade-in');
-          void captionEl.offsetWidth;
-          captionEl.textContent = newText;
-          captionEl.dataset.currentText = newText;
-          captionEl.classList.add('caption-fade-in');
+      } else {
+        // Fallback: no words array, use segments truncated
+        for (let i = 0; i < segments.length; i++) {
+          if (currentTime >= segments[i].start && currentTime < segments[i].end) {
+            newText = segments[i].text.trim();
+            break;
+          }
         }
       }
+
+      // Put caption text in first subtitle, clear second
+      if (subtitles && subtitles[0]) {
+        if (subtitles[0].dataset.currentCaption !== newText) {
+          subtitles[0].classList.remove('caption-fade-in');
+          void subtitles[0].offsetWidth;
+          subtitles[0].textContent = newText;
+          subtitles[0].dataset.currentCaption = newText;
+          subtitles[0].classList.add('caption-fade-in');
+        }
+      }
+      if (subtitles && subtitles[1]) subtitles[1].textContent = '';
     } else {
       // No transcription — show artist/album as normal
-      if (subtitles) subtitles.forEach(s => s.style.display = '');
-      if (subtitles && subtitles[0]) subtitles[0].textContent = track.metadata?.artistName || '--';
+      if (subtitles && subtitles[0]) {
+        subtitles[0].textContent = track.metadata?.artistName || '--';
+        subtitles[0].classList.remove('caption-fade-in');
+        delete subtitles[0].dataset.currentCaption;
+      }
       if (subtitles && subtitles[1]) subtitles[1].textContent = track.metadata?.albumName || '--';
       if (captionEl) captionEl.style.display = 'none';
     }

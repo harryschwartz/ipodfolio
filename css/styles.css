@@ -432,6 +432,7 @@ a {
   transform-style: preserve-3d;
   transform: rotateY(35deg);
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .now-playing-artwork {
@@ -469,18 +470,16 @@ a {
 }
 
 .now-playing-caption {
-  margin: 0.15rem 0 0;
   font-size: 0.68rem;
   color: rgb(99, 101, 103);
   font-weight: 600;
   line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
-.now-playing-caption.caption-fade-in {
+.now-playing-caption.caption-fade-in,
+.now-playing-subtitle.caption-fade-in {
   animation: captionFade 0.2s ease-in;
 }
 
