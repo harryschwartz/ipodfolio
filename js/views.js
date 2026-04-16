@@ -899,7 +899,9 @@ function renderGameView(gameId) {
   
   const canvas = document.createElement('canvas');
   canvas.className = 'game-canvas';
-  canvas.id = 'brickBreakerCanvas';
+  canvas.id = gameId === 'solitaire' ? 'solitaireCanvas'
+            : gameId === 'parachute' ? 'parachuteCanvas'
+            : 'brickBreakerCanvas';
   container.appendChild(canvas);
   
   const hud = document.createElement('div');
@@ -909,7 +911,7 @@ function renderGameView(gameId) {
   
   const hudRight = document.createElement('div');
   hudRight.className = 'game-hud-right';
-  hudRight.textContent = 'Lives: 3';
+  hudRight.textContent = gameId === 'solitaire' ? '' : 'Lives: 3';
   container.appendChild(hudRight);
   
   return container;
