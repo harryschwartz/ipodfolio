@@ -80,20 +80,54 @@ function ensureAudioContext() {
       // Exponential decay noise burst — very short, subtle click
       data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.15));
     }
+    // If context starts running (desktop), mark unlocked immediately
+    if (_audioCtx.state === 'running') _audioUnlocked = true;
   } catch {}
 }
 
 function unlockAudioContext() {
   if (_audioUnlocked || !_audioCtx) return;
   if (_audioCtx.state === 'suspended') {
-    _audioCtx.resume().then(() => { _audioUnlocked = true; });
+    _audioCtx.resume().then(() => { _audioUnlocked = true; }).catch(() => {});
   } else {
     _audioUnlocked = true;
   }
 }
 
+// Unlock audio on the very first user gesture anywhere on the page.
+// This covers the tutorial overlay dismiss tap, so by the time the user
+// starts scrolling the wheel, the AudioContext is already running.
+(function earlyUnlock() {
+  function onFirstGesture() {
+    ensureAudioContext();
+    unlockAudioContext();
+    // Also play a silent buffer to fully warm up the audio pipeline
+    if (_audioCtx && _audioCtx.state !== 'suspended') {
+      try {
+        const silent = _audioCtx.createBufferSource();
+        silent.buffer = _audioCtx.createBuffer(1, 1, _audioCtx.sampleRate);
+        silent.connect(_audioCtx.destination);
+        silent.start(0);
+      } catch {}
+    }
+    document.removeEventListener('touchstart', onFirstGesture, true);
+    document.removeEventListener('pointerdown', onFirstGesture, true);
+    document.removeEventListener('mousedown', onFirstGesture, true);
+    document.removeEventListener('keydown', onFirstGesture, true);
+  }
+  document.addEventListener('touchstart', onFirstGesture, { capture: true, passive: true });
+  document.addEventListener('pointerdown', onFirstGesture, { capture: true, passive: true });
+  document.addEventListener('mousedown', onFirstGesture, { capture: true, passive: true });
+  document.addEventListener('keydown', onFirstGesture, { capture: true, passive: true });
+})();
+
 function playTickSound() {
   if (!_audioCtx || !_tickBuffer) return;
+  // If still suspended, kick off resume (will be ready for next tick)
+  if (_audioCtx.state === 'suspended') {
+    _audioCtx.resume().catch(() => {});
+    return; // skip this tick — context isn't ready yet
+  }
   const now = performance.now();
   if (now - _lastTickTime < TICK_MIN_INTERVAL) return;
   _lastTickTime = now;
@@ -229,8 +263,8 @@ class ClickWheel {
     // Pointer events for unified mouse/touch handling
     this.el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      // Unlock Web Audio on first touch (iOS Safari requires user gesture)
-      if (!_audioUnlocked && _audioCtx) unlockAudioContext();
+      // Ensure audio is unlocked on wheel interaction too
+      unlockAudioContext();
       this.isPanning = true;
       this.hasScrolled = false;
       this.startPoint = { x: e.clientX, y: e.clientY };
