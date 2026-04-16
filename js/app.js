@@ -666,6 +666,10 @@ class IPodApp {
   // ---- Forward/Back Skip ----
   onForward() {
     if (this.activeBrickGame) return;
+    if (this.photoFullscreen) {
+      this.handlePhotoFullscreenScroll('forward');
+      return;
+    }
     if (audioPlayer.isPlaying) {
       audioPlayer.next();
     }
@@ -673,6 +677,10 @@ class IPodApp {
 
   onBack() {
     if (this.activeBrickGame) return;
+    if (this.photoFullscreen) {
+      this.handlePhotoFullscreenScroll('backward');
+      return;
+    }
     if (audioPlayer.isPlaying) {
       if (audioPlayer.getCurrentTime() > 3) {
         audioPlayer.seek(0);
