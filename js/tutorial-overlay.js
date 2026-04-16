@@ -248,12 +248,7 @@
       var mRightAnchor = shellRight - (shellRight - wheelRect.right) * 0.5;
 
       // Compute Play/Pause Y first (Select will share it)
-      var ppY = null;
-      if (playPauseBtn) {
-        var pc = centerOf(playPauseBtn);
-        ppY = pc.y + dotOff;
-        ppY = Math.min(ppY, shellBottom - 30);
-      }
+      var ppY = Math.min(wheelRect.bottom - 6, shellBottom - 30);
 
       // --- SCROLL WHEEL (upper-right rim) → label RIGHT ---
       var scrollAngle = -55 * Math.PI / 180;
@@ -268,8 +263,8 @@
       // --- MENU (top button, above center) → straight line LEFT ---
       if (menuBtn) {
         var mc = centerOf(menuBtn);
-        var menuDotY = mc.y - dotOff;
-        var menuLY = Math.max(menuDotY, minLabelY);
+        var menuDotY = wheelRect.top + 6;
+        var menuLY = Math.max(mc.y, minLabelY);
         makeDot(mc.x, menuDotY);
         makeLabel('Menu', 'Go back', mLeftAnchor, menuLY, 'right');
         makePath('M' + mc.x + ',' + menuDotY + ' L' + mLeftAnchor + ',' + menuDotY +
@@ -279,19 +274,19 @@
       // --- PREVIOUS (left button) → straight line LEFT ---
       if (rewindBtn) {
         var rc = centerOf(rewindBtn);
-        var prevDotY = rc.y - dotOff;
-        makeDot(rc.x, prevDotY);
-        makeLabel('Previous', 'Skip back', mLeftAnchor, prevDotY, 'right');
-        makePath('M' + rc.x + ',' + prevDotY + ' L' + mLeftAnchor + ',' + prevDotY);
+        var prevDotX = wheelRect.left + 6;
+        makeDot(prevDotX, rc.y);
+        makeLabel('Previous', 'Skip back', mLeftAnchor, rc.y, 'right');
+        makePath('M' + prevDotX + ',' + rc.y + ' L' + mLeftAnchor + ',' + rc.y);
       }
 
       // --- NEXT (right button) → straight line RIGHT ---
       if (forwardBtn) {
         var fc = centerOf(forwardBtn);
-        var nextDotY = fc.y + dotOff;
-        makeDot(fc.x, nextDotY);
-        makeLabel('Next', 'Skip forward', mRightAnchor, nextDotY, 'left');
-        makePath('M' + fc.x + ',' + nextDotY + ' L' + mRightAnchor + ',' + nextDotY);
+        var nextDotX = wheelRect.right - 6;
+        makeDot(nextDotX, fc.y);
+        makeLabel('Next', 'Skip forward', mRightAnchor, fc.y, 'left');
+        makePath('M' + nextDotX + ',' + fc.y + ' L' + mRightAnchor + ',' + fc.y);
       }
 
       // --- SELECT (center) → dot at center, diagonal then horizontal to label ---
@@ -308,9 +303,11 @@
 
       // --- PLAY/PAUSE (bottom button) → straight line LEFT ---
       if (playPauseBtn) {
-        makeDot(centerOf(playPauseBtn).x, ppY);
-        makeLabel('Play / Pause', 'Control playback', mLeftAnchor, ppY, 'right');
-        makePath('M' + centerOf(playPauseBtn).x + ',' + ppY + ' L' + mLeftAnchor + ',' + ppY);
+        var ppc = centerOf(playPauseBtn);
+        var ppDotY = wheelRect.bottom - 6;
+        makeDot(ppc.x, ppDotY);
+        makeLabel('Play / Pause', 'Control playback', mLeftAnchor, ppDotY, 'right');
+        makePath('M' + ppc.x + ',' + ppDotY + ' L' + mLeftAnchor + ',' + ppDotY);
       }
 
     } else {
