@@ -126,20 +126,19 @@ class ClickWheel {
     
     // Pre-initialize haptic systems
     if (canIOSHaptic) ensureHapticDOM();
-    // Set up Web Audio tick for iOS scroll feedback
-    if (!canVibrate) ensureAudioContext();
+    // Set up Web Audio tick for scroll feedback (always — works on all platforms)
+    ensureAudioContext();
     
     this.bindEvents();
   }
 
-  // Scroll tick: vibrate on Android, audio tick on iOS (checkbox trick doesn't work during pan)
+  // Scroll tick: always play audio tick + vibrate on supported devices
   triggerScrollHaptic() {
-    if (!this.hapticsEnabled) return;
-    if (canVibrate) {
+    // Audio tick always plays (works on all platforms, no ringer dependency)
+    playTickSound();
+    // Also vibrate on Android if haptics enabled
+    if (this.hapticsEnabled && canVibrate) {
       navigator.vibrate(10);
-    } else {
-      // iOS: play a subtle audio tick (Web Audio works during touchmove)
-      playTickSound();
     }
   }
 

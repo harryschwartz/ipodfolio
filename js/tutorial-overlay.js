@@ -235,20 +235,30 @@
 
     if (isMobile) {
       // ---- MOBILE LAYOUT ----
-      // Short arms: labels halfway between wheel edge and shell edge.
-      // Select aligned with Play/Pause Y.
+      // All dot positions computed from wheel geometry only (no getBoundingClientRect on buttons)
       //   LEFT: Menu, Previous, Play/Pause
       //   RIGHT: Scroll Wheel, Next, Select
 
       var minLabelY = screenBottom + 14;
-      var dotOff = 20;
 
       // Label anchors: halfway between wheel edge and shell edge
       var mLeftAnchor = shellLeft + (wheelRect.left - shellLeft) * 0.5;
       var mRightAnchor = shellRight - (shellRight - wheelRect.right) * 0.5;
 
-      // Compute Play/Pause Y first (Select will share it)
-      var ppY = Math.min(wheelRect.bottom - 6, shellBottom - 30);
+      // Dot positions derived from wheel center + radius
+      var menuDotX = wheelCx;
+      var menuDotY = wheelRect.top + 6;
+      var prevDotX = wheelRect.left + 6;
+      var prevDotY = wheelCy;
+      var nextDotX = wheelRect.right - 6;
+      var nextDotY = wheelCy;
+      var ppDotX = wheelCx;
+      var ppDotY = wheelRect.bottom - 6;
+      var selectDotX = wheelCx;
+      var selectDotY = wheelCy;
+
+      // Play/Pause Y (Select label will share this Y)
+      var ppLabelY = Math.min(ppDotY, shellBottom - 30);
 
       // --- SCROLL WHEEL (upper-right rim) → label RIGHT ---
       var scrollAngle = -55 * Math.PI / 180;
@@ -260,55 +270,36 @@
       makePath('M' + scrollDotX + ',' + scrollDotY + ' L' + mRightAnchor + ',' + scrollDotY +
         (Math.abs(scrollLabelY - scrollDotY) > 3 ? ' L' + mRightAnchor + ',' + scrollLabelY : ''));
 
-      // --- MENU (top button, above center) → straight line LEFT ---
-      if (menuBtn) {
-        var mc = centerOf(menuBtn);
-        var menuDotY = wheelRect.top + 6;
-        var menuLY = Math.max(mc.y, minLabelY);
-        makeDot(mc.x, menuDotY);
-        makeLabel('Menu', 'Go back', mLeftAnchor, menuLY, 'right');
-        makePath('M' + mc.x + ',' + menuDotY + ' L' + mLeftAnchor + ',' + menuDotY +
-          (Math.abs(menuLY - menuDotY) > 3 ? ' L' + mLeftAnchor + ',' + menuLY : ''));
-      }
+      // --- MENU (top of wheel) → line LEFT then down to label ---
+      var menuLabelY = Math.max(menuDotY, minLabelY);
+      makeDot(menuDotX, menuDotY);
+      makeLabel('Menu', 'Go back', mLeftAnchor, menuLabelY, 'right');
+      makePath('M' + menuDotX + ',' + menuDotY + ' L' + mLeftAnchor + ',' + menuDotY +
+        (Math.abs(menuLabelY - menuDotY) > 3 ? ' L' + mLeftAnchor + ',' + menuLabelY : ''));
 
-      // --- PREVIOUS (left button) → straight line LEFT ---
-      if (rewindBtn) {
-        var rc = centerOf(rewindBtn);
-        var prevDotX = wheelRect.left + 6;
-        makeDot(prevDotX, rc.y);
-        makeLabel('Previous', 'Skip back', mLeftAnchor, rc.y, 'right');
-        makePath('M' + prevDotX + ',' + rc.y + ' L' + mLeftAnchor + ',' + rc.y);
-      }
+      // --- PREVIOUS (left of wheel) → straight line LEFT ---
+      makeDot(prevDotX, prevDotY);
+      makeLabel('Previous', 'Skip back', mLeftAnchor, prevDotY, 'right');
+      makePath('M' + prevDotX + ',' + prevDotY + ' L' + mLeftAnchor + ',' + prevDotY);
 
-      // --- NEXT (right button) → straight line RIGHT ---
-      if (forwardBtn) {
-        var fc = centerOf(forwardBtn);
-        var nextDotX = wheelRect.right - 6;
-        makeDot(nextDotX, fc.y);
-        makeLabel('Next', 'Skip forward', mRightAnchor, fc.y, 'left');
-        makePath('M' + nextDotX + ',' + fc.y + ' L' + mRightAnchor + ',' + fc.y);
-      }
+      // --- NEXT (right of wheel) → straight line RIGHT ---
+      makeDot(nextDotX, nextDotY);
+      makeLabel('Next', 'Skip forward', mRightAnchor, nextDotY, 'left');
+      makePath('M' + nextDotX + ',' + nextDotY + ' L' + mRightAnchor + ',' + nextDotY);
 
-      // --- SELECT (center) → dot at center, diagonal then horizontal to label ---
-      if (centerBtn) {
-        var cc = centerOf(centerBtn);
-        var selectY = ppY !== null ? ppY : (wheelRect.bottom + 10);
-        selectY = Math.min(selectY, shellBottom - 30);
-        makeDot(cc.x, cc.y);
-        makeLabel('Select', 'Press to choose', mRightAnchor, selectY, 'left');
-        // Diagonal from center toward bottom-right, then horizontal before the text
-        var midX = (cc.x + mRightAnchor) / 2;
-        makePath('M' + cc.x + ',' + cc.y + ' L' + midX + ',' + selectY + ' L' + mRightAnchor + ',' + selectY);
-      }
+      // --- SELECT (center of wheel) → diagonal then horizontal ---
+      var selectLabelY = Math.min(ppLabelY, shellBottom - 30);
+      makeDot(selectDotX, selectDotY);
+      makeLabel('Select', 'Press to choose', mRightAnchor, selectLabelY, 'left');
+      var selMidX = (selectDotX + mRightAnchor) / 2;
+      makePath('M' + selectDotX + ',' + selectDotY + ' L' + selMidX + ',' + selectLabelY + ' L' + mRightAnchor + ',' + selectLabelY);
 
-      // --- PLAY/PAUSE (bottom button) → straight line LEFT ---
-      if (playPauseBtn) {
-        var ppc = centerOf(playPauseBtn);
-        var ppDotY = wheelRect.bottom - 6;
-        makeDot(ppc.x, ppDotY);
-        makeLabel('Play / Pause', 'Control playback', mLeftAnchor, ppDotY, 'right');
-        makePath('M' + ppc.x + ',' + ppDotY + ' L' + mLeftAnchor + ',' + ppDotY);
-      }
+      // --- PLAY/PAUSE (bottom of wheel) → straight line LEFT ---
+      makeDot(ppDotX, ppDotY);
+      makeLabel('Play / Pause', 'Control playback', mLeftAnchor, ppLabelY, 'right');
+      makePath('M' + ppDotX + ',' + ppDotY +
+        (Math.abs(ppLabelY - ppDotY) > 3 ? ' L' + mLeftAnchor + ',' + ppDotY + ' L' + mLeftAnchor + ',' + ppLabelY
+          : ' L' + mLeftAnchor + ',' + ppDotY));
 
     } else {
       // ---- DESKTOP LAYOUT ----
