@@ -518,6 +518,7 @@ function renderMusicMenuView() {
   const container = document.createElement('div');
   container.className = 'selectable-list';
   const items = [
+    { id: '_music_cover_flow', title: 'Cover Flow', type: '_music_menu' },
     { id: '_music_playlists', title: 'Playlists', type: '_music_menu' },
     { id: '_music_artists', title: 'Artists', type: '_music_menu' },
     { id: '_music_albums', title: 'Albums', type: '_music_menu' },

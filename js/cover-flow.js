@@ -253,3 +253,126 @@ class CoverFlow {
     this.listeners = [];
   }
 }
+
+// Music Cover Flow — variant that uses music library albums (computed from songs)
+// instead of database node children for the backside track list.
+class MusicCoverFlow extends CoverFlow {
+  constructor(container, albums, musicAlbums, onAction) {
+    // onAction callback: onAction(action, data)
+    //   action='play'  → data = { song, songs, index }
+    //   action='album'  → data = musicAlbum object
+    //   action='back'   → no data
+    super(container, albums, null);
+    this.onAction = onAction;
+    // Re-bind events with music-specific behavior
+    this.cleanup();
+    this.bindMusicEvents();
+  }
+
+  showBackside(album) {
+    this.selectedAlbum = album;
+    this.backsideScrollIndex = 0;
+
+    const el = this.coverEls[this.activeIndex];
+    const existing = el.querySelector('.coverflow-backside');
+    if (existing) existing.remove();
+
+    // Use the music album's songs instead of getChildren
+    const musicAlbum = album._musicAlbum;
+    const children = musicAlbum ? musicAlbum.songs : [];
+
+    const backside = document.createElement('div');
+    backside.className = 'coverflow-backside';
+
+    const header = document.createElement('div');
+    header.className = 'coverflow-backside-header';
+    header.innerHTML = `<h3>${album.title}</h3><h4>${album.metadata.artistName || ''}</h4>`;
+    backside.appendChild(header);
+
+    const listContainer = document.createElement('div');
+    listContainer.className = 'coverflow-backside-list';
+
+    children.forEach((child, i) => {
+      const item = document.createElement('div');
+      item.className = 'list-item' + (i === 0 ? ' active' : '');
+      item.innerHTML = `<div class="list-label-container"><h3 class="list-label">${child.title}</h3></div>`;
+      listContainer.appendChild(item);
+    });
+
+    backside.appendChild(listContainer);
+    el.appendChild(backside);
+    this.backsideChildren = children;
+
+    this.updatePositions();
+  }
+
+  bindMusicEvents() {
+    const onForward = () => {
+      if (this.selectedAlbum && !this.playingAlbum) {
+        if (this.backsideChildren && this.backsideScrollIndex < this.backsideChildren.length - 1) {
+          this.backsideScrollIndex++;
+          this.updateBacksideSelection();
+        }
+      } else if (!this.playingAlbum && this.activeIndex < this.albums.length - 1) {
+        this.activeIndex++;
+        this.updatePositions();
+        this.updateInfo();
+      }
+    };
+
+    const onBackward = () => {
+      if (this.selectedAlbum && !this.playingAlbum) {
+        if (this.backsideScrollIndex > 0) {
+          this.backsideScrollIndex--;
+          this.updateBacksideSelection();
+        }
+      } else if (!this.playingAlbum && this.activeIndex > 0) {
+        this.activeIndex--;
+        this.updatePositions();
+        this.updateInfo();
+      }
+    };
+
+    const onCenter = () => {
+      if (!this.selectedAlbum) {
+        const album = this.albums[this.activeIndex];
+        if (album) this.showBackside(album);
+      } else if (this.selectedAlbum && !this.playingAlbum) {
+        if (this.backsideChildren && this.backsideChildren[this.backsideScrollIndex]) {
+          const track = this.backsideChildren[this.backsideScrollIndex];
+          if (track.type === 'song') {
+            const songs = this.backsideChildren.filter(c => c.type === 'song');
+            const idx = songs.indexOf(track);
+            this.cleanup();
+            if (this.onAction) this.onAction('play', { song: track, songs, index: idx >= 0 ? idx : 0 });
+          }
+        }
+      }
+    };
+
+    const onMenu = () => {
+      if (this.selectedAlbum && this.playingAlbum) {
+        this.playingAlbum = false;
+        this.updatePositions();
+        this.updateInfo();
+      } else if (this.selectedAlbum) {
+        this.hideBackside();
+      } else {
+        this.cleanup();
+        if (this.onAction) this.onAction('back');
+      }
+    };
+
+    window.addEventListener('forwardscroll', onForward);
+    window.addEventListener('backwardscroll', onBackward);
+    window.addEventListener('centerclick', onCenter);
+    window.addEventListener('menuclick', onMenu);
+
+    this.listeners = [
+      ['forwardscroll', onForward],
+      ['backwardscroll', onBackward],
+      ['centerclick', onCenter],
+      ['menuclick', onMenu],
+    ];
+  }
+}

@@ -238,6 +238,13 @@ class IPodApp {
     this.scrollIndex = prev.scrollIndex;
     const vt = prev.musicViewType;
 
+    if (vt === 'cover_flow') {
+      // Re-enter music cover flow
+      const musicNode = getNode(MUSIC_FOLDER_ID);
+      this.currentNode = musicNode;
+      this.showMusicCoverFlow(direction);
+      return;
+    }
     if (vt === 'menu') {
       // Re-render the Music menu
       const musicNode = getNode(MUSIC_FOLDER_ID);
@@ -591,6 +598,69 @@ class IPodApp {
     this.showNowPlaying();
   }
 
+  showMusicCoverFlow(direction) {
+    this.setHeaderTitle('Cover Flow');
+    this.musicViewType = 'cover_flow';
+    fetchMusicLibrary().then(lib => {
+      const albums = getMusicAlbums();
+      if (albums.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.textContent = 'No albums available';
+        this.currentItems = [];
+        this.transitionTo(empty, direction);
+        return;
+      }
+      // Convert music library albums to the format CoverFlow expects
+      const coverFlowAlbums = albums.map((album, i) => ({
+        id: '_music_album_cf_' + i,
+        title: album.name,
+        metadata: {
+          coverImage: album.coverImage,
+          artistName: album.artistName,
+        },
+        _musicAlbum: album, // keep reference for track navigation
+      }));
+
+      const container = document.createElement('div');
+      container.style.height = '100%';
+      this.transitionTo(container, direction);
+
+      requestAnimationFrame(() => {
+        this.activeCoverFlow = new MusicCoverFlow(container, coverFlowAlbums, this.musicAlbums, (action, data) => {
+          this.activeCoverFlow = null;
+          if (action === 'play') {
+            // data = { song, songs, index }
+            audioPlayer.play(data.song, data.songs, data.index);
+            this.showNowPlaying();
+          } else if (action === 'album') {
+            // Navigate to album tracks
+            this.musicAlbums = getMusicAlbums();
+            const albumIdx = this.musicAlbums.findIndex(a => a.name === data.name);
+            if (albumIdx >= 0) {
+              this.navStack.push({
+                nodeId: this.currentNode ? this.currentNode.id : null,
+                scrollIndex: this.scrollIndex,
+                type: this.currentNode ? this.currentNode.type : 'home',
+                musicViewType: this.musicViewType,
+                musicArtists: this.musicArtists,
+                musicAlbums: this.musicAlbums,
+                musicCurrentArtist: this.musicCurrentArtist,
+                musicCurrentAlbum: this.musicCurrentAlbum,
+                musicCurrentPlaylist: this.musicCurrentPlaylist,
+              });
+              this.scrollIndex = 0;
+              this.showMusicAlbumTracks(albumIdx, 'right');
+            }
+          } else {
+            // Back
+            this.navigateBack();
+          }
+        });
+      });
+    });
+  }
+
   showCoverFlow(type) {
     this.setHeaderTitle('Cover Flow');
     
@@ -910,6 +980,7 @@ class IPodApp {
       this.scrollIndex = 0;
 
       if (this.musicViewType === 'menu') {
+        if (item.id === '_music_cover_flow') { this.showMusicCoverFlow('right'); return; }
         if (item.id === '_music_songs') { this.showMusicSongs('right'); return; }
         if (item.id === '_music_artists') { this.showMusicArtists('right'); return; }
         if (item.id === '_music_albums') { this.showMusicAlbums('right'); return; }
