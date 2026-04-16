@@ -47,6 +47,13 @@
     hint.textContent = 'Press \u25CF to enter';
     container.appendChild(hint);
 
+    var note = document.createElement('div');
+    note.className = 'boot-hint';
+    note.style.marginTop = '0.5rem';
+    note.style.fontSize = '0.7rem';
+    note.textContent = '\uD83D\uDD0A Ringer on and volume up for full experience';
+    container.appendChild(note);
+
     return container;
   }
 
