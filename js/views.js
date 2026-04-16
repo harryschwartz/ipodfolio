@@ -79,11 +79,21 @@ function renderFolderView(node, children, isTopLevel) {
       if (item.type === 'cover_flow_home' || item.type === 'cover_flow_music') {
         return projectsPool.length ? projectsPool : ['img/projects-preview.jpg'];
       }
-      // Collect cover images from direct children
-      const childImgs = getChildren(item.id)
+      // Use the node's own photos array if available (e.g. game/settings nodes)
+      const nodePhotos = Array.isArray(item.metadata?.photos)
+        ? item.metadata.photos.map(p => p.url).filter(Boolean)
+        : [];
+      if (nodePhotos.length) return nodePhotos;
+      // Collect images from direct children: cover images or children's photos
+      const itemChildren = getChildren(item.id);
+      const childImgs = itemChildren
         .map(c => c.metadata?.coverImage || c.metadata?.previewImage)
         .filter(Boolean);
       if (childImgs.length) return childImgs;
+      const childPhotos = itemChildren
+        .flatMap(c => Array.isArray(c.metadata?.photos) ? c.metadata.photos.map(p => p.url) : [])
+        .filter(Boolean);
+      if (childPhotos.length) return childPhotos;
       // Fall back to item's own image
       const own = item.metadata?.coverImage || item.metadata?.previewImage;
       return own ? [own] : ['img/projects-preview.jpg'];
