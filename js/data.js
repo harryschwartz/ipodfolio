@@ -3,6 +3,8 @@
 
 const CMS_API_URL = "https://ipodfolio-cms.vercel.app/api/public/nodes";
 const CMS_PREVIEW_URL = "https://ipodfolio-cms.vercel.app/api/preview/nodes";
+const SUPABASE_URL = "https://xtjjavrixvnwoulgebqp.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0amphdnJpeHZud291bGdlYnFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NjgxNjIsImV4cCI6MjA4OTU0NDE2Mn0.aSL3bi4__sS1OaeF2_MkTMrOGfHmnHBKxhKP8zd0qAQ";
 
 // Fallback data (used if CMS is unreachable)
 const FALLBACK_DATA = [
@@ -252,6 +254,44 @@ let PORTFOLIO_DATA = [...FALLBACK_DATA];
 let _cmsDataReady = false;
 let _cmsDataPromise = null;
 
+function fetchTranscriptions() {
+  const url = `${SUPABASE_URL}/rest/v1/node_metadata?select=node_id,transcription&transcription=not.is.null`;
+  return fetch(url, {
+    headers: {
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+    }
+  })
+    .then(res => {
+      if (!res.ok) throw new Error(`Supabase returned ${res.status}`);
+      return res.json();
+    })
+    .then(rows => {
+      const map = new Map();
+      for (const row of rows) {
+        if (row.transcription && row.transcription.segments) {
+          map.set(row.node_id, row.transcription);
+        }
+      }
+      // Merge into PORTFOLIO_DATA
+      let merged = 0;
+      for (const node of PORTFOLIO_DATA) {
+        const t = map.get(node.id);
+        if (t) {
+          node.metadata = node.metadata || {};
+          node.metadata.transcription = t;
+          merged++;
+        }
+      }
+      if (merged > 0) {
+        console.log(`[iPodfolio] Merged transcriptions for ${merged} nodes`);
+      }
+    })
+    .catch(err => {
+      console.warn("[iPodfolio] Transcription fetch failed:", err.message);
+    });
+}
+
 function fetchCMSData() {
   if (_cmsDataPromise) return _cmsDataPromise;
   const isPreview = new URLSearchParams(window.location.search).get("preview") === "true";
@@ -274,14 +314,15 @@ function fetchCMSData() {
         _cmsDataReady = true;
         console.log(`[iPodfolio] Loaded ${nodes.length} nodes from CMS`);
       }
-      return PORTFOLIO_DATA;
+      // Fetch transcription data from Supabase (CMS API doesn't include it)
+      return fetchTranscriptions().then(() => PORTFOLIO_DATA);
     })
     .catch(err => {
       console.warn("[iPodfolio] CMS unreachable, using fallback data:", err.message);
       _cmsDataReady = true; // Mark as ready even on failure (use fallback)
       return PORTFOLIO_DATA;
     });
-  
+
   return _cmsDataPromise;
 }
 

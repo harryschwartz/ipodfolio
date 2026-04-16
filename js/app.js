@@ -788,7 +788,7 @@ class IPodApp {
             activeSegment = null; // past end, show nothing
           }
         }
-        const newText = activeSegment ? activeSegment.text : '';
+        const newText = activeSegment ? activeSegment.text.trim() : '';
         if (captionEl.dataset.currentText !== newText) {
           captionEl.classList.remove('caption-fade-in');
           // Force reflow to restart animation
