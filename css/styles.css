@@ -522,6 +522,12 @@ a {
   flex-shrink: 0;
 }
 
+.np-status-icons {
+  font-size: 11px;
+  color: #666;
+  letter-spacing: 2px;
+}
+
 .np-track-counter {
   margin-left: auto;
   font-size: 10px;

@@ -183,7 +183,7 @@ class ClickWheel {
     // Pre-initialize haptic systems
     if (canIOSHaptic) ensureHapticDOM();
     // Set up Web Audio tick for scroll feedback (always — works on all platforms)
-    ensureAudioContext();
+    _ensureAudioContext();
     
     this.bindEvents();
   }

@@ -106,6 +106,29 @@ class IPodApp {
     window._ipodTheme = themeId;
   }
 
+  _buildSettingsItems() {
+    const hapticsOn = window.ipodClickWheel ? window.ipodClickWheel.hapticsEnabled : true;
+    this.currentItems = [
+      { id: 'theme-silver', title: 'Silver', type: '_theme', metadata: { themeId: 'silver' } },
+      { id: 'theme-black', title: 'Black', type: '_theme', metadata: { themeId: 'black' } },
+      { id: 'theme-u2', title: 'U2', type: '_theme', metadata: { themeId: 'u2' } },
+      { id: 'theme-pink', title: 'Pink', type: '_theme', metadata: { themeId: 'pink' } },
+      { id: 'shuffle-toggle', title: 'Shuffle', type: '_shuffle' },
+      { id: 'repeat-toggle', title: 'Repeat', type: '_repeat' },
+      { id: 'haptics-toggle', title: 'Haptics', type: '_haptics' },
+    ];
+  }
+
+  _rerenderSettings() {
+    this._buildSettingsItems();
+    const hapticsOn = window.ipodClickWheel ? window.ipodClickWheel.hapticsEnabled : true;
+    const view = renderSettingsView(this.theme, hapticsOn);
+    const savedIndex = this.scrollIndex;
+    this.transitionTo(view, 'none');
+    this.scrollIndex = savedIndex;
+    this.updateListSelection();
+  }
+
   bindEvents() {
     window.addEventListener('forwardscroll', () => this.onScroll('forward'));
     window.addEventListener('backwardscroll', () => this.onScroll('backward'));
@@ -114,7 +137,7 @@ class IPodApp {
     window.addEventListener('playpauseclick', () => this.onPlayPause());
     window.addEventListener('forwardclick', () => this.onForward());
     window.addEventListener('backclick', () => this.onBack());
-    // Long-press detection for center button (toggle shuffle on Now Playing)
+    // Long-press detection for center button
     window.addEventListener('centerpressstart', () => this._onCenterPressStart());
     window.addEventListener('centerpressend', () => this._onCenterPressEnd());
   }
@@ -276,7 +299,8 @@ class IPodApp {
       this.musicViewType = 'songs';
       this.setHeaderTitle('Songs');
       const songs = getMusicSongs();
-      this.currentItems = songs;
+      const shuffleAction = { id: '_shuffle_songs', title: 'Shuffle Songs', type: '_shuffle_songs' };
+      this.currentItems = [shuffleAction, ...songs];
       const view = renderMusicSongsView(songs);
       this.transitionTo(view, direction);
       this.scrollIndex = prev.scrollIndex;
@@ -417,14 +441,8 @@ class IPodApp {
       }
       case 'settings': {
         this.setHeaderTitle('Settings');
+        this._buildSettingsItems();
         const hapticsOn = window.ipodClickWheel ? window.ipodClickWheel.hapticsEnabled : true;
-        this.currentItems = [
-          { id: 'theme-silver', title: 'Silver', type: '_theme', metadata: { themeId: 'silver' } },
-          { id: 'theme-black', title: 'Black', type: '_theme', metadata: { themeId: 'black' } },
-          { id: 'theme-u2', title: 'U2', type: '_theme', metadata: { themeId: 'u2' } },
-          { id: 'theme-pink', title: 'Pink', type: '_theme', metadata: { themeId: 'pink' } },
-          { id: 'haptics-toggle', title: 'Haptics: ' + (hapticsOn ? 'On' : 'Off'), type: '_haptics' },
-        ];
         const view = renderSettingsView(this.theme, hapticsOn);
         this.transitionTo(view, direction);
         break;
@@ -506,7 +524,8 @@ class IPodApp {
         this.transitionTo(empty, direction);
         return;
       }
-      this.currentItems = songs;
+      const shuffleAction = { id: '_shuffle_songs', title: 'Shuffle Songs', type: '_shuffle_songs' };
+      this.currentItems = [shuffleAction, ...songs];
       const view = renderMusicSongsView(songs);
       this.transitionTo(view, direction);
     });
@@ -967,31 +986,25 @@ class IPodApp {
       return;
     }
 
-    // Settings theme/haptics selection
+    // Settings theme/shuffle/repeat/haptics selection
     if (this.currentNode?.type === 'settings') {
       const themes = ['silver', 'black', 'u2', 'pink'];
       if (this.scrollIndex < themes.length && themes[this.scrollIndex]) {
         this.applyTheme(themes[this.scrollIndex]);
       } else if (this.scrollIndex === themes.length) {
+        // Toggle shuffle
+        audioPlayer.toggleShuffle();
+      } else if (this.scrollIndex === themes.length + 1) {
+        // Cycle repeat
+        audioPlayer.cycleRepeat();
+      } else if (this.scrollIndex === themes.length + 2) {
         // Toggle haptics
         if (window.ipodClickWheel) {
           window.ipodClickWheel.hapticsEnabled = !window.ipodClickWheel.hapticsEnabled;
         }
       }
       // Re-render settings
-      const hapticsOn = window.ipodClickWheel ? window.ipodClickWheel.hapticsEnabled : true;
-      this.currentItems = [
-        { id: 'theme-silver', title: 'Silver', type: '_theme', metadata: { themeId: 'silver' } },
-        { id: 'theme-black', title: 'Black', type: '_theme', metadata: { themeId: 'black' } },
-        { id: 'theme-u2', title: 'U2', type: '_theme', metadata: { themeId: 'u2' } },
-        { id: 'theme-pink', title: 'Pink', type: '_theme', metadata: { themeId: 'pink' } },
-        { id: 'haptics-toggle', title: 'Haptics: ' + (hapticsOn ? 'On' : 'Off'), type: '_haptics' },
-      ];
-      const view = renderSettingsView(this.theme, hapticsOn);
-      this.transitionTo(view, 'none');
-      const savedIndex = this.scrollIndex;
-      this.scrollIndex = savedIndex;
-      this.updateListSelection();
+      this._rerenderSettings();
       return;
     }
 
@@ -1026,8 +1039,20 @@ class IPodApp {
         if (item.id === '_music_playlists') { this.showMusicPlaylists('right'); return; }
       }
       if (this.musicViewType === 'songs') {
+        if (item.type === '_shuffle_songs') {
+          // Enable shuffle and play all songs in random order
+          const songs = this.currentItems.filter(s => s.type === 'song');
+          if (songs.length > 0) {
+            audioPlayer.shuffle = true;
+            const randomIdx = Math.floor(Math.random() * songs.length);
+            audioPlayer.play(songs[randomIdx], songs, randomIdx);
+            audioPlayer._buildShuffleOrder();
+            this.showNowPlaying('right');
+          }
+          return;
+        }
         if (item.type === 'song') {
-          this.playMusicSong(item, this.currentItems);
+          this.playMusicSong(item, this.currentItems.filter(s => s.type === 'song'));
           return;
         }
       }
@@ -1360,7 +1385,15 @@ class IPodApp {
       if (scrubRemaining) scrubRemaining.textContent = '-' + formatTime(dur - curScrub);
     }
 
-    // Track counter
+    // Shuffle/repeat status icons + track counter
+    const statusIcons = document.getElementById('np-status-icons');
+    if (statusIcons) {
+      let icons = '';
+      if (audioPlayer.shuffle) icons += '⇋ ';
+      if (audioPlayer.repeat === 1) icons += '↻ ';
+      if (audioPlayer.repeat === 2) icons += '↻₁ ';
+      statusIcons.textContent = icons.trim();
+    }
     const trackCounter = document.getElementById('np-track-counter');
     if (trackCounter && audioPlayer.queue.length > 0) {
       trackCounter.textContent = `${audioPlayer.queueIndex + 1} of ${audioPlayer.queue.length}`;

@@ -264,11 +264,12 @@ function renderNowPlayingView() {
   meta.appendChild(info);
   container.appendChild(meta);
 
-  // Track counter row
+  // Status row: shuffle/repeat icons + track counter
   const statusRow = document.createElement('div');
   statusRow.className = 'now-playing-status-row';
   statusRow.id = 'np-status-row';
   statusRow.innerHTML = `
+    <span class="np-status-icons" id="np-status-icons"></span>
     <span class="np-track-counter" id="np-track-counter"></span>
   `;
   container.appendChild(statusRow);
@@ -460,6 +461,47 @@ function renderSettingsView(currentTheme, hapticsEnabled) {
     itemIndex++;
   });
 
+  // Shuffle setting
+  const shuffleHeader = document.createElement('div');
+  shuffleHeader.className = 'settings-section-header';
+  shuffleHeader.textContent = 'Playback';
+  container.appendChild(shuffleHeader);
+
+  const shuffleEl = document.createElement('div');
+  shuffleEl.className = 'list-item';
+  shuffleEl.dataset.index = itemIndex;
+  const shuffleLabelContainer = document.createElement('div');
+  shuffleLabelContainer.className = 'list-label-container';
+  const shuffleLabel = document.createElement('h3');
+  shuffleLabel.className = 'list-label';
+  shuffleLabel.textContent = 'Shuffle';
+  shuffleLabelContainer.appendChild(shuffleLabel);
+  shuffleEl.appendChild(shuffleLabelContainer);
+  const shuffleValue = document.createElement('span');
+  shuffleValue.className = 'list-value';
+  shuffleValue.textContent = audioPlayer.shuffle ? 'Songs' : 'Off';
+  shuffleEl.appendChild(shuffleValue);
+  container.appendChild(shuffleEl);
+  itemIndex++;
+
+  // Repeat setting
+  const repeatEl = document.createElement('div');
+  repeatEl.className = 'list-item';
+  repeatEl.dataset.index = itemIndex;
+  const repeatLabelContainer = document.createElement('div');
+  repeatLabelContainer.className = 'list-label-container';
+  const repeatLabel = document.createElement('h3');
+  repeatLabel.className = 'list-label';
+  repeatLabel.textContent = 'Repeat';
+  repeatLabelContainer.appendChild(repeatLabel);
+  repeatEl.appendChild(repeatLabelContainer);
+  const repeatValue = document.createElement('span');
+  repeatValue.className = 'list-value';
+  repeatValue.textContent = audioPlayer.repeat === 0 ? 'Off' : audioPlayer.repeat === 1 ? 'All' : 'One';
+  repeatEl.appendChild(repeatValue);
+  container.appendChild(repeatEl);
+  itemIndex++;
+
   // Haptics toggle
   const hapticsHeader = document.createElement('div');
   hapticsHeader.className = 'settings-section-header';
@@ -549,8 +591,12 @@ function renderMusicMenuView() {
 function renderMusicSongsView(songs) {
   const container = document.createElement('div');
   container.className = 'selectable-list';
-  container.appendChild(createSelectableList(songs, 0, true));
+  // "Shuffle Songs" action at the top
+  const shuffleItem = { id: '_shuffle_songs', title: 'Shuffle Songs', type: '_shuffle_songs' };
+  const allItems = [shuffleItem, ...songs];
+  container.appendChild(createSelectableList(allItems, 0, true));
   container._listEl = container;
+  container._allItems = allItems;
   return container;
 }
 
