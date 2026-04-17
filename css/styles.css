@@ -523,9 +523,15 @@ a {
 }
 
 .np-status-icons {
-  font-size: 11px;
-  color: #666;
-  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #888;
+}
+
+.np-icon {
+  width: 14px;
+  height: 10px;
 }
 
 .np-track-counter {

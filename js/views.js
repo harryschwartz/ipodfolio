@@ -479,7 +479,7 @@ function renderSettingsView(currentTheme, hapticsEnabled) {
   shuffleEl.appendChild(shuffleLabelContainer);
   const shuffleValue = document.createElement('span');
   shuffleValue.className = 'list-value';
-  shuffleValue.textContent = audioPlayer.shuffle ? 'Songs' : 'Off';
+  shuffleValue.textContent = audioPlayer.shuffle ? 'On' : 'Off';
   shuffleEl.appendChild(shuffleValue);
   container.appendChild(shuffleEl);
   itemIndex++;

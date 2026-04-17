@@ -1385,14 +1385,20 @@ class IPodApp {
       if (scrubRemaining) scrubRemaining.textContent = '-' + formatTime(dur - curScrub);
     }
 
-    // Shuffle/repeat status icons + track counter
+    // Shuffle/repeat status icons (iPod-authentic SVGs)
     const statusIcons = document.getElementById('np-status-icons');
     if (statusIcons) {
-      let icons = '';
-      if (audioPlayer.shuffle) icons += '⇋ ';
-      if (audioPlayer.repeat === 1) icons += '↻ ';
-      if (audioPlayer.repeat === 2) icons += '↻₁ ';
-      statusIcons.textContent = icons.trim();
+      let html = '';
+      if (audioPlayer.shuffle) {
+        html += '<svg class="np-icon" viewBox="0 0 14 10" fill="none"><path d="M0 8h3.5L6 5.5M0 2h3.5l7 6H13m0 0l-2-1.5M13 8l-2 1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 4l3.5-2H13m0 0l-2-1.5M13 2l-2 1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      }
+      if (audioPlayer.repeat === 1) {
+        html += '<svg class="np-icon" viewBox="0 0 16 10" fill="none"><path d="M4 1L1.5 2.5 4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.5 2.5H12a2.5 2.5 0 0 1 2.5 2.5v0a2.5 2.5 0 0 1-2.5 2.5H4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M12 9l2.5-1.5L12 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7.5H4A2.5 2.5 0 0 1 1.5 5v0A2.5 2.5 0 0 1 4 2.5h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>';
+      }
+      if (audioPlayer.repeat === 2) {
+        html += '<svg class="np-icon" viewBox="0 0 18 10" fill="none"><path d="M4 1L1.5 2.5 4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M1.5 2.5H12a2.5 2.5 0 0 1 2.5 2.5v0a2.5 2.5 0 0 1-2.5 2.5H4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M12 9l2.5-1.5L12 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 7.5H4A2.5 2.5 0 0 1 1.5 5v0A2.5 2.5 0 0 1 4 2.5h8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><text x="16.5" y="8" font-size="6" font-weight="bold" fill="currentColor" font-family="sans-serif">1</text></svg>';
+      }
+      statusIcons.innerHTML = html;
     }
     const trackCounter = document.getElementById('np-track-counter');
     if (trackCounter && audioPlayer.queue.length > 0) {
