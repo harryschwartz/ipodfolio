@@ -286,8 +286,7 @@ class ClickWheel {
     this.el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       // Ensure audio is unlocked on wheel interaction too
-      unlockSilentMode();
-      unlockAudioContext();
+      _fullAudioUnlock();
       this.isPanning = true;
       this.hasScrolled = false;
       this.startPoint = { x: e.clientX, y: e.clientY };
