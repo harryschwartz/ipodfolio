@@ -58,116 +58,107 @@ function triggerIOSClickHaptic() {
 }
 
 // Web Audio tick sound for scroll feedback — works on ALL platforms including
-// iOS silent mode. On iOS, the ringer switch mutes the default "ambient" audio
-// session. To bypass it, we play a tiny silent clip through an <audio> element
-// on the first user gesture. This switches the page's audio session to
-// "playback" mode, which ignores the silent switch. The Web Audio API
-// AudioContext then inherits this routing.
+// iOS silent mode. Uses an <audio> element with a looping silent WAV to keep
+// the iOS audio session in "playback" mode permanently. The Web Audio API
+// AudioContext inherits this routing, so tick sounds play regardless of the
+// ringer/silent switch.
 let _audioCtx = null;
 let _tickBuffer = null;
-let _audioUnlocked = false;
-let _silentModeUnlocked = false;
 let _lastTickTime = 0;
 const TICK_MIN_INTERVAL = 30; // ms between ticks
+const TICK_VOLUME = 0.15; // audible but not loud
 
-// Tiny silent WAV — base64-encoded 44-byte header + 1 sample of silence.
-// Playing this through <audio> forces iOS into "playback" audio session.
-const SILENT_WAV_URI = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+// Persistent silent audio element — keeps iOS audio session in "playback" mode.
+// Must stay playing (looping) for the entire page lifetime.
+let _silentAudio = null;
 
-function unlockSilentMode() {
-  if (_silentModeUnlocked) return;
+function _ensureSilentAudio() {
+  if (_silentAudio) return;
   try {
-    const audio = new Audio(SILENT_WAV_URI);
-    audio.setAttribute('playsinline', '');
-    audio.volume = 0.01;
-    // play() must be called inside a user gesture handler
-    const p = audio.play();
-    if (p && p.then) {
-      p.then(() => {
-        _silentModeUnlocked = true;
-        // Clean up — element no longer needed
-        audio.pause();
-        audio.removeAttribute('src');
-        audio.load();
-      }).catch(() => {});
+    // 1-sample silent WAV, looped forever
+    _silentAudio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=');
+    _silentAudio.setAttribute('playsinline', '');
+    _silentAudio.loop = true;
+    _silentAudio.volume = 0.001; // practically inaudible
+  } catch {}
+}
+
+function _ensureAudioContext() {
+  if (_audioCtx && _tickBuffer) return;
+  try {
+    if (!_audioCtx) {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (!_tickBuffer) {
+      // Synthesize a short tick: brief noise burst (~3ms) through exponential decay
+      const sr = _audioCtx.sampleRate;
+      const len = Math.ceil(sr * 0.003); // 3ms
+      _tickBuffer = _audioCtx.createBuffer(1, len, sr);
+      const data = _tickBuffer.getChannelData(0);
+      for (let i = 0; i < len; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.15));
+      }
     }
   } catch {}
 }
 
-function ensureAudioContext() {
-  if (_audioCtx) return;
-  try {
-    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    // Synthesize a short tick sound: brief noise burst (~3ms) through a bandpass filter
-    const sr = _audioCtx.sampleRate;
-    const len = Math.ceil(sr * 0.003); // 3ms
-    _tickBuffer = _audioCtx.createBuffer(1, len, sr);
-    const data = _tickBuffer.getChannelData(0);
-    for (let i = 0; i < len; i++) {
-      // Exponential decay noise burst — very short, subtle click
-      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.15));
-    }
-    // If context starts running (desktop), mark unlocked immediately
-    if (_audioCtx.state === 'running') _audioUnlocked = true;
-  } catch {}
-}
-
-function unlockAudioContext() {
-  if (_audioUnlocked || !_audioCtx) return;
-  if (_audioCtx.state === 'suspended') {
-    _audioCtx.resume().then(() => { _audioUnlocked = true; }).catch(() => {});
-  } else {
-    _audioUnlocked = true;
+// Full unlock: silent audio + AudioContext creation + resume.
+// Safe to call repeatedly — each step is idempotent.
+function _fullAudioUnlock() {
+  _ensureSilentAudio();
+  _ensureAudioContext();
+  // Start silent audio (iOS requires user gesture)
+  if (_silentAudio && _silentAudio.paused) {
+    _silentAudio.play().catch(() => {});
+  }
+  // Resume AudioContext if suspended
+  if (_audioCtx && _audioCtx.state === 'suspended') {
+    _audioCtx.resume().catch(() => {});
   }
 }
 
-// Unlock audio on the very first user gesture anywhere on the page.
-// This covers the tutorial overlay dismiss tap, so by the time the user
-// starts scrolling the wheel, the AudioContext is already running and
-// iOS silent mode has been bypassed.
+// Attach unlock to EVERY user gesture type. Unlike the old approach that removed
+// listeners after the first gesture, we keep them around. This handles edge cases
+// where the first gesture doesn't fully unlock (e.g. passive touchstart on some
+// browsers). Each call is cheap and idempotent.
 (function earlyUnlock() {
-  function onFirstGesture() {
-    // 1. Switch iOS audio session to "playback" (bypasses silent switch)
-    unlockSilentMode();
-    // 2. Create and resume the AudioContext
-    ensureAudioContext();
-    unlockAudioContext();
-    // 3. Play a silent buffer through Web Audio to warm up the pipeline
-    if (_audioCtx && _audioCtx.state !== 'suspended') {
-      try {
-        const silent = _audioCtx.createBufferSource();
-        silent.buffer = _audioCtx.createBuffer(1, 1, _audioCtx.sampleRate);
-        silent.connect(_audioCtx.destination);
-        silent.start(0);
-      } catch {}
-    }
-    document.removeEventListener('touchstart', onFirstGesture, true);
-    document.removeEventListener('pointerdown', onFirstGesture, true);
-    document.removeEventListener('mousedown', onFirstGesture, true);
-    document.removeEventListener('keydown', onFirstGesture, true);
+  const opts = { capture: true, passive: true };
+  // Also unlock on touchmove — this catches wheel pan gestures that may be
+  // the user's very first interaction.
+  for (const evt of ['touchstart', 'touchmove', 'pointerdown', 'mousedown', 'keydown', 'click']) {
+    document.addEventListener(evt, _fullAudioUnlock, opts);
   }
-  document.addEventListener('touchstart', onFirstGesture, { capture: true, passive: true });
-  document.addEventListener('pointerdown', onFirstGesture, { capture: true, passive: true });
-  document.addEventListener('mousedown', onFirstGesture, { capture: true, passive: true });
-  document.addEventListener('keydown', onFirstGesture, { capture: true, passive: true });
 })();
 
 function playTickSound() {
+  // Attempt unlock on every tick call — covers the case where the user's
+  // first interaction is a wheel scroll (which fires before discrete taps).
+  _fullAudioUnlock();
+
   if (!_audioCtx || !_tickBuffer) return;
-  // If still suspended, kick off resume (will be ready for next tick)
+
+  // If context is still suspended after our resume attempt, schedule the
+  // tick to play as soon as it resumes (don't silently drop it).
   if (_audioCtx.state === 'suspended') {
-    _audioCtx.resume().catch(() => {});
-    return; // skip this tick — context isn't ready yet
+    _audioCtx.resume().then(() => {
+      _playTickNow();
+    }).catch(() => {});
+    return;
   }
+
+  _playTickNow();
+}
+
+function _playTickNow() {
+  if (!_audioCtx || !_tickBuffer) return;
   const now = performance.now();
   if (now - _lastTickTime < TICK_MIN_INTERVAL) return;
   _lastTickTime = now;
   try {
     const source = _audioCtx.createBufferSource();
     source.buffer = _tickBuffer;
-    // Low volume so it's subtle tactile feedback, not loud
     const gain = _audioCtx.createGain();
-    gain.gain.value = 0.08;
+    gain.gain.value = TICK_VOLUME;
     source.connect(gain);
     gain.connect(_audioCtx.destination);
     source.start(0);
