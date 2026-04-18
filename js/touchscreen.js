@@ -159,8 +159,11 @@
       }
       var steps = Math.floor(Math.abs(total) / stepSize);
       var fired = Math.abs(accumulatedSwipe);
+      // Backside uses natural scroll: finger up = highlight up (backward)
+      var invert = onBackside && !useHorizontal;
       while (fired < steps) {
-        if (total < 0) {
+        var goForward = invert ? (total > 0) : (total < 0);
+        if (goForward) {
           window.dispatchEvent(new Event('forwardscroll'));
         } else {
           window.dispatchEvent(new Event('backwardscroll'));
