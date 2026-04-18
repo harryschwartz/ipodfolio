@@ -77,9 +77,14 @@
   });
 
   function dismissTouchOverlay() {
+    // Dismiss the info overlay if it was auto-triggered
     if (overlayShownByTouch && infoOverlayActive) {
       hideInfoOverlay();
       overlayShownByTouch = false;
+    }
+    // Dismiss the initial tutorial overlay that persists from boot
+    if (window.ipodTutorialOverlay && window.ipodTutorialOverlay.isActive && !infoOverlayActive) {
+      window.ipodTutorialOverlay.dismiss();
     }
   }
 
@@ -142,11 +147,16 @@
     var elapsed = Date.now() - touchStartTime;
     touchStartTime = 0;
 
-    // If info overlay is showing, any screen tap dismisses it
+    // If info overlay is showing (from ℹ️ button), screen tap dismisses it
+    // But don't dismiss the initial tutorial overlay from boot — that requires wheel/buttons
     if (infoOverlayActive && !isSwiping && elapsed < 400) {
       hideInfoOverlay();
       overlayShownByTouch = false;
       return; // consume the tap
+    }
+    // If initial tutorial is still visible, don't dismiss on screen tap — let it persist
+    if (window.ipodTutorialOverlay && window.ipodTutorialOverlay.isActive && !infoOverlayActive) {
+      // Still allow the tap to fire centerclick for navigation, overlay just stays
     }
 
     if (!isSwiping && elapsed < 400 && Math.abs(dy) < 15 && Math.abs(dx) < 15) {

@@ -124,9 +124,8 @@ class IPodApp {
 
   dismissBootScreen() {
     this.bootScreenActive = false;
-    if (window.ipodTutorialOverlay) {
-      window.ipodTutorialOverlay.dismiss();
-    }
+    // Keep tutorial callouts visible — they'll be dismissed when
+    // the user uses the actual wheel/buttons (handled by touchscreen.js)
     // Desktop: show QR screen next. Mobile: go straight to home.
     if (window.ipodQROverlay && window.ipodQROverlay.shouldShow()) {
       this.showDesktopQR();

@@ -98,6 +98,7 @@
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
           rebuildCallouts();
+          addRingerHint();
           calloutContainer.classList.add('tutorial-callouts-visible');
           svgEl.classList.add('tutorial-callouts-visible');
         });
@@ -127,6 +128,7 @@
     var shellH = shellRect.height;
     svgEl.setAttribute('viewBox', '0 0 ' + shellW + ' ' + shellH);
     buildCallouts();
+    addRingerHint();
   }
 
   /**
@@ -405,6 +407,14 @@
       }
     }
 
+  }
+
+  function addRingerHint() {
+    if (!calloutContainer) return;
+    var hint = document.createElement('div');
+    hint.className = 'tutorial-ringer-hint';
+    hint.textContent = 'turn ringer on for full experience';
+    calloutContainer.appendChild(hint);
   }
 
   function hideCallouts() {
