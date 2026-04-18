@@ -393,9 +393,8 @@ class BrickGame {
     const cx = this.cw / 2;
     const s = this.scale;
 
-    // Background
-    c.fillStyle = '#000';
-    c.fillRect(0, 0, this.cw, this.ch);
+    // Background (same blue gradient as gameplay)
+    this.clearBg();
 
     // "GAME OVER"
     c.fillStyle = '#fff';
@@ -515,9 +514,8 @@ class BrickGame {
     const s = this.scale;
     const cx = this.cw / 2;
 
-    // Background
-    c.fillStyle = '#000';
-    c.fillRect(0, 0, this.cw, this.ch);
+    // Background (same blue gradient as gameplay)
+    this.clearBg();
 
     // Title
     c.fillStyle = '#fff';
