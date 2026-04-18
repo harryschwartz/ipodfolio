@@ -199,7 +199,11 @@
     var wheelCx = wr.left + wr.width / 2;
     var wheelCy = wr.top + wr.height / 2;
     var wheelR = wr.width / 2;
-    var isMobile = shellW <= 576;
+    // Use viewport width for mobile detection, not shell width.
+    // On mobile (<=576px viewport), shell is 100vw with room for labels.
+    // On desktop, shell is fixed 370px — too narrow for labels beside the wheel,
+    // so we hide the overlay entirely and rely on the info button.
+    var isMobile = window.matchMedia('(max-width: 576px)').matches;
 
     // Padding from shell edges
     var pad = 8;
@@ -333,80 +337,70 @@
 
     } else {
       // ---- DESKTOP LAYOUT ----
-      // Short arms: labels close to wheel edge.
-      // Select aligned with Play/Pause Y.
-      // Left: Menu, Previous, Play/Pause
-      // Right: Scroll Wheel, Next, Select
-
-      var dGap = 6;
-      var dLeftAnchor = wr.left - dGap;
-      var dRightAnchor = wr.right + dGap;
-      var dMinY = screenBottom + 8;
-      var dDotOff = 20;
-
-      function addDesktopCallout(title, desc, dotX, dotY, side) {
-        var ly = Math.max(dotY, dMinY);
-        ly = Math.min(ly, shellH - 28);
-        makeDot(dotX, ly);
-        if (side === 'left') {
-          makeLabel(title, desc, dLeftAnchor, ly, 'left');
-          makePath('M' + dotX + ',' + ly + ' L' + (dLeftAnchor + 4) + ',' + ly);
-        } else {
-          makeLabel(title, desc, dRightAnchor, ly, 'right');
-          makePath('M' + dotX + ',' + ly + ' L' + (dRightAnchor - 4) + ',' + ly);
-        }
-      }
-
-      // Compute Play/Pause Y first (Select will share it)
-      var dPPY = null;
-      if (playPauseBtn) {
-        var pc2 = centerOfEl(playPauseBtn);
-        dPPY = pc2.y + dDotOff;
-        dPPY = Math.min(dPPY, shellH - 28);
-      }
-
-      // Menu (top, above center) — shift UP — left
-      if (menuBtn) {
-        var mc2 = centerOfEl(menuBtn);
-        addDesktopCallout('Menu', 'Go back', mc2.x, mc2.y - dDotOff, 'left');
-      }
-
-      // Scroll Wheel — right, dot on upper-right rim
-      var scrAngle = -45 * Math.PI / 180;
-      var scrDotX = wheelCx + Math.cos(scrAngle) * (wheelR - 6);
-      var scrDotY = wheelCy + Math.sin(scrAngle) * (wheelR - 6);
-      addDesktopCallout('Scroll Wheel', 'Slide to browse', scrDotX, scrDotY, 'right');
-
-      // Previous (left) — shift UP — left
-      if (rewindBtn) {
-        var rc2 = centerOfEl(rewindBtn);
-        addDesktopCallout('Previous', 'Skip back', rc2.x, rc2.y - dDotOff, 'left');
-      }
-
-      // Next (right) — shift DOWN — right
-      if (forwardBtn) {
-        var fc2 = centerOfEl(forwardBtn);
-        addDesktopCallout('Next', 'Skip forward', fc2.x, fc2.y + dDotOff, 'right');
-      }
-
-      // Select (center) — dot at center, diagonal then horizontal to label
-      if (centerBtn) {
-        var cc2 = centerOfEl(centerBtn);
-        var selY = dPPY !== null ? dPPY : (wr.bottom + 10);
-        selY = Math.min(selY, shellH - 28);
-        makeDot(cc2.x, cc2.y);
-        makeLabel('Select', 'Press to choose', dRightAnchor, selY, 'right');
-        var dMidX = (cc2.x + dRightAnchor) / 2;
-        makePath('M' + cc2.x + ',' + cc2.y + ' L' + dMidX + ',' + selY + ' L' + (dRightAnchor - 4) + ',' + selY);
-      }
-
-      // Play/Pause (bottom) — at ppY — left
-      if (playPauseBtn) {
-        var ppc2 = centerOfEl(playPauseBtn);
-        addDesktopCallout('Play / Pause', 'Control playback', ppc2.x, dPPY, 'left');
-      }
+      // The 370px shell is too narrow for arm-based labels beside the wheel
+      // without overlapping the screen. Use a compact text-based instruction
+      // card positioned over the wheel area.
+      buildDesktopCompactOverlay(shellW, shellH, screenBottom, wr);
     }
 
+  }
+
+  /**
+   * Desktop: compact instruction overlay positioned over the wheel area.
+   * Two columns of labels (left/right) with subtle dots on the wheel,
+   * all constrained between screenBottom and shell bottom.
+   */
+  function buildDesktopCompactOverlay(shellW, shellH, screenBottom, wr) {
+    if (!calloutContainer) return;
+
+    var card = document.createElement('div');
+    card.className = 'tutorial-desktop-card';
+    // Position between screen bottom and shell bottom, centered on wheel
+    var topY = screenBottom + 4;
+    card.style.position = 'absolute';
+    card.style.left = '0';
+    card.style.right = '0';
+    card.style.top = topY + 'px';
+    card.style.bottom = '0';
+    card.style.display = 'flex';
+    card.style.flexDirection = 'column';
+    card.style.alignItems = 'center';
+    card.style.justifyContent = 'center';
+    card.style.pointerEvents = 'none';
+    card.style.padding = '0 12px';
+
+    // Instruction rows: two columns
+    var rows = [
+      { icon: '▲', label: 'Menu', desc: 'Go back' },
+      { icon: '◀', label: 'Previous', desc: 'Skip back' },
+      { icon: '▶', label: 'Next', desc: 'Skip forward' },
+      { icon: '▼', label: 'Play / Pause', desc: 'Control playback' },
+      { icon: '●', label: 'Select', desc: 'Press to choose' },
+      { icon: '◯', label: 'Scroll Wheel', desc: 'Slide to browse' },
+    ];
+
+    var grid = document.createElement('div');
+    grid.className = 'tutorial-desktop-grid';
+
+    rows.forEach(function (r) {
+      var row = document.createElement('div');
+      row.className = 'tutorial-desktop-row';
+
+      var iconEl = document.createElement('span');
+      iconEl.className = 'tutorial-desktop-icon';
+      iconEl.textContent = r.icon;
+
+      var textEl = document.createElement('span');
+      textEl.className = 'tutorial-desktop-text';
+      textEl.innerHTML = '<strong>' + r.label + '</strong> <span>' + r.desc + '</span>';
+
+      row.appendChild(iconEl);
+      row.appendChild(textEl);
+      grid.appendChild(row);
+    });
+
+    card.appendChild(grid);
+    calloutContainer.appendChild(card);
   }
 
   function addRingerHint() {
