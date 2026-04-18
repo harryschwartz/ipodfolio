@@ -57,6 +57,41 @@ class IPodApp {
     this.bootScreenActive = false;
     console.log('[IPodApp] Init — ipodQROverlay available:', !!window.ipodQROverlay);
     this.showBootScreen();
+
+    // Preload images in background during boot animation
+    this._preloadImages();
+  }
+
+  _preloadImages() {
+    // Collect all image URLs from portfolio data + music library, preload in background
+    const preload = (urls) => {
+      for (const url of urls) {
+        if (!url || url.startsWith('data:')) continue;
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = url;
+      }
+    };
+    // Portfolio images (projects, photos, etc) — available immediately
+    const portfolioUrls = PORTFOLIO_DATA
+      .filter(n => n.metadata)
+      .flatMap(n => [
+        n.metadata.coverImage,
+        n.metadata.coverImageUrl,
+        n.metadata.thumbnailUrl,
+        ...(n.metadata.photos || []).map(p => p.url),
+      ])
+      .filter(Boolean);
+    preload(portfolioUrls);
+
+    // Music library images — preload once library data arrives
+    if (typeof fetchMusicLibrary === 'function') {
+      fetchMusicLibrary().then(() => {
+        const musicUrls = (getMusicSongs?.() || []).map(s => s.metadata?.coverImage).filter(Boolean);
+        // Deduplicate
+        preload([...new Set(musicUrls)]);
+      }).catch(() => {});
+    }
   }
 
   showDesktopQR() {

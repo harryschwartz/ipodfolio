@@ -1,6 +1,15 @@
 // View Renderers — each node type gets its own render function
 // Returns DOM element for the screen content area
 
+// Fast image factory — all images get decoding=async for non-blocking rendering
+function _img(className, src) {
+  const img = document.createElement('img');
+  if (className) img.className = className;
+  img.decoding = 'async';
+  if (src) img.src = src;
+  return img;
+}
+
 // Creates a cover art element — either an <img> or an emoji div
 function createCoverEl(metadata, className, fallbackSrc) {
   if (metadata?.coverEmoji) {
@@ -17,9 +26,7 @@ function createCoverEl(metadata, className, fallbackSrc) {
     el.appendChild(span);
     return el;
   }
-  const img = document.createElement('img');
-  img.className = className;
-  img.src = metadata?.coverImage || fallbackSrc || '';
+  const img = _img(className, metadata?.coverImage || fallbackSrc || '');
   if (metadata?.coverImagePosition || metadata?.coverImageZoom) {
     img.style.objectFit = 'cover';
     img.style.objectPosition = metadata.coverImagePosition || '50% 50%';
