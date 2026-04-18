@@ -433,6 +433,87 @@ function renderSettingsView(currentTheme, hapticsEnabled) {
   const container = document.createElement('div');
   container.className = 'settings-view';
   
+  let itemIndex = 0;
+
+  // Playback section (first)
+  const playbackHeader = document.createElement('div');
+  playbackHeader.className = 'settings-section-header';
+  playbackHeader.textContent = 'Playback';
+  container.appendChild(playbackHeader);
+
+  // Shuffle
+  const shuffleEl = document.createElement('div');
+  shuffleEl.className = 'list-item' + (itemIndex === 0 ? ' active' : '');
+  shuffleEl.dataset.index = itemIndex;
+  const shuffleLabelContainer = document.createElement('div');
+  shuffleLabelContainer.className = 'list-label-container';
+  const shuffleLabel = document.createElement('h3');
+  shuffleLabel.className = 'list-label';
+  shuffleLabel.textContent = 'Shuffle';
+  shuffleLabelContainer.appendChild(shuffleLabel);
+  shuffleEl.appendChild(shuffleLabelContainer);
+  const shuffleValue = document.createElement('span');
+  shuffleValue.className = 'list-value';
+  shuffleValue.textContent = audioPlayer.shuffle ? 'On' : 'Off';
+  shuffleEl.appendChild(shuffleValue);
+  container.appendChild(shuffleEl);
+  itemIndex++;
+
+  // Repeat
+  const repeatEl = document.createElement('div');
+  repeatEl.className = 'list-item';
+  repeatEl.dataset.index = itemIndex;
+  const repeatLabelContainer = document.createElement('div');
+  repeatLabelContainer.className = 'list-label-container';
+  const repeatLabel = document.createElement('h3');
+  repeatLabel.className = 'list-label';
+  repeatLabel.textContent = 'Repeat';
+  repeatLabelContainer.appendChild(repeatLabel);
+  repeatEl.appendChild(repeatLabelContainer);
+  const repeatValue = document.createElement('span');
+  repeatValue.className = 'list-value';
+  repeatValue.textContent = audioPlayer.repeat === 0 ? 'Off' : audioPlayer.repeat === 1 ? 'All' : 'One';
+  repeatEl.appendChild(repeatValue);
+  container.appendChild(repeatEl);
+  itemIndex++;
+
+  // Speed
+  const speedEl = document.createElement('div');
+  speedEl.className = 'list-item';
+  speedEl.dataset.index = itemIndex;
+  const speedLabelContainer = document.createElement('div');
+  speedLabelContainer.className = 'list-label-container';
+  const speedLabel = document.createElement('h3');
+  speedLabel.className = 'list-label';
+  speedLabel.textContent = 'Speed';
+  speedLabelContainer.appendChild(speedLabel);
+  speedEl.appendChild(speedLabelContainer);
+  const speedValue = document.createElement('span');
+  speedValue.className = 'list-value';
+  speedValue.textContent = audioPlayer.playbackSpeed === 1 ? '1x' : audioPlayer.playbackSpeed === 1.5 ? '1.5x' : '2x';
+  speedEl.appendChild(speedValue);
+  container.appendChild(speedEl);
+  itemIndex++;
+
+  // Haptics
+  const hapticsEl = document.createElement('div');
+  hapticsEl.className = 'list-item';
+  hapticsEl.dataset.index = itemIndex;
+  const hapticsLabelContainer = document.createElement('div');
+  hapticsLabelContainer.className = 'list-label-container';
+  const hapticsLabel = document.createElement('h3');
+  hapticsLabel.className = 'list-label';
+  hapticsLabel.textContent = 'Haptics';
+  hapticsLabelContainer.appendChild(hapticsLabel);
+  hapticsEl.appendChild(hapticsLabelContainer);
+  const hapticsValue = document.createElement('span');
+  hapticsValue.className = 'list-value';
+  hapticsValue.textContent = hapticsEnabled !== false ? 'On' : 'Off';
+  hapticsEl.appendChild(hapticsValue);
+  container.appendChild(hapticsEl);
+  itemIndex++;
+
+  // Theme section
   const themes = [
     { id: 'silver', title: 'Silver' },
     { id: 'black', title: 'Black' },
@@ -440,15 +521,14 @@ function renderSettingsView(currentTheme, hapticsEnabled) {
     { id: 'pink', title: 'Pink' },
   ];
   
-  const sectionHeader = document.createElement('div');
-  sectionHeader.className = 'settings-section-header';
-  sectionHeader.textContent = 'Theme';
-  container.appendChild(sectionHeader);
+  const themeHeader = document.createElement('div');
+  themeHeader.className = 'settings-section-header';
+  themeHeader.textContent = 'Theme';
+  container.appendChild(themeHeader);
   
-  let itemIndex = 0;
   themes.forEach((theme) => {
     const el = document.createElement('div');
-    el.className = 'list-item' + (itemIndex === 0 ? ' active' : '');
+    el.className = 'list-item';
     el.dataset.index = itemIndex;
     el.dataset.themeId = theme.id;
     
@@ -468,87 +548,6 @@ function renderSettingsView(currentTheme, hapticsEnabled) {
     container.appendChild(el);
     itemIndex++;
   });
-
-  // Shuffle setting
-  const shuffleHeader = document.createElement('div');
-  shuffleHeader.className = 'settings-section-header';
-  shuffleHeader.textContent = 'Playback';
-  container.appendChild(shuffleHeader);
-
-  const shuffleEl = document.createElement('div');
-  shuffleEl.className = 'list-item';
-  shuffleEl.dataset.index = itemIndex;
-  const shuffleLabelContainer = document.createElement('div');
-  shuffleLabelContainer.className = 'list-label-container';
-  const shuffleLabel = document.createElement('h3');
-  shuffleLabel.className = 'list-label';
-  shuffleLabel.textContent = 'Shuffle';
-  shuffleLabelContainer.appendChild(shuffleLabel);
-  shuffleEl.appendChild(shuffleLabelContainer);
-  const shuffleValue = document.createElement('span');
-  shuffleValue.className = 'list-value';
-  shuffleValue.textContent = audioPlayer.shuffle ? 'On' : 'Off';
-  shuffleEl.appendChild(shuffleValue);
-  container.appendChild(shuffleEl);
-  itemIndex++;
-
-  // Repeat setting
-  const repeatEl = document.createElement('div');
-  repeatEl.className = 'list-item';
-  repeatEl.dataset.index = itemIndex;
-  const repeatLabelContainer = document.createElement('div');
-  repeatLabelContainer.className = 'list-label-container';
-  const repeatLabel = document.createElement('h3');
-  repeatLabel.className = 'list-label';
-  repeatLabel.textContent = 'Repeat';
-  repeatLabelContainer.appendChild(repeatLabel);
-  repeatEl.appendChild(repeatLabelContainer);
-  const repeatValue = document.createElement('span');
-  repeatValue.className = 'list-value';
-  repeatValue.textContent = audioPlayer.repeat === 0 ? 'Off' : audioPlayer.repeat === 1 ? 'All' : 'One';
-  repeatEl.appendChild(repeatValue);
-  container.appendChild(repeatEl);
-  itemIndex++;
-
-  // Playback Speed setting
-  const speedEl = document.createElement('div');
-  speedEl.className = 'list-item';
-  speedEl.dataset.index = itemIndex;
-  const speedLabelContainer = document.createElement('div');
-  speedLabelContainer.className = 'list-label-container';
-  const speedLabel = document.createElement('h3');
-  speedLabel.className = 'list-label';
-  speedLabel.textContent = 'Speed';
-  speedLabelContainer.appendChild(speedLabel);
-  speedEl.appendChild(speedLabelContainer);
-  const speedValue = document.createElement('span');
-  speedValue.className = 'list-value';
-  speedValue.textContent = audioPlayer.playbackSpeed === 1 ? '1x' : audioPlayer.playbackSpeed === 1.5 ? '1.5x' : '2x';
-  speedEl.appendChild(speedValue);
-  container.appendChild(speedEl);
-  itemIndex++;
-
-  // Haptics toggle
-  const hapticsHeader = document.createElement('div');
-  hapticsHeader.className = 'settings-section-header';
-  hapticsHeader.textContent = 'Feedback';
-  container.appendChild(hapticsHeader);
-
-  const hapticsEl = document.createElement('div');
-  hapticsEl.className = 'list-item';
-  hapticsEl.dataset.index = itemIndex;
-  const hapticsLabelContainer = document.createElement('div');
-  hapticsLabelContainer.className = 'list-label-container';
-  const hapticsLabel = document.createElement('h3');
-  hapticsLabel.className = 'list-label';
-  hapticsLabel.textContent = 'Haptics';
-  hapticsLabelContainer.appendChild(hapticsLabel);
-  hapticsEl.appendChild(hapticsLabelContainer);
-  const hapticsValue = document.createElement('span');
-  hapticsValue.className = 'list-value';
-  hapticsValue.textContent = hapticsEnabled !== false ? 'On' : 'Off';
-  hapticsEl.appendChild(hapticsValue);
-  container.appendChild(hapticsEl);
   
   return container;
 }

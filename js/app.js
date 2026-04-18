@@ -143,14 +143,14 @@ class IPodApp {
   _buildSettingsItems() {
     const hapticsOn = window.ipodClickWheel ? window.ipodClickWheel.hapticsEnabled : true;
     this.currentItems = [
-      { id: 'theme-silver', title: 'Silver', type: '_theme', metadata: { themeId: 'silver' } },
-      { id: 'theme-black', title: 'Black', type: '_theme', metadata: { themeId: 'black' } },
-      { id: 'theme-u2', title: 'U2', type: '_theme', metadata: { themeId: 'u2' } },
-      { id: 'theme-pink', title: 'Pink', type: '_theme', metadata: { themeId: 'pink' } },
       { id: 'shuffle-toggle', title: 'Shuffle', type: '_shuffle' },
       { id: 'repeat-toggle', title: 'Repeat', type: '_repeat' },
       { id: 'speed-toggle', title: 'Speed', type: '_speed' },
       { id: 'haptics-toggle', title: 'Haptics', type: '_haptics' },
+      { id: 'theme-silver', title: 'Silver', type: '_theme', metadata: { themeId: 'silver' } },
+      { id: 'theme-black', title: 'Black', type: '_theme', metadata: { themeId: 'black' } },
+      { id: 'theme-u2', title: 'U2', type: '_theme', metadata: { themeId: 'u2' } },
+      { id: 'theme-pink', title: 'Pink', type: '_theme', metadata: { themeId: 'pink' } },
     ];
   }
 
@@ -1021,25 +1021,26 @@ class IPodApp {
       return;
     }
 
-    // Settings theme/shuffle/repeat/haptics selection
+    // Settings: Playback (0-3) then Theme (4-7)
     if (this.currentNode?.type === 'settings') {
+      const playbackCount = 4; // shuffle, repeat, speed, haptics
       const themes = ['silver', 'black', 'u2', 'pink'];
-      if (this.scrollIndex < themes.length && themes[this.scrollIndex]) {
-        this.applyTheme(themes[this.scrollIndex]);
-      } else if (this.scrollIndex === themes.length) {
+      if (this.scrollIndex === 0) {
         // Toggle shuffle
         audioPlayer.toggleShuffle();
-      } else if (this.scrollIndex === themes.length + 1) {
+      } else if (this.scrollIndex === 1) {
         // Cycle repeat
         audioPlayer.cycleRepeat();
-      } else if (this.scrollIndex === themes.length + 2) {
+      } else if (this.scrollIndex === 2) {
         // Cycle speed
         audioPlayer.cycleSpeed();
-      } else if (this.scrollIndex === themes.length + 3) {
+      } else if (this.scrollIndex === 3) {
         // Toggle haptics
         if (window.ipodClickWheel) {
           window.ipodClickWheel.hapticsEnabled = !window.ipodClickWheel.hapticsEnabled;
         }
+      } else if (this.scrollIndex >= playbackCount && this.scrollIndex < playbackCount + themes.length) {
+        this.applyTheme(themes[this.scrollIndex - playbackCount]);
       }
       // Re-render settings
       this._rerenderSettings();

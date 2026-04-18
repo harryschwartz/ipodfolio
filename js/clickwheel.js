@@ -188,12 +188,13 @@ class ClickWheel {
     this.bindEvents();
   }
 
-  // Scroll tick: always play audio tick + vibrate on supported devices
+  // Scroll tick: play audio tick + vibrate when haptics enabled
   triggerScrollHaptic() {
-    // Audio tick always plays (works on all platforms, no ringer dependency)
+    if (!this.hapticsEnabled) return;
+    // Audio tick (works on all platforms, no ringer dependency)
     playTickSound();
-    // Also vibrate on Android if haptics enabled
-    if (this.hapticsEnabled && canVibrate) {
+    // Also vibrate on Android
+    if (canVibrate) {
       navigator.vibrate(10);
     }
   }

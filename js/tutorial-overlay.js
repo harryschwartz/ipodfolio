@@ -327,12 +327,11 @@
       makeLabel('Next', 'Skip forward', mRightAnchor, nextDotY, 'left');
       makePath('M' + nextDotX + ',' + nextDotY + ' L' + mRightAnchor + ',' + nextDotY);
 
-      // --- SELECT (center of wheel) → diagonal then horizontal ---
+      // --- SELECT (center of wheel) → 90° elbow ---
       var selectLabelY = Math.min(ppLabelY, shellH - 30);
       makeDot(selectDotX, selectDotY);
       makeLabel('Select', 'Press to choose', mRightAnchor, selectLabelY, 'left');
-      var selMidX = (selectDotX + mRightAnchor) / 2;
-      makePath('M' + selectDotX + ',' + selectDotY + ' L' + selMidX + ',' + selectLabelY + ' L' + mRightAnchor + ',' + selectLabelY);
+      makePath(elbowPath(selectDotX, selectDotY, mRightAnchor, selectLabelY, 'v-first'));
 
       // --- PLAY/PAUSE (bottom of wheel) → straight line LEFT ---
       makeDot(ppDotX, ppDotY);
@@ -350,10 +349,16 @@
       var dExtend = 130; // px to extend labels beyond shell edges
       var dMinY = screenBottom + 8;
 
-      // Wider SVG viewBox to accommodate lines extending past the shell
-      svgEl.setAttribute('viewBox', (-dExtend) + ' 0 ' + (shellW + dExtend * 2) + ' ' + shellH);
+      // Make the SVG wider to span the extended area so SVG coords
+      // match CSS pixel coords 1:1 (no viewBox scaling).
+      var totalW = shellW + dExtend * 2;
+      svgEl.style.width = totalW + 'px';
+      svgEl.style.left = (-dExtend) + 'px';
+      svgEl.setAttribute('viewBox', '0 0 ' + totalW + ' ' + shellH);
+      // Shift all SVG x-coords by dExtend so shell-relative x=0 maps to SVG x=dExtend
+      var svgOff = dExtend;
 
-      // Dot positions from wheel geometry
+      // Dot positions from wheel geometry (shell-relative, used for both CSS labels and SVG)
       var dMenuDotX = wheelCx;
       var dMenuDotY = wr.top + 6;
       var dPrevDotX = wr.left + 6;
@@ -365,9 +370,13 @@
       var dSelectDotX = wheelCx;
       var dSelectDotY = wheelCy;
 
-      // Label anchors: past the shell edges
+      // Label anchors (CSS shell-relative): past the shell edges
       var dLeftAnchor = -dExtend + 10;
       var dRightAnchor = shellW + dExtend - 10;
+
+      // SVG anchor x-coords (shifted by svgOff)
+      var svgLeftAnchor = dLeftAnchor + svgOff;
+      var svgRightAnchor = dRightAnchor + svgOff;
 
       var dPPLabelY = Math.min(dPPDotY, shellH - 30);
 
@@ -376,41 +385,40 @@
       var dScrollDotX = wheelCx + Math.cos(dScrollAngle) * (wheelR - 6);
       var dScrollDotY = wheelCy + Math.sin(dScrollAngle) * (wheelR - 6);
       var dScrollLabelY = Math.max(dScrollDotY, dMinY);
-      makeDot(dScrollDotX, dScrollDotY);
+      makeDot(dScrollDotX + svgOff, dScrollDotY);
       makeLabel('Scroll Wheel', 'Slide to browse', dRightAnchor, dScrollLabelY, 'left');
-      makePath('M' + dScrollDotX + ',' + dScrollDotY + ' L' + dRightAnchor + ',' + dScrollDotY +
-        (Math.abs(dScrollLabelY - dScrollDotY) > 3 ? ' L' + dRightAnchor + ',' + dScrollLabelY : ''));
+      makePath('M' + (dScrollDotX + svgOff) + ',' + dScrollDotY + ' L' + svgRightAnchor + ',' + dScrollDotY +
+        (Math.abs(dScrollLabelY - dScrollDotY) > 3 ? ' L' + svgRightAnchor + ',' + dScrollLabelY : ''));
 
       // --- MENU (top of wheel) → label LEFT ---
       var dMenuLabelY = Math.max(dMenuDotY, dMinY);
-      makeDot(dMenuDotX, dMenuDotY);
+      makeDot(dMenuDotX + svgOff, dMenuDotY);
       makeLabel('Menu', 'Go back', dLeftAnchor, dMenuLabelY, 'right');
-      makePath('M' + dMenuDotX + ',' + dMenuDotY + ' L' + dLeftAnchor + ',' + dMenuDotY +
-        (Math.abs(dMenuLabelY - dMenuDotY) > 3 ? ' L' + dLeftAnchor + ',' + dMenuLabelY : ''));
+      makePath('M' + (dMenuDotX + svgOff) + ',' + dMenuDotY + ' L' + svgLeftAnchor + ',' + dMenuDotY +
+        (Math.abs(dMenuLabelY - dMenuDotY) > 3 ? ' L' + svgLeftAnchor + ',' + dMenuLabelY : ''));
 
       // --- PREVIOUS (left of wheel) → label LEFT ---
-      makeDot(dPrevDotX, dPrevDotY);
+      makeDot(dPrevDotX + svgOff, dPrevDotY);
       makeLabel('Previous', 'Skip back', dLeftAnchor, dPrevDotY, 'right');
-      makePath('M' + dPrevDotX + ',' + dPrevDotY + ' L' + dLeftAnchor + ',' + dPrevDotY);
+      makePath('M' + (dPrevDotX + svgOff) + ',' + dPrevDotY + ' L' + svgLeftAnchor + ',' + dPrevDotY);
 
       // --- NEXT (right of wheel) → label RIGHT ---
-      makeDot(dNextDotX, dNextDotY);
+      makeDot(dNextDotX + svgOff, dNextDotY);
       makeLabel('Next', 'Skip forward', dRightAnchor, dNextDotY, 'left');
-      makePath('M' + dNextDotX + ',' + dNextDotY + ' L' + dRightAnchor + ',' + dNextDotY);
+      makePath('M' + (dNextDotX + svgOff) + ',' + dNextDotY + ' L' + svgRightAnchor + ',' + dNextDotY);
 
-      // --- SELECT (center) → diagonal to label RIGHT ---
+      // --- SELECT (center) → 90° elbow to label RIGHT ---
       var dSelectLabelY = Math.min(dPPLabelY, shellH - 30);
-      makeDot(dSelectDotX, dSelectDotY);
+      makeDot(dSelectDotX + svgOff, dSelectDotY);
       makeLabel('Select', 'Press to choose', dRightAnchor, dSelectLabelY, 'left');
-      var dSelMidX = (dSelectDotX + dRightAnchor) / 2;
-      makePath('M' + dSelectDotX + ',' + dSelectDotY + ' L' + dSelMidX + ',' + dSelectLabelY + ' L' + dRightAnchor + ',' + dSelectLabelY);
+      makePath(elbowPath(dSelectDotX + svgOff, dSelectDotY, svgRightAnchor, dSelectLabelY, 'v-first'));
 
       // --- PLAY/PAUSE (bottom of wheel) → label LEFT ---
-      makeDot(dPPDotX, dPPDotY);
+      makeDot(dPPDotX + svgOff, dPPDotY);
       makeLabel('Play / Pause', 'Control playback', dLeftAnchor, dPPLabelY, 'right');
-      makePath('M' + dPPDotX + ',' + dPPDotY +
-        (Math.abs(dPPLabelY - dPPDotY) > 3 ? ' L' + dLeftAnchor + ',' + dPPDotY + ' L' + dLeftAnchor + ',' + dPPLabelY
-          : ' L' + dLeftAnchor + ',' + dPPDotY));
+      makePath('M' + (dPPDotX + svgOff) + ',' + dPPDotY +
+        (Math.abs(dPPLabelY - dPPDotY) > 3 ? ' L' + svgLeftAnchor + ',' + dPPDotY + ' L' + svgLeftAnchor + ',' + dPPLabelY
+          : ' L' + svgLeftAnchor + ',' + dPPDotY));
     }
 
   }
