@@ -327,11 +327,12 @@
       makeLabel('Next', 'Skip forward', mRightAnchor, nextDotY, 'left');
       makePath('M' + nextDotX + ',' + nextDotY + ' L' + mRightAnchor + ',' + nextDotY);
 
-      // --- SELECT (center of wheel) → 90° elbow ---
+      // --- SELECT (center of wheel) → diagonal to label RIGHT ---
       var selectLabelY = Math.min(ppLabelY, shellH - 30);
       makeDot(selectDotX, selectDotY);
       makeLabel('Select', 'Press to choose', mRightAnchor, selectLabelY, 'left');
-      makePath(elbowPath(selectDotX, selectDotY, mRightAnchor, selectLabelY, 'v-first'));
+      var selMidX = (selectDotX + mRightAnchor) / 2;
+      makePath('M' + selectDotX + ',' + selectDotY + ' L' + selMidX + ',' + selectLabelY + ' L' + mRightAnchor + ',' + selectLabelY);
 
       // --- PLAY/PAUSE (bottom of wheel) → straight line LEFT ---
       makeDot(ppDotX, ppDotY);
@@ -407,11 +408,12 @@
       makeLabel('Next', 'Skip forward', dRightAnchor, dNextDotY, 'left');
       makePath('M' + (dNextDotX + svgOff) + ',' + dNextDotY + ' L' + svgRightAnchor + ',' + dNextDotY);
 
-      // --- SELECT (center) → 90° elbow to label RIGHT ---
+      // --- SELECT (center) → diagonal to label RIGHT ---
       var dSelectLabelY = Math.min(dPPLabelY, shellH - 30);
       makeDot(dSelectDotX + svgOff, dSelectDotY);
       makeLabel('Select', 'Press to choose', dRightAnchor, dSelectLabelY, 'left');
-      makePath(elbowPath(dSelectDotX + svgOff, dSelectDotY, svgRightAnchor, dSelectLabelY, 'v-first'));
+      var dSelMidX = ((dSelectDotX + svgOff) + svgRightAnchor) / 2;
+      makePath('M' + (dSelectDotX + svgOff) + ',' + dSelectDotY + ' L' + dSelMidX + ',' + dSelectLabelY + ' L' + svgRightAnchor + ',' + dSelectLabelY);
 
       // --- PLAY/PAUSE (bottom of wheel) → label LEFT ---
       makeDot(dPPDotX + svgOff, dPPDotY);
