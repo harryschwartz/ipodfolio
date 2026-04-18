@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ipodfolio-v46';
+const CACHE_NAME = 'ipodfolio-v47';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -14,6 +14,7 @@ const ASSETS_TO_CACHE = [
   '/js/tutorial-overlay.js',
   '/js/studio-grid.js',
   '/js/views.js',
+  '/js/touchscreen.js',
   '/img/adobe-cover.jpg',
   '/img/dj-cover.jpg',
   '/img/games-preview.jpg',

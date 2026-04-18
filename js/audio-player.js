@@ -12,6 +12,7 @@ class AudioPlayer {
     this.audio.volume = this.volume;
     this.shuffle = false;   // 'off' or 'songs'
     this.repeat = 0;        // 0 = off, 1 = all, 2 = one
+    this.playbackSpeed = 1; // 1, 1.5, or 2
     this._shuffleOrder = [];
     this._shufflePos = 0;
     
@@ -32,6 +33,7 @@ class AudioPlayer {
       }
       if (track.metadata.audioUrl) {
         this.audio.src = track.metadata.audioUrl;
+        this.audio.playbackRate = this.playbackSpeed;
         this.audio.play().catch(() => {});
         this.isPlaying = true;
         this.isPaused = false;
@@ -115,6 +117,14 @@ class AudioPlayer {
 
   cycleRepeat() {
     this.repeat = (this.repeat + 1) % 3; // off → all → one → off
+    this._notify();
+  }
+
+  cycleSpeed() {
+    const speeds = [1, 1.5, 2];
+    const idx = speeds.indexOf(this.playbackSpeed);
+    this.playbackSpeed = speeds[(idx + 1) % speeds.length];
+    this.audio.playbackRate = this.playbackSpeed;
     this._notify();
   }
 

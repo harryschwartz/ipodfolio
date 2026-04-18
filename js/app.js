@@ -115,6 +115,7 @@ class IPodApp {
       { id: 'theme-pink', title: 'Pink', type: '_theme', metadata: { themeId: 'pink' } },
       { id: 'shuffle-toggle', title: 'Shuffle', type: '_shuffle' },
       { id: 'repeat-toggle', title: 'Repeat', type: '_repeat' },
+      { id: 'speed-toggle', title: 'Speed', type: '_speed' },
       { id: 'haptics-toggle', title: 'Haptics', type: '_haptics' },
     ];
   }
@@ -998,6 +999,9 @@ class IPodApp {
         // Cycle repeat
         audioPlayer.cycleRepeat();
       } else if (this.scrollIndex === themes.length + 2) {
+        // Cycle speed
+        audioPlayer.cycleSpeed();
+      } else if (this.scrollIndex === themes.length + 3) {
         // Toggle haptics
         if (window.ipodClickWheel) {
           window.ipodClickWheel.hapticsEnabled = !window.ipodClickWheel.hapticsEnabled;
@@ -1400,6 +1404,21 @@ class IPodApp {
       }
       statusIcons.innerHTML = html;
     }
+    // Speed badge
+    const speedBadge = document.getElementById('np-speed-badge');
+    if (speedBadge) {
+      speedBadge.textContent = audioPlayer.playbackSpeed + 'x';
+      speedBadge.classList.toggle('np-speed-active', audioPlayer.playbackSpeed !== 1);
+      // Make tappable (attach once)
+      if (!speedBadge._tapBound) {
+        speedBadge._tapBound = true;
+        speedBadge.addEventListener('pointerdown', (e) => {
+          e.stopPropagation();
+          audioPlayer.cycleSpeed();
+        });
+      }
+    }
+
     const trackCounter = document.getElementById('np-track-counter');
     if (trackCounter && audioPlayer.queue.length > 0) {
       trackCounter.textContent = `${audioPlayer.queueIndex + 1} of ${audioPlayer.queue.length}`;

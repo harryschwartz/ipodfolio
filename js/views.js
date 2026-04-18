@@ -270,6 +270,7 @@ function renderNowPlayingView() {
   statusRow.id = 'np-status-row';
   statusRow.innerHTML = `
     <span class="np-status-icons" id="np-status-icons"></span>
+    <span class="np-speed-badge" id="np-speed-badge"></span>
     <span class="np-track-counter" id="np-track-counter"></span>
   `;
   container.appendChild(statusRow);
@@ -500,6 +501,24 @@ function renderSettingsView(currentTheme, hapticsEnabled) {
   repeatValue.textContent = audioPlayer.repeat === 0 ? 'Off' : audioPlayer.repeat === 1 ? 'All' : 'One';
   repeatEl.appendChild(repeatValue);
   container.appendChild(repeatEl);
+  itemIndex++;
+
+  // Playback Speed setting
+  const speedEl = document.createElement('div');
+  speedEl.className = 'list-item';
+  speedEl.dataset.index = itemIndex;
+  const speedLabelContainer = document.createElement('div');
+  speedLabelContainer.className = 'list-label-container';
+  const speedLabel = document.createElement('h3');
+  speedLabel.className = 'list-label';
+  speedLabel.textContent = 'Speed';
+  speedLabelContainer.appendChild(speedLabel);
+  speedEl.appendChild(speedLabelContainer);
+  const speedValue = document.createElement('span');
+  speedValue.className = 'list-value';
+  speedValue.textContent = audioPlayer.playbackSpeed === 1 ? '1x' : audioPlayer.playbackSpeed === 1.5 ? '1.5x' : '2x';
+  speedEl.appendChild(speedValue);
+  container.appendChild(speedEl);
   itemIndex++;
 
   // Haptics toggle

@@ -437,11 +437,26 @@
     hideCallouts();
   }
 
+  // Info-button toggling (separate from the one-time boot dismiss)
+  function showForInfo() {
+    // Temporarily un-dismiss so showCallouts works
+    var wasDismissed = dismissed;
+    dismissed = false;
+    showCallouts();
+    dismissed = wasDismissed; // keep original boot-dismiss state
+  }
+
+  function hideForInfo() {
+    hideCallouts();
+  }
+
   window.ipodTutorialOverlay = {
     shouldShow: shouldShow,
     renderBootView: renderBootView,
     showCallouts: showCallouts,
     dismiss: dismiss,
-    get isActive() { return !dismissed && !!calloutContainer; },
+    _showForInfo: showForInfo,
+    _hideForInfo: hideForInfo,
+    get isActive() { return !!calloutContainer; },
   };
 })();
