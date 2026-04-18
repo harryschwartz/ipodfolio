@@ -127,38 +127,43 @@
     return !!document.querySelector('.coverflow-container');
   }
 
+  function isBacksideActive() {
+    return !!document.querySelector('.coverflow-backside');
+  }
+
   function onPointerMove(e) {
     if (!touchStartTime) return;
     var dy = e.clientY - touchStartY;
     var dx = e.clientX - touchStartX;
     var inCoverFlow = isCoverFlowActive();
+    var onBackside = isBacksideActive();
 
-    // Determine primary swipe axis
-    var primaryDelta = inCoverFlow ? dx : dy;
-    if (Math.abs(primaryDelta) > 10) {
+    // Mark as swiping if either axis exceeds threshold
+    if (Math.abs(dy) > 10 || Math.abs(dx) > 10) {
       isSwiping = true;
     }
-    // Continuous scroll during drag
+
+    // Backside (track list) and normal list: vertical swipe for scrolling
+    // Cover flow album browsing: horizontal swipe for scrolling
+    var useHorizontal = inCoverFlow && !onBackside;
+
+    // Continuous scroll during drag (only on the scroll axis)
     if (isSwiping) {
-      var total = inCoverFlow ? (e.clientX - touchStartX) : (e.clientY - touchStartY);
-      var stepSize = inCoverFlow ? 60 : SCROLL_STEP; // wider steps for Cover Flow
+      var total = useHorizontal ? (e.clientX - touchStartX) : (e.clientY - touchStartY);
+      var stepSize = useHorizontal ? 60 : SCROLL_STEP;
+      // On backside, only count vertical movement for scroll steps
+      // (horizontal movement is reserved for swipe-right-to-back, handled in onPointerUp)
+      if (onBackside && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        // Predominantly horizontal on backside — don't scroll, will be handled as back gesture
+        return;
+      }
       var steps = Math.floor(Math.abs(total) / stepSize);
       var fired = Math.abs(accumulatedSwipe);
       while (fired < steps) {
-        if (inCoverFlow) {
-          // Horizontal: swipe left (negative dx) = next album (forward)
-          if (total < 0) {
-            window.dispatchEvent(new Event('forwardscroll'));
-          } else {
-            window.dispatchEvent(new Event('backwardscroll'));
-          }
+        if (total < 0) {
+          window.dispatchEvent(new Event('forwardscroll'));
         } else {
-          // Vertical: swipe up (negative dy) = forward
-          if (total < 0) {
-            window.dispatchEvent(new Event('forwardscroll'));
-          } else {
-            window.dispatchEvent(new Event('backwardscroll'));
-          }
+          window.dispatchEvent(new Event('backwardscroll'));
         }
         fired++;
       }
@@ -185,8 +190,17 @@
       // Still allow the tap to fire centerclick for navigation, overlay just stays
     }
 
-    var wasCoverFlow = isCoverFlowActive();
-    if (!isSwiping && elapsed < 400 && Math.abs(dy) < 15 && Math.abs(dx) < 15) {
+    var inCoverFlow = isCoverFlowActive();
+    var onBackside = isBacksideActive();
+
+    // Swipe right to go back (menu) when on backside or in cover flow
+    if (isSwiping && inCoverFlow && dx > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (onBackside) {
+        // Swipe right on backside → close backside (go back to album covers)
+        window.dispatchEvent(new Event('menuclick'));
+      }
+      // If not on backside, horizontal swipe is already handled in onPointerMove for browsing
+    } else if (!isSwiping && elapsed < 400 && Math.abs(dy) < 15 && Math.abs(dx) < 15) {
       // Tap → select (center click)
       centerClickFromScreen = true;
       window.dispatchEvent(new Event('centerclick'));
