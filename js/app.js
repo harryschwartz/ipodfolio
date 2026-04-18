@@ -1184,7 +1184,13 @@ class IPodApp {
     }
     if (this.activeCoverFlow) return; // CoverFlow handles its own menu
     if (this.activeBrickGame) {
-      // Clean up game and go back
+      // During initials entry, menu goes back a letter (handled by game)
+      // During leaderboard or playing, exit the game
+      const gs = this.activeBrickGame.state;
+      if (gs === 'game_over') {
+        // Let the game handle cursor-back
+        return;
+      }
       this.activeBrickGame.cleanup();
       this.activeBrickGame = null;
       this.navigateBack();
