@@ -12,12 +12,18 @@
   var wheelUsed = false;
   var overlayShownByTouch = false;
 
-  // --- Info Button ---
+  // --- Info Button (inside the iPod shell) ---
   var infoBtn = document.createElement('button');
   infoBtn.className = 'info-btn';
   infoBtn.setAttribute('aria-label', 'Show controls help');
   infoBtn.textContent = '\u2139\uFE0F';
-  document.body.appendChild(infoBtn);
+  // Place inside the shell so it's anchored to the iPod, not the viewport
+  var shellEl = document.querySelector('.ipod-shell');
+  if (shellEl) {
+    shellEl.appendChild(infoBtn);
+  } else {
+    document.body.appendChild(infoBtn);
+  }
 
   var infoOverlayActive = false;
 
@@ -117,26 +123,46 @@
     accumulatedSwipe = 0;
   }
 
+  function isCoverFlowActive() {
+    return !!document.querySelector('.coverflow-container');
+  }
+
   function onPointerMove(e) {
     if (!touchStartTime) return;
     var dy = e.clientY - touchStartY;
-    if (Math.abs(dy) > 10) {
+    var dx = e.clientX - touchStartX;
+    var inCoverFlow = isCoverFlowActive();
+
+    // Determine primary swipe axis
+    var primaryDelta = inCoverFlow ? dx : dy;
+    if (Math.abs(primaryDelta) > 10) {
       isSwiping = true;
     }
     // Continuous scroll during drag
     if (isSwiping) {
-      var totalDy = e.clientY - touchStartY;
-      var steps = Math.floor(Math.abs(totalDy) / SCROLL_STEP);
+      var total = inCoverFlow ? (e.clientX - touchStartX) : (e.clientY - touchStartY);
+      var stepSize = inCoverFlow ? 60 : SCROLL_STEP; // wider steps for Cover Flow
+      var steps = Math.floor(Math.abs(total) / stepSize);
       var fired = Math.abs(accumulatedSwipe);
       while (fired < steps) {
-        if (totalDy < 0) {
-          window.dispatchEvent(new Event('forwardscroll'));
+        if (inCoverFlow) {
+          // Horizontal: swipe left (negative dx) = next album (forward)
+          if (total < 0) {
+            window.dispatchEvent(new Event('forwardscroll'));
+          } else {
+            window.dispatchEvent(new Event('backwardscroll'));
+          }
         } else {
-          window.dispatchEvent(new Event('backwardscroll'));
+          // Vertical: swipe up (negative dy) = forward
+          if (total < 0) {
+            window.dispatchEvent(new Event('forwardscroll'));
+          } else {
+            window.dispatchEvent(new Event('backwardscroll'));
+          }
         }
         fired++;
       }
-      accumulatedSwipe = totalDy < 0 ? -steps : steps;
+      accumulatedSwipe = total < 0 ? -steps : steps;
     }
   }
 
@@ -159,6 +185,7 @@
       // Still allow the tap to fire centerclick for navigation, overlay just stays
     }
 
+    var wasCoverFlow = isCoverFlowActive();
     if (!isSwiping && elapsed < 400 && Math.abs(dy) < 15 && Math.abs(dx) < 15) {
       // Tap → select (center click)
       centerClickFromScreen = true;

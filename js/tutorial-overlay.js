@@ -69,6 +69,12 @@
     var shellPos = getComputedStyle(shell).position;
     if (shellPos === 'static') shell.style.position = 'relative';
 
+    // On desktop, allow labels to extend past the shell
+    var isDesktop = !window.matchMedia('(max-width: 576px)').matches;
+    if (isDesktop) {
+      shell.style.overflow = 'visible';
+    }
+
     calloutContainer = document.createElement('div');
     calloutContainer.className = 'tutorial-callouts-container';
     calloutContainer.style.position = 'absolute';
@@ -78,7 +84,7 @@
     calloutContainer.style.height = '100%';
     calloutContainer.style.zIndex = '10001';
     calloutContainer.style.pointerEvents = 'none';
-    calloutContainer.style.overflow = 'hidden';
+    calloutContainer.style.overflow = isDesktop ? 'visible' : 'hidden';
 
     svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svgEl.style.position = 'absolute';
@@ -86,7 +92,7 @@
     svgEl.style.top = '0';
     svgEl.style.width = '100%';
     svgEl.style.height = '100%';
-    svgEl.style.overflow = 'hidden';
+    svgEl.style.overflow = isDesktop ? 'visible' : 'hidden';
     svgEl.style.pointerEvents = 'none';
     svgEl.style.zIndex = '10000';
 
@@ -337,70 +343,76 @@
 
     } else {
       // ---- DESKTOP LAYOUT ----
-      // The 370px shell is too narrow for arm-based labels beside the wheel
-      // without overlapping the screen. Use a compact text-based instruction
-      // card positioned over the wheel area.
-      buildDesktopCompactOverlay(shellW, shellH, screenBottom, wr);
+      // Arm-based labels extending past the shell edges.
+      // The shell overflow is set to visible, so labels and SVG lines
+      // can extend beyond the 370px shell.
+
+      var dExtend = 130; // px to extend labels beyond shell edges
+      var dMinY = screenBottom + 8;
+
+      // Wider SVG viewBox to accommodate lines extending past the shell
+      svgEl.setAttribute('viewBox', (-dExtend) + ' 0 ' + (shellW + dExtend * 2) + ' ' + shellH);
+
+      // Dot positions from wheel geometry
+      var dMenuDotX = wheelCx;
+      var dMenuDotY = wr.top + 6;
+      var dPrevDotX = wr.left + 6;
+      var dPrevDotY = wheelCy;
+      var dNextDotX = wr.right - 6;
+      var dNextDotY = wheelCy;
+      var dPPDotX = wheelCx;
+      var dPPDotY = wr.bottom - 6;
+      var dSelectDotX = wheelCx;
+      var dSelectDotY = wheelCy;
+
+      // Label anchors: past the shell edges
+      var dLeftAnchor = -dExtend + 10;
+      var dRightAnchor = shellW + dExtend - 10;
+
+      var dPPLabelY = Math.min(dPPDotY, shellH - 30);
+
+      // --- SCROLL WHEEL (upper-right rim) → label RIGHT ---
+      var dScrollAngle = -55 * Math.PI / 180;
+      var dScrollDotX = wheelCx + Math.cos(dScrollAngle) * (wheelR - 6);
+      var dScrollDotY = wheelCy + Math.sin(dScrollAngle) * (wheelR - 6);
+      var dScrollLabelY = Math.max(dScrollDotY, dMinY);
+      makeDot(dScrollDotX, dScrollDotY);
+      makeLabel('Scroll Wheel', 'Slide to browse', dRightAnchor, dScrollLabelY, 'left');
+      makePath('M' + dScrollDotX + ',' + dScrollDotY + ' L' + dRightAnchor + ',' + dScrollDotY +
+        (Math.abs(dScrollLabelY - dScrollDotY) > 3 ? ' L' + dRightAnchor + ',' + dScrollLabelY : ''));
+
+      // --- MENU (top of wheel) → label LEFT ---
+      var dMenuLabelY = Math.max(dMenuDotY, dMinY);
+      makeDot(dMenuDotX, dMenuDotY);
+      makeLabel('Menu', 'Go back', dLeftAnchor, dMenuLabelY, 'right');
+      makePath('M' + dMenuDotX + ',' + dMenuDotY + ' L' + dLeftAnchor + ',' + dMenuDotY +
+        (Math.abs(dMenuLabelY - dMenuDotY) > 3 ? ' L' + dLeftAnchor + ',' + dMenuLabelY : ''));
+
+      // --- PREVIOUS (left of wheel) → label LEFT ---
+      makeDot(dPrevDotX, dPrevDotY);
+      makeLabel('Previous', 'Skip back', dLeftAnchor, dPrevDotY, 'right');
+      makePath('M' + dPrevDotX + ',' + dPrevDotY + ' L' + dLeftAnchor + ',' + dPrevDotY);
+
+      // --- NEXT (right of wheel) → label RIGHT ---
+      makeDot(dNextDotX, dNextDotY);
+      makeLabel('Next', 'Skip forward', dRightAnchor, dNextDotY, 'left');
+      makePath('M' + dNextDotX + ',' + dNextDotY + ' L' + dRightAnchor + ',' + dNextDotY);
+
+      // --- SELECT (center) → diagonal to label RIGHT ---
+      var dSelectLabelY = Math.min(dPPLabelY, shellH - 30);
+      makeDot(dSelectDotX, dSelectDotY);
+      makeLabel('Select', 'Press to choose', dRightAnchor, dSelectLabelY, 'left');
+      var dSelMidX = (dSelectDotX + dRightAnchor) / 2;
+      makePath('M' + dSelectDotX + ',' + dSelectDotY + ' L' + dSelMidX + ',' + dSelectLabelY + ' L' + dRightAnchor + ',' + dSelectLabelY);
+
+      // --- PLAY/PAUSE (bottom of wheel) → label LEFT ---
+      makeDot(dPPDotX, dPPDotY);
+      makeLabel('Play / Pause', 'Control playback', dLeftAnchor, dPPLabelY, 'right');
+      makePath('M' + dPPDotX + ',' + dPPDotY +
+        (Math.abs(dPPLabelY - dPPDotY) > 3 ? ' L' + dLeftAnchor + ',' + dPPDotY + ' L' + dLeftAnchor + ',' + dPPLabelY
+          : ' L' + dLeftAnchor + ',' + dPPDotY));
     }
 
-  }
-
-  /**
-   * Desktop: compact instruction overlay positioned over the wheel area.
-   * Two columns of labels (left/right) with subtle dots on the wheel,
-   * all constrained between screenBottom and shell bottom.
-   */
-  function buildDesktopCompactOverlay(shellW, shellH, screenBottom, wr) {
-    if (!calloutContainer) return;
-
-    var card = document.createElement('div');
-    card.className = 'tutorial-desktop-card';
-    // Position between screen bottom and shell bottom, centered on wheel
-    var topY = screenBottom + 4;
-    card.style.position = 'absolute';
-    card.style.left = '0';
-    card.style.right = '0';
-    card.style.top = topY + 'px';
-    card.style.bottom = '0';
-    card.style.display = 'flex';
-    card.style.flexDirection = 'column';
-    card.style.alignItems = 'center';
-    card.style.justifyContent = 'center';
-    card.style.pointerEvents = 'none';
-    card.style.padding = '0 12px';
-
-    // Instruction rows: two columns
-    var rows = [
-      { icon: '▲', label: 'Menu', desc: 'Go back' },
-      { icon: '◀', label: 'Previous', desc: 'Skip back' },
-      { icon: '▶', label: 'Next', desc: 'Skip forward' },
-      { icon: '▼', label: 'Play / Pause', desc: 'Control playback' },
-      { icon: '●', label: 'Select', desc: 'Press to choose' },
-      { icon: '◯', label: 'Scroll Wheel', desc: 'Slide to browse' },
-    ];
-
-    var grid = document.createElement('div');
-    grid.className = 'tutorial-desktop-grid';
-
-    rows.forEach(function (r) {
-      var row = document.createElement('div');
-      row.className = 'tutorial-desktop-row';
-
-      var iconEl = document.createElement('span');
-      iconEl.className = 'tutorial-desktop-icon';
-      iconEl.textContent = r.icon;
-
-      var textEl = document.createElement('span');
-      textEl.className = 'tutorial-desktop-text';
-      textEl.innerHTML = '<strong>' + r.label + '</strong> <span>' + r.desc + '</span>';
-
-      row.appendChild(iconEl);
-      row.appendChild(textEl);
-      grid.appendChild(row);
-    });
-
-    card.appendChild(grid);
-    calloutContainer.appendChild(card);
   }
 
   function addRingerHint() {
@@ -414,6 +426,10 @@
   function hideCallouts() {
     window.removeEventListener('resize', onResize);
     window.removeEventListener('orientationchange', onResize);
+
+    // Restore shell overflow
+    var shell = document.querySelector('.ipod-shell');
+    if (shell) shell.style.overflow = '';
 
     if (calloutContainer) {
       calloutContainer.classList.add('tutorial-callouts-hiding');
