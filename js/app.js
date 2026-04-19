@@ -913,6 +913,29 @@ class IPodApp {
 
     if (this.currentItems.length === 0) return;
 
+    // After touch-scrolling, snap highlight to the item currently visible
+    // so the wheel picks up from where the user is looking
+    if (this._touchScrolled) {
+      this._touchScrolled = false;
+      const container = this.currentView?._listEl || this.currentView?.querySelector?.('.selectable-list') ||
+        this.currentView?.querySelector?.('.split-left') || this.currentView?.querySelector?.('.settings-view') ||
+        this.currentView?.querySelector?.('.playlist-tracks') || this.currentView?.querySelector?.('.album-tracks');
+      if (container) {
+        const items = container.querySelectorAll('.list-item');
+        const containerRect = container.getBoundingClientRect();
+        const midY = containerRect.top + containerRect.height / 2;
+        let closestIdx = this.scrollIndex;
+        let closestDist = Infinity;
+        items.forEach((el, i) => {
+          const r = el.getBoundingClientRect();
+          const elMid = r.top + r.height / 2;
+          const d = Math.abs(elMid - midY);
+          if (d < closestDist) { closestDist = d; closestIdx = i; }
+        });
+        this.scrollIndex = closestIdx;
+      }
+    }
+
     if (direction === 'forward' && this.scrollIndex < this.currentItems.length - 1) {
       this.scrollIndex++;
     } else if (direction === 'backward' && this.scrollIndex > 0) {
