@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ipodfolio-v60';
+const CACHE_NAME = 'ipodfolio-v61';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

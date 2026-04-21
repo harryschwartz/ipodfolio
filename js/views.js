@@ -432,6 +432,10 @@ function renderVideoView(node) {
 function renderSettingsView(currentTheme, hapticsEnabled) {
   const container = document.createElement('div');
   container.className = 'settings-view';
+  // Mark as the scroll/list element so app.updateListSelection() uses
+  // container-aware scrolling instead of the default scrollIntoView(),
+  // which doesn't account for section headers above the active item.
+  container._listEl = container;
   
   let itemIndex = 0;
 

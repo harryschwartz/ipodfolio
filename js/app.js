@@ -959,8 +959,20 @@ class IPodApp {
     if (activeItem) {
       const scrollContainer = this.currentView?._listEl;
       if (scrollContainer && scrollContainer.scrollHeight > scrollContainer.clientHeight) {
-        const itemTop = activeItem.offsetTop - scrollContainer.offsetTop;
-        const itemBottom = itemTop + activeItem.offsetHeight;
+        // If the active item is preceded immediately by a section header (e.g.
+        // Settings "Playback" / "Theme"), anchor to the header's top instead
+        // of the item's top so the header remains visible.
+        let topAnchor = activeItem;
+        let prev = activeItem.previousElementSibling;
+        while (prev && !prev.classList.contains('list-item')) {
+          if (prev.classList.contains('settings-section-header')) {
+            topAnchor = prev;
+            break;
+          }
+          prev = prev.previousElementSibling;
+        }
+        const itemTop = topAnchor.offsetTop - scrollContainer.offsetTop;
+        const itemBottom = activeItem.offsetTop - scrollContainer.offsetTop + activeItem.offsetHeight;
         const viewTop = scrollContainer.scrollTop;
         const viewBottom = viewTop + scrollContainer.clientHeight;
         if (itemBottom > viewBottom) {
