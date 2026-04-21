@@ -99,17 +99,47 @@
     shell.appendChild(svgEl);
     shell.appendChild(calloutContainer);
 
-    // Wait for layout to settle
-    setTimeout(function () {
+    // Wait for layout to settle. On desktop, .ipod-shell has a 1.5s descend
+    // animation that scales from 0.3 -> 1.0. Measuring getBoundingClientRect()
+    // mid-animation yields the wrong wheel/button positions, so we must wait
+    // for animationend (with a safety timeout) before building the callouts.
+    function finalizeCallouts() {
+      if (!calloutContainer || !svgEl) return;
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
+          if (!calloutContainer || !svgEl) return;
           rebuildCallouts();
           addRingerHint();
           calloutContainer.classList.add('tutorial-callouts-visible');
           svgEl.classList.add('tutorial-callouts-visible');
         });
       });
-    }, 300);
+    }
+
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var animName = getComputedStyle(shell).animationName;
+    var hasDescend = !reduceMotion && animName && animName !== 'none';
+
+    if (hasDescend) {
+      var finalized = false;
+      var runOnce = function () {
+        if (finalized) return;
+        finalized = true;
+        shell.removeEventListener('animationend', onAnimEnd);
+        finalizeCallouts();
+      };
+      var onAnimEnd = function (e) {
+        // Only fire for the shell's own animation, not a descendant's
+        if (e.target !== shell) return;
+        runOnce();
+      };
+      shell.addEventListener('animationend', onAnimEnd);
+      // Safety fallback in case animationend never fires
+      setTimeout(runOnce, 1700);
+    } else {
+      // No animation (mobile or reduced-motion): just wait for layout
+      setTimeout(finalizeCallouts, 50);
+    }
 
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
