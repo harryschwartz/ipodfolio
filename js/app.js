@@ -63,23 +63,29 @@ class IPodApp {
   }
 
   _preloadImages() {
-    // Collect all image URLs from portfolio data + music library, preload in background
+    // Downscale Supabase-hosted covers/thumbs via the transform endpoint so we
+    // don't pull multi-MB originals for tiles rendered at ~140–320 CSS px.
+    const toThumb = (url) =>
+      typeof transformedImageUrl === 'function'
+        ? transformedImageUrl(url, { width: 640, quality: 75 })
+        : url;
     const preload = (urls) => {
       for (const url of urls) {
         if (!url || url.startsWith('data:')) continue;
         const img = new Image();
         img.decoding = 'async';
-        img.src = url;
+        img.src = toThumb(url);
       }
     };
-    // Portfolio images (projects, photos, etc) — available immediately
+    // Cover/thumbnail images for navigation tiles — small and worth preloading.
+    // Skip full photo-album photo URLs: they can be 100s of multi-MB files the
+    // user may never visit. Those are fetched lazily via the photo grid.
     const portfolioUrls = PORTFOLIO_DATA
       .filter(n => n.metadata)
       .flatMap(n => [
         n.metadata.coverImage,
         n.metadata.coverImageUrl,
         n.metadata.thumbnailUrl,
-        ...(n.metadata.photos || []).map(p => p.url),
       ])
       .filter(Boolean);
     preload(portfolioUrls);
@@ -1357,7 +1363,10 @@ class IPodApp {
         artwork.textContent = '';
         artwork.style = '';
         const coverMeta = parent?.metadata?.coverImage ? parent.metadata : track.metadata;
-        artwork.src = coverMeta?.coverImage || 'img/headphones-cover.jpg';
+        const nowPlayingCover = coverMeta?.coverImage;
+        artwork.src = nowPlayingCover
+          ? (typeof transformedImageUrl === 'function' ? transformedImageUrl(nowPlayingCover, { width: 800, quality: 85 }) : nowPlayingCover)
+          : 'img/headphones-cover.jpg';
         artwork.style.objectFit = 'cover';
         artwork.style.objectPosition = coverMeta?.coverImagePosition || '50% 50%';
         if (coverMeta?.coverImageZoom && parseFloat(coverMeta.coverImageZoom) !== 1) {
@@ -1511,6 +1520,17 @@ class IPodApp {
     }
     const view = renderPhotoFullscreen(photos[this.photoIndex]);
     this.transitionTo(view, direction === 'forward' ? 'right' : 'left');
+    // Prefetch the neighbor in the direction of travel so the next press
+    // feels instant.
+    const nextIdx = direction === 'backward'
+      ? (this.photoIndex - 1 + photos.length) % photos.length
+      : (this.photoIndex + 1) % photos.length;
+    const nextPhoto = photos[nextIdx];
+    if (nextPhoto?.url && typeof transformedImageUrl === 'function') {
+      const pre = new Image();
+      pre.decoding = 'async';
+      pre.src = transformedImageUrl(nextPhoto.url, { width: 1200, quality: 85 });
+    }
   }
 }
 

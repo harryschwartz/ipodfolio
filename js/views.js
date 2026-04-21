@@ -1,12 +1,33 @@
 // View Renderers — each node type gets its own render function
 // Returns DOM element for the screen content area
 
-// Fast image factory — all images get decoding=async for non-blocking rendering
+// Rewrite a Supabase storage URL to use the on-the-fly image transform endpoint.
+// Works for URLs like: https://<proj>.supabase.co/storage/v1/object/public/<bucket>/<path>
+// Becomes: https://<proj>.supabase.co/storage/v1/render/image/public/<bucket>/<path>?width=<w>&quality=<q>
+// For non-Supabase URLs, returns the original URL unchanged.
+function transformedImageUrl(url, { width, quality = 75 } = {}) {
+  if (!url || typeof url !== 'string') return url;
+  if (!/supabase\.co\/storage\/v1\/object\/public\//.test(url)) return url;
+  const rendered = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+  const params = new URLSearchParams();
+  if (width) params.set('width', String(width));
+  if (quality) params.set('quality', String(quality));
+  const qs = params.toString();
+  return qs ? `${rendered}?${qs}` : rendered;
+}
+
+// Default cover/thumbnail width for CMS-hosted images. Covers render at most
+// ~320 CSS px in Cover Flow; 640px handles 2x DPR comfortably.
+const COVER_THUMB_WIDTH = 640;
+const COVER_THUMB_QUALITY = 75;
+
+// Fast image factory — all images get decoding=async for non-blocking rendering.
+// Supabase-hosted sources are automatically downscaled via the transform endpoint.
 function _img(className, src) {
   const img = document.createElement('img');
   if (className) img.className = className;
   img.decoding = 'async';
-  if (src) img.src = src;
+  if (src) img.src = transformedImageUrl(src, { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
   return img;
 }
 
@@ -120,11 +141,11 @@ function renderFolderView(node, children, isTopLevel) {
 
     const img0 = document.createElement('img');
     img0.className = 'ken-burns-img active';
-    img0.src = urls[0];
+    img0.src = transformedImageUrl(urls[0], { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
 
     const img1 = document.createElement('img');
     img1.className = 'ken-burns-img inactive';
-    img1.src = urls[1] || urls[0];
+    img1.src = transformedImageUrl(urls[1] || urls[0], { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
 
     kbContainer.appendChild(img0);
     kbContainer.appendChild(img1);
@@ -344,10 +365,13 @@ function renderPhotoGrid(node) {
   container.className = 'photo-grid';
   
   const photos = node.metadata?.photos || [];
+  // Thumbs render at ~110×110 CSS px in a 3-col grid on mobile; 240px wide covers 2x DPR.
   photos.forEach((photo, i) => {
     const img = document.createElement('img');
     img.className = 'photo-thumb' + (i === 0 ? ' active' : '');
-    img.src = photo.url;
+    img.src = transformedImageUrl(photo.url, { width: 240, quality: 70 });
+    img.loading = 'lazy';
+    img.decoding = 'async';
     img.alt = photo.caption || 'Photo';
     img.dataset.index = i;
     container.appendChild(img);
@@ -362,7 +386,10 @@ function renderPhotoFullscreen(photo) {
   container.className = 'photo-fullscreen';
   
   const img = document.createElement('img');
-  img.src = photo.url;
+  // Fullscreen shows at most ~370×232 on mobile; 1200px covers 3x DPR and
+  // avoids downloading multi-MB originals for the common case.
+  img.src = transformedImageUrl(photo.url, { width: 1200, quality: 85 });
+  img.decoding = 'async';
   img.alt = photo.caption || 'Photo';
   container.appendChild(img);
   
@@ -691,7 +718,7 @@ function renderMusicAlbumsView(albums) {
     if (item.metadata.coverImage) {
       const img = document.createElement('img');
       img.className = 'list-item-image';
-      img.src = item.metadata.coverImage;
+      img.src = transformedImageUrl(item.metadata.coverImage, { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
       img.alt = item.title;
       el.appendChild(img);
     }
@@ -735,7 +762,7 @@ function renderMusicAlbumTracksView(album) {
     clip.className = 'album-cover-clip';
     const img = document.createElement('img');
     img.className = 'album-cover-small';
-    img.src = album.coverImage;
+    img.src = transformedImageUrl(album.coverImage, { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
     img.alt = album.name;
     clip.appendChild(img);
     header.appendChild(clip);
@@ -806,7 +833,7 @@ function renderMusicPlaylistsView(playlists) {
         // Single cover — full size
         mosaicEl.classList.remove('mosaic-grid');
         const img = document.createElement('img');
-        img.src = cells[0];
+        img.src = transformedImageUrl(cells[0], { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
         img.style.width = '100%';
         img.style.height = '100%';
         img.style.objectFit = 'cover';
@@ -815,7 +842,8 @@ function renderMusicPlaylistsView(playlists) {
         cells.forEach(src => {
           const img = document.createElement('img');
           img.className = 'mosaic-cell';
-          img.src = src;
+          // Mosaic cells render at half the tile size; 320 is plenty.
+          img.src = transformedImageUrl(src, { width: 320, quality: 70 });
           mosaicEl.appendChild(img);
         });
       }
@@ -868,7 +896,7 @@ function renderMusicPlaylistSongsView(playlist, songs) {
     if (uniqueCovers.length === 1) {
       const img = document.createElement('img');
       img.className = 'playlist-cover';
-      img.src = uniqueCovers[0];
+      img.src = transformedImageUrl(uniqueCovers[0], { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
       img.alt = playlist.title;
       clip.appendChild(img);
     } else {
@@ -879,7 +907,7 @@ function renderMusicPlaylistSongsView(playlist, songs) {
       cells.forEach(src => {
         const img = document.createElement('img');
         img.className = 'mosaic-cell';
-        img.src = src;
+        img.src = transformedImageUrl(src, { width: 320, quality: 70 });
         mosaic.appendChild(img);
       });
       clip.appendChild(mosaic);
@@ -890,7 +918,7 @@ function renderMusicPlaylistSongsView(playlist, songs) {
     clip.className = 'playlist-cover-clip';
     const img = document.createElement('img');
     img.className = 'playlist-cover';
-    img.src = playlist.metadata.coverImage;
+    img.src = transformedImageUrl(playlist.metadata.coverImage, { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
     img.alt = playlist.title;
     clip.appendChild(img);
     header.appendChild(clip);
@@ -923,7 +951,7 @@ function startKenBurns(container) {
     const [front, back] = kb.img0.classList.contains('active')
       ? [kb.img0, kb.img1]
       : [kb.img1, kb.img0];
-    back.src = kb.urls[next];
+    back.src = transformedImageUrl(kb.urls[next], { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
     back.classList.replace('inactive', 'active');
     front.classList.replace('active', 'inactive');
   }, 3500);
@@ -951,8 +979,8 @@ function swapKenBurnsPool(container, itemIndex) {
   const [front, back] = kb.img0.classList.contains('active')
     ? [kb.img0, kb.img1]
     : [kb.img1, kb.img0];
-  front.src = newUrls[0];
-  back.src = newUrls[1] || newUrls[0];
+  front.src = transformedImageUrl(newUrls[0], { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
+  back.src = transformedImageUrl(newUrls[1] || newUrls[0], { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
   // Ensure correct opacity state (no transition flash)
   front.style.transition = 'none';
   back.style.transition = 'none';
