@@ -1107,7 +1107,14 @@ a {
 
 .coverflow-backside-list {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.coverflow-backside-list::-webkit-scrollbar {
+  display: none;
 }
 
 /* ---- Brick Game ---- */

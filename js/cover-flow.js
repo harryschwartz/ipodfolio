@@ -187,10 +187,37 @@ class CoverFlow {
     }
   }
 
+  // After touch-scrolling the backside list, snap the selection index to the
+  // item closest to the viewport center so the wheel resumes from where the
+  // user is looking.
+  reanchorBacksideIndexFromScroll() {
+    const el = this.coverEls[this.activeIndex];
+    if (!el) return;
+    const list = el.querySelector('.coverflow-backside-list');
+    const items = el.querySelectorAll('.coverflow-backside .list-item');
+    if (!list || !items.length) return;
+    const rect = list.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    let closestIdx = this.backsideScrollIndex;
+    let closestDist = Infinity;
+    items.forEach((it, i) => {
+      const r = it.getBoundingClientRect();
+      const mid = r.top + r.height / 2;
+      const d = Math.abs(mid - midY);
+      if (d < closestDist) { closestDist = d; closestIdx = i; }
+    });
+    this.backsideScrollIndex = closestIdx;
+  }
+
   bindEvents() {
     const onForward = () => {
       if (this.selectedAlbum && !this.playingAlbum) {
-        // Scrolling backside list
+        if (this._backsideTouchScrolled) {
+          this._backsideTouchScrolled = false;
+          this.reanchorBacksideIndexFromScroll();
+          this.updateBacksideSelection();
+          return;
+        }
         if (this.backsideChildren && this.backsideScrollIndex < this.backsideChildren.length - 1) {
           this.backsideScrollIndex++;
           this.updateBacksideSelection();
@@ -204,6 +231,12 @@ class CoverFlow {
     
     const onBackward = () => {
       if (this.selectedAlbum && !this.playingAlbum) {
+        if (this._backsideTouchScrolled) {
+          this._backsideTouchScrolled = false;
+          this.reanchorBacksideIndexFromScroll();
+          this.updateBacksideSelection();
+          return;
+        }
         if (this.backsideScrollIndex > 0) {
           this.backsideScrollIndex--;
           this.updateBacksideSelection();
@@ -328,6 +361,12 @@ class MusicCoverFlow extends CoverFlow {
   bindMusicEvents() {
     const onForward = () => {
       if (this.selectedAlbum && !this.playingAlbum) {
+        if (this._backsideTouchScrolled) {
+          this._backsideTouchScrolled = false;
+          this.reanchorBacksideIndexFromScroll();
+          this.updateBacksideSelection();
+          return;
+        }
         if (this.backsideChildren && this.backsideScrollIndex < this.backsideChildren.length - 1) {
           this.backsideScrollIndex++;
           this.updateBacksideSelection();
@@ -341,6 +380,12 @@ class MusicCoverFlow extends CoverFlow {
 
     const onBackward = () => {
       if (this.selectedAlbum && !this.playingAlbum) {
+        if (this._backsideTouchScrolled) {
+          this._backsideTouchScrolled = false;
+          this.reanchorBacksideIndexFromScroll();
+          this.updateBacksideSelection();
+          return;
+        }
         if (this.backsideScrollIndex > 0) {
           this.backsideScrollIndex--;
           this.updateBacksideSelection();

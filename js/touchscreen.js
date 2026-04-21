@@ -135,6 +135,10 @@
 
   // Get the scrollable list container for the current view
   function getScrollContainer() {
+    // Cover Flow backside: the track list inside the active cover
+    if (isBacksideActive()) {
+      return document.querySelector('.coverflow-backside-list');
+    }
     if (!window.ipodApp || !window.ipodApp.currentView) return null;
     var view = window.ipodApp.currentView;
     // _listEl is the selectable-list or split-left container
@@ -146,7 +150,9 @@
   // Determine if the current view is a standard list that should use inertial scroll
   function isListView() {
     if (!window.ipodApp) return false;
-    // Don't use inertial scroll for cover flow, brick game, now playing, photos, or about
+    // Cover Flow backside track list: use inertial scroll
+    if (isBacksideActive()) return !!getScrollContainer();
+    // Don't use inertial scroll for cover flow (front), brick game, now playing, photos
     if (window.ipodApp.activeCoverFlow || window.ipodApp.activeBrickGame) return false;
     if (window.ipodApp.activeNowPlaying) return false;
     if (window.ipodApp.photoFullscreen) return false;
@@ -227,10 +233,15 @@
 
     if (!isSwiping) return;
 
-    // --- Inertial scroll for standard list views ---
-    if (isListView() && !inCoverFlow) {
+    // --- Inertial scroll for standard list views (and cover flow backside) ---
+    if (isListView()) {
       var container = getScrollContainer();
       if (container) {
+        // On backside, if the initial gesture is predominantly horizontal,
+        // don't consume it — let the swipe-right back gesture handle it.
+        if (onBackside && Math.abs(dx) > Math.abs(dy) * 1.5) {
+          return;
+        }
         var now = Date.now();
         var moveDy = e.clientY - lastMoveY;
         var dt = now - lastMoveTime;
@@ -243,9 +254,13 @@
         // Mark that touch scrolling happened so wheel can re-anchor
         if (window.ipodApp) {
           window.ipodApp._touchScrolled = true;
-          // Hide the highlight bar during touch scroll
-          var activeEl = container.querySelector('.list-item.active');
-          if (activeEl) activeEl.classList.remove('active');
+        }
+        // Hide the highlight bar during touch scroll
+        var activeEl = container.querySelector('.list-item.active');
+        if (activeEl) activeEl.classList.remove('active');
+        // Signal cover flow that backside scroll position is user-driven
+        if (onBackside && window.ipodApp && window.ipodApp.activeCoverFlow) {
+          window.ipodApp.activeCoverFlow._backsideTouchScrolled = true;
         }
         return; // Don't fire forwardscroll/backwardscroll events
       }
@@ -298,30 +313,44 @@
     var inCoverFlow = isCoverFlowActive();
     var onBackside = isBacksideActive();
 
-    // --- Inertial scroll momentum ---
-    if (isSwiping && isListView() && !inCoverFlow) {
+    // --- Swipe right to go back (menu) when on backside: check BEFORE inertia
+    // so a horizontal back-gesture doesn't get swallowed by momentum.
+    if (isSwiping && onBackside && dx > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      window.dispatchEvent(new Event('menuclick'));
+      return;
+    }
+
+    // --- Inertial scroll momentum (standard lists + cover flow backside) ---
+    if (isSwiping && isListView()) {
       startInertia();
       return;
     }
 
-    // Swipe right to go back (menu) when on backside
-    if (isSwiping && inCoverFlow && dx > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (onBackside) {
-        window.dispatchEvent(new Event('menuclick'));
-      }
-    } else if (!isSwiping && elapsed < 400 && Math.abs(dy) < 15 && Math.abs(dx) < 15) {
+    if (!isSwiping && elapsed < 400 && Math.abs(dy) < 15 && Math.abs(dx) < 15) {
       // --- Tap ---
-      if (isListView() && !inCoverFlow) {
+      if (isListView()) {
         // Tap on a list item: select the item at the tapped position
         var tappedIdx = getItemIndexAtY(e.clientY);
-        if (tappedIdx >= 0 && window.ipodApp) {
-          window.ipodApp.scrollIndex = tappedIdx;
-          window.ipodApp.updateListSelection();
-          // Small delay so the highlight flash is visible before navigation
-          centerClickFromScreen = true;
-          setTimeout(function() {
-            window.dispatchEvent(new Event('centerclick'));
-          }, 80);
+        if (tappedIdx >= 0) {
+          if (onBackside && window.ipodApp && window.ipodApp.activeCoverFlow) {
+            window.ipodApp.activeCoverFlow.backsideScrollIndex = tappedIdx;
+            // Avoid auto-scroll fighting the finger; just refresh highlight.
+            var bsItems = document.querySelectorAll('.coverflow-backside .list-item');
+            bsItems.forEach(function(it, i) {
+              it.classList.toggle('active', i === tappedIdx);
+            });
+            centerClickFromScreen = true;
+            setTimeout(function() {
+              window.dispatchEvent(new Event('centerclick'));
+            }, 80);
+          } else if (window.ipodApp) {
+            window.ipodApp.scrollIndex = tappedIdx;
+            window.ipodApp.updateListSelection();
+            centerClickFromScreen = true;
+            setTimeout(function() {
+              window.dispatchEvent(new Event('centerclick'));
+            }, 80);
+          }
         }
       } else {
         // Non-list views: plain centerclick
