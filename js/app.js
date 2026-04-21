@@ -21,7 +21,7 @@ class IPodApp {
     this.activeCoverFlow = null;
     this.activeBrickGame = null;
     this.activeNowPlaying = false;
-    this.nowPlayingControlState = 0; // 0=progress, 1=volume, 2=scrubber
+    this.nowPlayingControlState = 0; // 0=progress, 1=scrubber
     this.scrubPercent = 0;
     
     // Long-press tracking for center button
@@ -1280,12 +1280,7 @@ class IPodApp {
   // ---- Now Playing Controls ----
   handleNowPlayingScroll(direction) {
     if (this.nowPlayingControlState === 1) {
-      // Volume
-      if (direction === 'forward') audioPlayer.increaseVolume();
-      else audioPlayer.decreaseVolume();
-      this.updateNowPlayingUI();
-    } else if (this.nowPlayingControlState === 2) {
-      // Scrubber
+      // Scrubber — wheel scrolling steps the scrub position
       if (direction === 'forward') this.scrubPercent = Math.min(100, this.scrubPercent + 2);
       else this.scrubPercent = Math.max(0, this.scrubPercent - 2);
       audioPlayer.seek(this.scrubPercent);
@@ -1294,37 +1289,31 @@ class IPodApp {
   }
 
   cycleNowPlayingControl() {
-    this.nowPlayingControlState = (this.nowPlayingControlState + 1) % 3;
-    
-    if (this.nowPlayingControlState === 2) {
+    this.nowPlayingControlState = (this.nowPlayingControlState + 1) % 2;
+
+    if (this.nowPlayingControlState === 1) {
       this.scrubPercent = audioPlayer.getPercent();
     }
-    
+
     const progress = document.getElementById('np-progress-layer');
-    const volume = document.getElementById('np-volume-layer');
     const scrubber = document.getElementById('np-scrubber-layer');
-    
-    if (!progress || !volume || !scrubber) return;
-    
+
+    if (!progress || !scrubber) return;
+
     // Reset classes
     progress.className = 'controls-layer';
-    volume.className = 'controls-layer';
     scrubber.className = 'controls-layer';
-    
+
     switch (this.nowPlayingControlState) {
       case 0: // Progress visible
-        volume.classList.add('hidden-left');
         scrubber.classList.add('hidden-right');
         break;
-      case 1: // Volume visible
+      case 1: // Scrubber visible
         progress.classList.add('hidden-left');
-        scrubber.classList.add('hidden-right');
-        break;
-      case 2: // Scrubber visible
-        progress.classList.add('hidden-left');
-        volume.classList.add('hidden-left');
         break;
     }
+
+    this.updateNowPlayingUI();
   }
 
   updateNowPlayingUI() {
@@ -1458,15 +1447,11 @@ class IPodApp {
     if (remaining) remaining.textContent = '-' + formatTime(audioPlayer.getTimeRemaining());
     if (fill) fill.style.width = audioPlayer.getPercent() + '%';
     
-    // Volume
-    const volFill = document.getElementById('np-volume-fill');
-    if (volFill) volFill.style.width = (audioPlayer.volume * 100) + '%';
-    
     // Scrubber
     const scrubFill = document.getElementById('np-scrub-fill');
     const scrubTime = document.getElementById('np-scrub-time');
     const scrubRemaining = document.getElementById('np-scrub-remaining');
-    if (this.nowPlayingControlState === 2) {
+    if (this.nowPlayingControlState === 1) {
       if (scrubFill) scrubFill.style.width = this.scrubPercent + '%';
       const dur = audioPlayer.getDuration();
       const curScrub = (this.scrubPercent / 100) * dur;
@@ -1499,7 +1484,13 @@ class IPodApp {
         speedBadge._tapBound = true;
         speedBadge.addEventListener('pointerdown', (e) => {
           e.stopPropagation();
+          e.preventDefault();
           audioPlayer.cycleSpeed();
+        });
+        // Swallow any downstream click so it doesn't hit the screen handler.
+        speedBadge.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
         });
       }
     }

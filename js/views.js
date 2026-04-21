@@ -321,21 +321,7 @@ function renderNowPlayingView() {
     <span class="progress-time" id="np-remaining-time">--:--</span>
   `;
   
-  // Layer 2: Volume
-  const volumeLayer = document.createElement('div');
-  volumeLayer.className = 'controls-layer hidden-left';
-  volumeLayer.id = 'np-volume-layer';
-  volumeLayer.innerHTML = `
-    ${VOLUME_MUTE_SVG}
-    <div class="progress-bar-container" style="margin: 0 8px;">
-      <div class="progress-bar-track">
-        <div class="progress-bar-fill" id="np-volume-fill" style="width:70%"></div>
-      </div>
-    </div>
-    ${VOLUME_FULL_SVG}
-  `;
-  
-  // Layer 3: Scrubber
+  // Layer 2: Scrubber
   const scrubberLayer = document.createElement('div');
   scrubberLayer.className = 'controls-layer hidden-right';
   scrubberLayer.id = 'np-scrubber-layer';
@@ -352,11 +338,69 @@ function renderNowPlayingView() {
   `;
   
   controls.appendChild(progressLayer);
-  controls.appendChild(volumeLayer);
   controls.appendChild(scrubberLayer);
   container.appendChild(controls);
-  
+
+  // Direct-drag scrubbing on the scrubber bar. The scrubber layer stays hidden
+  // (`hidden-right`) until the user activates scrub mode via the select button;
+  // while hidden it has `pointer-events: none` so these handlers do nothing.
+  attachScrubberDrag(scrubberLayer);
+
   return container;
+}
+
+// Wire direct-drag pointer handlers on the scrubber layer. Dragging anywhere
+// along the progress bar (and its end-time labels) sets the scrub position
+// based on pointer X relative to the track.
+function attachScrubberDrag(scrubberLayer) {
+  const track = scrubberLayer.querySelector('.progress-bar-track');
+  const container = scrubberLayer.querySelector('.progress-bar-container');
+  if (!track || !container) return;
+
+  let dragging = false;
+  let activePointerId = null;
+
+  function pctFromEvent(e) {
+    const rect = track.getBoundingClientRect();
+    if (rect.width <= 0) return 0;
+    const x = e.clientX - rect.left;
+    return Math.max(0, Math.min(100, (x / rect.width) * 100));
+  }
+
+  function applyPercent(pct) {
+    if (!window.ipodApp) return;
+    window.ipodApp.scrubPercent = pct;
+    audioPlayer.seek(pct);
+    window.ipodApp.updateNowPlayingUI();
+  }
+
+  container.addEventListener('pointerdown', (e) => {
+    // Only respond when the user is in scrubber mode
+    if (!window.ipodApp || window.ipodApp.nowPlayingControlState !== 1) return;
+    dragging = true;
+    activePointerId = e.pointerId;
+    try { container.setPointerCapture(e.pointerId); } catch (_) {}
+    e.stopPropagation();
+    e.preventDefault();
+    applyPercent(pctFromEvent(e));
+  });
+
+  container.addEventListener('pointermove', (e) => {
+    if (!dragging || e.pointerId !== activePointerId) return;
+    e.stopPropagation();
+    e.preventDefault();
+    applyPercent(pctFromEvent(e));
+  });
+
+  function endDrag(e) {
+    if (!dragging || e.pointerId !== activePointerId) return;
+    dragging = false;
+    activePointerId = null;
+    try { container.releasePointerCapture(e.pointerId); } catch (_) {}
+    e.stopPropagation();
+  }
+  container.addEventListener('pointerup', endDrag);
+  container.addEventListener('pointercancel', endDrag);
 }
 
 // ---- Photo Album Grid ----

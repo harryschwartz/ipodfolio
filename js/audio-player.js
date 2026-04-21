@@ -124,7 +124,13 @@ class AudioPlayer {
     const speeds = [1, 1.5, 2];
     const idx = speeds.indexOf(this.playbackSpeed);
     this.playbackSpeed = speeds[(idx + 1) % speeds.length];
+    const wasPlaying = this.isPlaying && !this.isPaused;
     this.audio.playbackRate = this.playbackSpeed;
+    // Some browsers pause the <audio> element when playbackRate changes mid-stream.
+    // Resume playback if we were playing before the rate change.
+    if (wasPlaying && this.audio.src && this.audio.paused) {
+      this.audio.play().catch(() => {});
+    }
     this._notify();
   }
 
