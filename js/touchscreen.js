@@ -328,6 +328,20 @@
 
     if (!isSwiping && elapsed < 400 && Math.abs(dy) < 15 && Math.abs(dx) < 15) {
       // --- Tap ---
+      // If on the Cover Flow backside and the tap is OUTSIDE the backside box,
+      // treat it as "close" (same as pressing Menu).
+      if (onBackside) {
+        var bsEl = document.querySelector('.coverflow-backside');
+        if (bsEl) {
+          var br = bsEl.getBoundingClientRect();
+          var inside = e.clientX >= br.left && e.clientX <= br.right &&
+                       e.clientY >= br.top && e.clientY <= br.bottom;
+          if (!inside) {
+            window.dispatchEvent(new Event('menuclick'));
+            return;
+          }
+        }
+      }
       if (isListView()) {
         // Tap on a list item: select the item at the tapped position
         var tappedIdx = getItemIndexAtY(e.clientY);
