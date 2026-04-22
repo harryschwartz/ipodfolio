@@ -3,15 +3,22 @@
 
 // Rewrite a Supabase storage URL to use the on-the-fly image transform endpoint.
 // Works for URLs like: https://<proj>.supabase.co/storage/v1/object/public/<bucket>/<path>
-// Becomes: https://<proj>.supabase.co/storage/v1/render/image/public/<bucket>/<path>?width=<w>&quality=<q>
+// Becomes: https://<proj>.supabase.co/storage/v1/render/image/public/<bucket>/<path>?width=<w>&quality=<q>&resize=contain
 // For non-Supabase URLs, returns the original URL unchanged.
-function transformedImageUrl(url, { width, quality = 75 } = {}) {
+//
+// IMPORTANT: resize=contain preserves aspect ratio (maps to resizing_type:fit).
+// Without it, Supabase defaults to resizing_type:fill, which returns tall/wide
+// strips instead of proportional thumbnails — e.g. a landscape 1024x768 source
+// at ?width=240 returns 240x768 instead of 240x180. Combined with CSS
+// `object-fit: cover; aspect-ratio: 1;` this made thumbnails appear zoomed in.
+function transformedImageUrl(url, { width, quality = 75, resize = 'contain' } = {}) {
   if (!url || typeof url !== 'string') return url;
   if (!/supabase\.co\/storage\/v1\/object\/public\//.test(url)) return url;
   const rendered = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
   const params = new URLSearchParams();
   if (width) params.set('width', String(width));
   if (quality) params.set('quality', String(quality));
+  if (resize) params.set('resize', String(resize));
   const qs = params.toString();
   return qs ? `${rendered}?${qs}` : rendered;
 }
