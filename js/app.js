@@ -255,28 +255,24 @@ class IPodApp {
     }
 
     if (this.photoFullscreen) {
+      // Exit fullscreen back to the photo grid (do NOT leave the album).
+      // When fullscreen was entered, a { type: 'photo_album', scrollIndex: photoIndex }
+      // marker was pushed onto navStack to remember which photo was being viewed;
+      // pop it and re-render the current album as a grid, scrolled to that photo.
       this.photoFullscreen = false;
       this.photoNode = null;
-      // Pop the photo grid entry, then pop again to reach the parent folder
-      if (this.navStack.length > 0) this.navStack.pop(); // discard photo_album grid
+      let restoreIndex = 0;
       if (this.navStack.length > 0) {
-        const prev = this.navStack.pop();
-        this._restoreMusicState(prev);
-        if (prev.nodeId === null) {
-          this.currentNode = null;
-          this.currentItems = this._getHomeItems();
-          this.scrollIndex = prev.scrollIndex;
-          this.setHeaderTitle("Harry's iPortfolio");
-          const view = renderFolderView(null, this.currentItems, true);
-          this.transitionTo(view, 'left');
-          startKenBurns(view);
-          this.updateListSelection();
-        } else {
-          const node = getNode(prev.nodeId);
-          this.currentNode = node;
-          this.scrollIndex = prev.scrollIndex;
-          this.renderNode(node, 'left', prev.scrollIndex);
+        const marker = this.navStack[this.navStack.length - 1];
+        if (marker && marker.type === 'photo_album') {
+          this.navStack.pop();
+          restoreIndex = marker.scrollIndex || 0;
         }
+      }
+      this.photoIndex = restoreIndex;
+      this.scrollIndex = restoreIndex;
+      if (this.currentNode && this.currentNode.type === 'photo_album') {
+        this.renderNode(this.currentNode, 'left', restoreIndex);
       }
       return;
     }
@@ -461,14 +457,21 @@ class IPodApp {
       }
       case 'photo_album': {
         this.photoNode = node;
-        this.photoIndex = 0;
+        // When returning from fullscreen (via menu), restoreIndex carries the
+        // photo the user was viewing so the grid highlights it.
+        const idx = (restoreIndex !== undefined && restoreIndex !== null) ? restoreIndex : 0;
+        this.photoIndex = idx;
+        this.scrollIndex = idx;
         this.setHeaderTitle(node.title);
         const view = renderPhotoGrid(node);
         this.currentItems = node.metadata?.photos || [];
         this.transitionTo(view, direction);
-        // Warm the Supabase transform + HTTP cache for the first few
-        // fullscreen-sized images so that opening one feels instant.
-        this._prefetchPhotosAround(node.metadata?.photos || [], 0, 2);
+        // Wait a tick so the newly transitioned view becomes currentView before
+        // applying the selection highlight.
+        requestAnimationFrame(() => this.updatePhotoGridSelection());
+        // Warm the Supabase transform + HTTP cache for photos near the selected
+        // one so opening fullscreen (or scrolling) feels instant.
+        this._prefetchPhotosAround(node.metadata?.photos || [], idx, 2);
         break;
       }
       case 'text': {
