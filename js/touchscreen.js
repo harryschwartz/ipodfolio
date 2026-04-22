@@ -1,103 +1,20 @@
-// Touchscreen Navigation + Info Button
+// Touchscreen Navigation
 // Adds tap-to-select and swipe-to-scroll on the iPod screen.
-// Tracks whether user only uses the screen (no wheel/buttons) —
-// if so, after a threshold, shows the instructions overlay.
 //
 // Two scroll modes:
 // 1) Wheel scroll: moves highlight (selection bar) one item at a time, view follows
 // 2) Touchscreen scroll: inertial content scrolling (like iPhone), no highlight movement.
 //    Tap to select whatever item is at that position.
+//
+// The old labeled instructions overlay + ℹ️ info button have been replaced by
+// the animated hand-cursor hints managed by tutorial-overlay.js. Those hints
+// auto-dismiss when the user performs the taught action (center press /
+// wheel scroll), so no explicit touchscreen dismissal is needed here.
 
 (function () {
   'use strict';
 
   var SWIPE_THRESHOLD = 30;       // px to count as a swipe
-  var TOUCH_ONLY_LIMIT = 5;       // screen-only taps before showing instructions
-  var screenTouchCount = 0;
-  var wheelUsed = false;
-  var overlayShownByTouch = false;
-
-  // --- Info Button (inside the iPod shell) ---
-  var infoBtn = document.createElement('button');
-  infoBtn.className = 'info-btn';
-  infoBtn.setAttribute('aria-label', 'Show controls help');
-  infoBtn.textContent = '\u2139\uFE0F';
-  // Place inside the shell so it's anchored to the iPod, not the viewport
-  var shellEl = document.querySelector('.ipod-shell');
-  if (shellEl) {
-    shellEl.appendChild(infoBtn);
-  } else {
-    document.body.appendChild(infoBtn);
-  }
-
-  var infoOverlayActive = false;
-
-  infoBtn.addEventListener('pointerdown', function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleInfoOverlay();
-  });
-
-  function toggleInfoOverlay() {
-    if (infoOverlayActive) {
-      hideInfoOverlay();
-    } else {
-      showInfoOverlay();
-    }
-  }
-
-  function showInfoOverlay() {
-    if (infoOverlayActive) return;
-    if (!window.ipodTutorialOverlay) return;
-    infoOverlayActive = true;
-    window.ipodTutorialOverlay._showForInfo();
-  }
-
-  function hideInfoOverlay() {
-    if (!infoOverlayActive) return;
-    infoOverlayActive = false;
-    if (window.ipodTutorialOverlay) {
-      window.ipodTutorialOverlay._hideForInfo();
-    }
-  }
-
-  // Expose for external use
-  window.ipodInfoOverlay = {
-    get isActive() { return infoOverlayActive; },
-    toggle: toggleInfoOverlay,
-    hide: hideInfoOverlay,
-  };
-
-  // --- Track wheel/button usage ---
-  ['forwardscroll', 'backwardscroll', 'menuclick',
-   'playpauseclick', 'forwardclick', 'backclick'].forEach(function (evt) {
-    window.addEventListener(evt, function () {
-      wheelUsed = true;
-      dismissTouchOverlay();
-    });
-  });
-
-  // centerclick also counts as wheel usage IF it didn't come from touchscreen
-  var centerClickFromScreen = false;
-  window.addEventListener('centerclick', function () {
-    if (!centerClickFromScreen) {
-      wheelUsed = true;
-      dismissTouchOverlay();
-    }
-    centerClickFromScreen = false;
-  });
-
-  function dismissTouchOverlay() {
-    // Dismiss the info overlay if it was auto-triggered
-    if (overlayShownByTouch && infoOverlayActive) {
-      hideInfoOverlay();
-      overlayShownByTouch = false;
-    }
-    // Dismiss the initial tutorial overlay that persists from boot
-    if (window.ipodTutorialOverlay && window.ipodTutorialOverlay.isActive && !infoOverlayActive) {
-      window.ipodTutorialOverlay.dismiss();
-    }
-  }
 
   // --- Touchscreen on iPod screen ---
   var touchStartY = 0;
@@ -112,6 +29,15 @@
   var lastMoveY = 0;
   var lastMoveTime = 0;
   var velocityY = 0;
+
+  // Tracks whether a centerclick originated from a screen tap (vs. a real
+  // click on the physical center button). Consumed by the centerclick
+  // listener below so we can still distinguish the two sources if needed.
+  var centerClickFromScreen = false;
+  window.addEventListener('centerclick', function () {
+    // Reset the flag each time so the next event starts fresh.
+    centerClickFromScreen = false;
+  });
 
   function initTouchscreen() {
     var screenEl = document.querySelector('.screen-content');
@@ -299,17 +225,6 @@
     var elapsed = Date.now() - touchStartTime;
     touchStartTime = 0;
 
-    // If info overlay is showing (from ℹ️ button), screen tap dismisses it
-    if (infoOverlayActive && !isSwiping && elapsed < 400) {
-      hideInfoOverlay();
-      overlayShownByTouch = false;
-      return; // consume the tap
-    }
-    // If initial tutorial is still visible, don't dismiss on screen tap
-    if (window.ipodTutorialOverlay && window.ipodTutorialOverlay.isActive && !infoOverlayActive) {
-      // Still allow the tap to fire centerclick for navigation, overlay just stays
-    }
-
     var inCoverFlow = isCoverFlowActive();
     var onBackside = isBacksideActive();
 
@@ -370,15 +285,6 @@
         // Non-list views: plain centerclick
         centerClickFromScreen = true;
         window.dispatchEvent(new Event('centerclick'));
-      }
-
-      // Count screen-only touches (skip during boot/QR)
-      if (!wheelUsed && window.ipodApp && !window.ipodApp.bootScreenActive && !window.ipodApp.desktopQRActive) {
-        screenTouchCount++;
-        if (screenTouchCount >= TOUCH_ONLY_LIMIT && !infoOverlayActive && !overlayShownByTouch) {
-          overlayShownByTouch = true;
-          showInfoOverlay();
-        }
       }
     }
   }

@@ -1353,84 +1353,125 @@ a {
 }
 
 /* ============================================
-   Tutorial Callouts — floating labels on iPod body
+   Tutorial Hand Hints — animated floating hand cursor
    ============================================ */
-.tutorial-callouts-container {
-  opacity: 0;
-  transition: opacity 0.4s ease;
-}
-
-.tutorial-callouts-container.tutorial-callouts-visible {
-  opacity: 1;
-}
-
-.tutorial-callouts-container.tutorial-callouts-hiding {
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-svg.tutorial-callouts-visible {
-  opacity: 1;
-  transition: opacity 0.4s ease;
-}
-
-svg.tutorial-callouts-hiding {
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-/* Callout shared styles */
-.tutorial-callout {
+.tutorial-hand-container {
+  /* Container fills the shell; children are absolutely positioned. */
   pointer-events: none;
-  white-space: nowrap;
 }
 
-.callout-label {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+/* Shared fade-out class applied right before removal */
+.tutorial-select-hint,
+.tutorial-scroll-hint {
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+.tutorial-select-hint.tutorial-hide,
+.tutorial-scroll-hint.tutorial-hide { opacity: 0; }
+
+/* Both hints fade in gently on mount */
+.tutorial-select-hint { animation: tut-fade-in 0.45s ease both; }
+.tutorial-scroll-hint { animation: tut-fade-in 0.45s ease both; }
+@keyframes tut-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-.callout-label-left {
-  text-align: right;
+/* ---- Hand icon (shared) ---- */
+.tutorial-hand {
+  position: absolute;
+  width: 38px;
+  height: 44px;
+  transform-origin: 46% 8%; /* at the fingertip */
+  will-change: transform;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2));
+}
+.tutorial-hand svg { width: 100%; height: 100%; display: block; }
+
+/* ---- SELECT hint: hand tap bob + ring pulse on the center button ---- */
+.tutorial-hand-select {
+  animation: tut-hand-tap 1.3s ease-in-out infinite;
+}
+@keyframes tut-hand-tap {
+  0%   { transform: translate(0, -4px) rotate(-6deg); }
+  45%  { transform: translate(0,  2px) rotate(-4deg); }
+  55%  { transform: translate(0,  2px) rotate(-4deg); }
+  100% { transform: translate(0, -4px) rotate(-6deg); }
 }
 
-.callout-label-right {
-  text-align: left;
+.tutorial-tap-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(33,150,243,0.85);
+  box-sizing: border-box;
+  opacity: 0;
+  animation: tut-ring-pulse 1.3s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes tut-ring-pulse {
+  0%   { transform: scale(0.55); opacity: 0.9; }
+  70%  { transform: scale(1.35); opacity: 0; }
+  100% { transform: scale(1.35); opacity: 0; }
 }
 
-.callout-title {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  color: #333;
-  line-height: 1.2;
+/* ---- SCROLL hint: dashed arc + hand orbits clockwise on the rim ---- */
+.tutorial-arc-path {
+  stroke: rgba(33,150,243,0.85);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 4 5;
+  animation: tut-arc-march 1s linear infinite;
+}
+@keyframes tut-arc-march {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -18; }
+}
+.tutorial-arc-head {
+  fill: rgba(33,150,243,0.95);
 }
 
-.callout-desc {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 9px;
-  color: #555;
-  line-height: 1.3;
-  max-width: 120px;
+/* Hand orbits: uses CSS custom properties set from JS:
+     --tut-cx, --tut-cy  — wheel center (in shell-relative px)
+     --tut-r             — orbit radius (on-rim)
+     --tut-tip-x/y       — fingertip offset within the SVG */
+.tutorial-hand-scroll {
+  top: 0;
+  left: 0;
+  /* Place fingertip at the orbit center, then rotate out to radius. */
+  transform-origin: var(--tut-tip-x) var(--tut-tip-y);
+  animation: tut-hand-orbit 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes tut-hand-orbit {
+  /* Fingertip travels along the upper-right→lower-right arc.
+     translate(cx - tipX, cy - tipY) puts fingertip at wheel center;
+     rotate spins around the transform-origin (the fingertip);
+     translate(0, -r) offsets the hand *outward* along the rotated axis.
+     CSS rotate(0deg) points the offset vector straight up. To match the
+     math-convention arc (angles from +X axis, CCW positive) the CSS angle
+     is (math_angle + 90°):
+       upper-right: math -60°  → CSS  30°
+       lower-right: math +45°  → CSS 135° */
+  0%   { transform: translate(calc(var(--tut-cx) - var(--tut-tip-x)), calc(var(--tut-cy) - var(--tut-tip-y))) rotate(30deg)  translate(0, calc(-1 * var(--tut-r))); }
+  50%  { transform: translate(calc(var(--tut-cx) - var(--tut-tip-x)), calc(var(--tut-cy) - var(--tut-tip-y))) rotate(135deg) translate(0, calc(-1 * var(--tut-r))); }
+  100% { transform: translate(calc(var(--tut-cx) - var(--tut-tip-x)), calc(var(--tut-cy) - var(--tut-tip-y))) rotate(30deg)  translate(0, calc(-1 * var(--tut-r))); }
 }
 
-.callout-label-left .callout-desc {
-  margin-left: auto;
-}
-
-/* Desktop callout sizing — larger text with room outside the shell */
-@media (min-width: 577px) {
-  .callout-title {
-    font-size: 13px;
+/* Respect reduced-motion: still show the hand, just freeze animations. */
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-hand-select,
+  .tutorial-hand-scroll,
+  .tutorial-tap-ring,
+  .tutorial-arc-path {
+    animation: none;
   }
-  .callout-desc {
-    font-size: 10px;
-    max-width: 140px;
+  .tutorial-hand-scroll {
+    /* Freeze at roughly the midpoint of the orbit (math 0° = CSS 90°). */
+    transform: translate(calc(var(--tut-cx) - var(--tut-tip-x)), calc(var(--tut-cy) - var(--tut-tip-y))) rotate(80deg) translate(0, calc(-1 * var(--tut-r)));
   }
 }
 
-/* Mobile adjustments */
+/* Mobile tweaks */
 @media (max-width: 576px) {
   .boot-logo-img {
     width: 80px;
@@ -1442,40 +1483,6 @@ svg.tutorial-callouts-hiding {
   .boot-hint {
     font-size: 12px;
   }
-  .callout-title {
-    font-size: 10px;
-  }
-  .callout-desc {
-    font-size: 8px;
-    max-width: 90px;
-    white-space: normal;
-  }
-}
-
-/* ============================================
-   Info Button
-   ============================================ */
-.info-btn {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  background: none;
-  color: inherit;
-  font-size: 18px;
-  cursor: pointer;
-  z-index: 20000;
-  -webkit-tap-highlight-color: transparent;
-  border: none;
-  padding: 0;
-  line-height: 1;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  transition: opacity 0.2s;
-  opacity: 0.55;
-  touch-action: manipulation;
-  pointer-events: auto;
-}
-.info-btn:hover {
-  opacity: 1;
 }
 
 .tutorial-ringer-hint {

@@ -105,6 +105,11 @@ class IPodApp {
     this.setHeaderTitle("Harry's iPodfolio");
     const view = window.ipodQROverlay.renderView();
     this.transitionTo(view, 'none');
+    // Keep the SELECT-button hand hint visible — dismissing the QR
+    // uses the same center press.
+    if (window.ipodTutorialOverlay) {
+      window.ipodTutorialOverlay.showSelectHint();
+    }
   }
 
   dismissDesktopQR() {
@@ -124,15 +129,19 @@ class IPodApp {
     // Render the boot screen inside the iPod display
     const bootView = window.ipodTutorialOverlay.renderBootView();
     this.transitionTo(bootView, 'none');
-    // Show floating callout labels around the clickwheel
-    window.ipodTutorialOverlay.showCallouts();
+    // Show the animated hand cursor hovering over the center button.
+    window.ipodTutorialOverlay.showSelectHint();
   }
 
   dismissBootScreen() {
     this.bootScreenActive = false;
-    // Keep tutorial callouts visible — they'll be dismissed when
-    // the user uses the actual wheel/buttons (handled by touchscreen.js)
-    // Desktop: show QR screen next. Mobile: go straight to home.
+    // Desktop: show QR screen next (hint stays up). Mobile: go straight to
+    // home and swap to the scroll-wheel hint. Either way, the select hint
+    // is explicitly hidden first so there's no visual overlap during the
+    // view transition — the next screen decides which (if any) hint to show.
+    if (window.ipodTutorialOverlay) {
+      window.ipodTutorialOverlay.dismissSelectHint();
+    }
     if (window.ipodQROverlay && window.ipodQROverlay.shouldShow()) {
       this.showDesktopQR();
     } else {
@@ -171,8 +180,19 @@ class IPodApp {
   }
 
   bindEvents() {
-    window.addEventListener('forwardscroll', () => this.onScroll('forward'));
-    window.addEventListener('backwardscroll', () => this.onScroll('backward'));
+    window.addEventListener('forwardscroll', () => {
+      // First scroll on the home screen dismisses the scroll-hand hint.
+      if (window.ipodTutorialOverlay && window.ipodTutorialOverlay.currentHint === 'scroll') {
+        window.ipodTutorialOverlay.dismissScrollHint();
+      }
+      this.onScroll('forward');
+    });
+    window.addEventListener('backwardscroll', () => {
+      if (window.ipodTutorialOverlay && window.ipodTutorialOverlay.currentHint === 'scroll') {
+        window.ipodTutorialOverlay.dismissScrollHint();
+      }
+      this.onScroll('backward');
+    });
     window.addEventListener('centerclick', () => this.onCenterClick());
     window.addEventListener('menuclick', () => this.onMenuClick());
     window.addEventListener('playpauseclick', () => this.onPlayPause());
@@ -206,6 +226,14 @@ class IPodApp {
     const view = renderFolderView(null, this.currentItems, true);
     this.transitionTo(view, 'none');
     startKenBurns(view);
+
+    // On the FIRST-ever home visit, show the scroll-wheel hand hint to teach
+    // the user that they can navigate by dragging the wheel. Subsequent
+    // returns to home (after navigating into a folder) do not re-show it.
+    if (!this._scrollHintShown && window.ipodTutorialOverlay && window.ipodTutorialOverlay.shouldShow()) {
+      this._scrollHintShown = true;
+      window.ipodTutorialOverlay.showScrollHint();
+    }
   }
 
   navigateTo(node, direction) {

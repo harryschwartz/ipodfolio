@@ -1,36 +1,43 @@
-// Tutorial Overlay — Shows how to use the iPod interface
-// Renders a boot screen INSIDE the iPod display (Apple logo + "Harry's iPortfolio")
-// and floats callout labels around the clickwheel, constrained to the iPod shell.
-// No blur overlay — just labels + connector arms on the iPod body.
-// On desktop: shown after dismissing the QR "best on mobile" screen.
-// On mobile: shown immediately on first visit.
-// Dismissed when the user presses the select (center) button or menu button.
+// Tutorial Overlay — Animated floating-hand hints
+// Two hints teach the two gestures users need on page 1 (landing/boot+QR) and
+// page 2 (home):
+//   • SELECT hint — a floating hand hovers above the center "select" button with
+//     a concentric tap-pulse ring. Shown on the boot screen and the desktop QR
+//     screen. Dismissed the moment the user presses center.
+//   • SCROLL hint — a floating hand orbits the upper-right rim of the click
+//     wheel, tracing a dashed arc in the scroll direction. Shown on the home
+//     screen. Dismissed the moment the user scrolls (forward or backward).
 //
-// Architecture: SVG + label container are placed INSIDE the .ipod-shell as
-// position:absolute children. All coordinates are relative to the shell's top-left.
-// This avoids position:fixed vs getBoundingClientRect() viewport mismatches
-// across iOS browsers (Safari, Chrome, Comet).
+// Architecture: a single absolute-positioned container lives inside the
+// .ipod-shell so all coordinates are shell-relative (robust across mobile
+// browsers). No blur, no modal — just floating elements on the shell body.
+//
+// Public API (unchanged names kept where possible):
+//   renderBootView()  — returns the iPod-screen content for the boot screen
+//   showSelectHint()  — show the center-button hand + pulse
+//   showScrollHint()  — show the wheel-orbiting hand + arc
+//   dismissSelectHint() / dismissScrollHint() — hide without transition reset
+//   hideAll()         — hide whichever hint is visible
 
 (function () {
   'use strict';
 
-  var calloutContainer = null;
-  var svgEl = null;
-  var dismissed = false;
+  var container = null;      // shell-relative positioned container
+  var currentHint = null;    // 'select' | 'scroll' | null
   var resizeTimer = null;
 
   function shouldShow() {
+    // Skip when running as an installed PWA — the onboarding has already been
+    // done on first launch, and fullscreen standalone mode hides the wheel.
     var isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     if (isStandalone) return false;
     return true;
   }
 
-  /**
-   * Renders the boot screen view for the iPod screen-content area.
-   */
+  // ---- Boot screen content (unchanged) ----
   function renderBootView() {
-    var container = document.createElement('div');
-    container.className = 'boot-screen-view';
+    var view = document.createElement('div');
+    view.className = 'boot-screen-view';
 
     var logoDiv = document.createElement('div');
     logoDiv.className = 'boot-logo';
@@ -40,483 +47,354 @@
     logoImg.className = 'boot-logo-img';
     logoImg.draggable = false;
     logoDiv.appendChild(logoImg);
-    container.appendChild(logoDiv);
+    view.appendChild(logoDiv);
 
     var title = document.createElement('div');
     title.className = 'boot-title';
     title.textContent = "Harry's iPortfolio";
-    container.appendChild(title);
+    view.appendChild(title);
 
     var hint = document.createElement('div');
     hint.className = 'boot-hint';
     hint.textContent = 'Press \u25CF to enter';
-    container.appendChild(hint);
+    view.appendChild(hint);
 
-    return container;
+    return view;
   }
 
-  /**
-   * Show the floating callout labels + SVG connector lines.
-   * Container and SVG are placed inside the iPod shell as absolute-positioned children.
-   */
-  function showCallouts() {
-    if (dismissed || calloutContainer) return;
-
+  // ---- Container lifecycle ----
+  function ensureContainer() {
+    if (container) return container;
     var shell = document.querySelector('.ipod-shell');
-    if (!shell) return;
+    if (!shell) return null;
 
-    // Ensure shell is a positioning context
-    var shellPos = getComputedStyle(shell).position;
-    if (shellPos === 'static') shell.style.position = 'relative';
-
-    // On desktop, allow labels to extend past the shell
-    var isDesktop = !window.matchMedia('(max-width: 576px)').matches;
-    if (isDesktop) {
-      shell.style.overflow = 'visible';
+    // Shell must be a positioning context
+    if (getComputedStyle(shell).position === 'static') {
+      shell.style.position = 'relative';
     }
 
-    calloutContainer = document.createElement('div');
-    calloutContainer.className = 'tutorial-callouts-container';
-    calloutContainer.style.position = 'absolute';
-    calloutContainer.style.left = '0';
-    calloutContainer.style.top = '0';
-    calloutContainer.style.width = '100%';
-    calloutContainer.style.height = '100%';
-    calloutContainer.style.zIndex = '10001';
-    calloutContainer.style.pointerEvents = 'none';
-    calloutContainer.style.overflow = isDesktop ? 'visible' : 'hidden';
+    container = document.createElement('div');
+    container.className = 'tutorial-hand-container';
+    container.style.position = 'absolute';
+    container.style.inset = '0';
+    container.style.pointerEvents = 'none';
+    container.style.zIndex = '10001';
+    container.style.overflow = 'visible';
+    shell.appendChild(container);
 
-    svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svgEl.style.position = 'absolute';
-    svgEl.style.left = '0';
-    svgEl.style.top = '0';
-    svgEl.style.width = '100%';
-    svgEl.style.height = '100%';
-    svgEl.style.overflow = isDesktop ? 'visible' : 'hidden';
-    svgEl.style.pointerEvents = 'none';
-    svgEl.style.zIndex = '10000';
-
-    shell.appendChild(svgEl);
-    shell.appendChild(calloutContainer);
-
-    // Wait for layout to settle. On desktop, .ipod-shell has a 1.5s descend
-    // animation that scales from 0.3 -> 1.0. Measuring getBoundingClientRect()
-    // mid-animation yields the wrong wheel/button positions, so we must wait
-    // for animationend (with a safety timeout) before building the callouts.
-    function finalizeCallouts() {
-      if (!calloutContainer || !svgEl) return;
-      requestAnimationFrame(function () {
-        requestAnimationFrame(function () {
-          if (!calloutContainer || !svgEl) return;
-          rebuildCallouts();
-          addRingerHint();
-          calloutContainer.classList.add('tutorial-callouts-visible');
-          svgEl.classList.add('tutorial-callouts-visible');
-        });
-      });
-    }
-
-    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var animName = getComputedStyle(shell).animationName;
-    var hasDescend = !reduceMotion && animName && animName !== 'none';
-
-    if (hasDescend) {
-      var finalized = false;
-      var runOnce = function () {
-        if (finalized) return;
-        finalized = true;
-        shell.removeEventListener('animationend', onAnimEnd);
-        finalizeCallouts();
-      };
-      var onAnimEnd = function (e) {
-        // Only fire for the shell's own animation, not a descendant's
-        if (e.target !== shell) return;
-        runOnce();
-      };
-      shell.addEventListener('animationend', onAnimEnd);
-      // Safety fallback in case animationend never fires
-      setTimeout(runOnce, 1700);
-    } else {
-      // No animation (mobile or reduced-motion): just wait for layout
-      setTimeout(finalizeCallouts, 50);
-    }
+    addRingerHint(); // stays visible regardless of which hint is active
 
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
+
+    return container;
   }
 
   function onResize() {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(function () {
-      rebuildCallouts();
-    }, 200);
-  }
-
-  function rebuildCallouts() {
-    if (!calloutContainer || !svgEl) return;
-    calloutContainer.innerHTML = '';
-    while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
-
-    var shell = document.querySelector('.ipod-shell');
-    if (!shell) return;
-    var shellRect = shell.getBoundingClientRect();
-    var shellW = shellRect.width;
-    var shellH = shellRect.height;
-    svgEl.setAttribute('viewBox', '0 0 ' + shellW + ' ' + shellH);
-    buildCallouts();
-    addRingerHint();
-  }
-
-  /**
-   * 90-degree elbow path from (x1,y1) to (x2,y2).
-   */
-  function elbowPath(x1, y1, x2, y2, direction) {
-    if (Math.abs(y1 - y2) < 2 && Math.abs(x1 - x2) < 2) {
-      return 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y2;
-    }
-    if (Math.abs(y1 - y2) < 2) {
-      return 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y2;
-    }
-    if (Math.abs(x1 - x2) < 2) {
-      return 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y2;
-    }
-    if (direction === 'h-first') {
-      return 'M' + x1 + ',' + y1 + ' L' + x2 + ',' + y1 + ' L' + x2 + ',' + y2;
-    } else {
-      return 'M' + x1 + ',' + y1 + ' L' + x1 + ',' + y2 + ' L' + x2 + ',' + y2;
-    }
-  }
-
-  function buildCallouts() {
-    if (!calloutContainer || !svgEl) return;
-
-    var wheel = document.querySelector('.clickwheel');
-    var menuBtn = document.querySelector('.wheel-button.top');
-    var centerBtn = document.querySelector('.center-button');
-    var rewindBtn = document.querySelector('.wheel-button.left');
-    var forwardBtn = document.querySelector('.wheel-button.right');
-    var playPauseBtn = document.querySelector('.wheel-button.bottom');
-    var shell = document.querySelector('.ipod-shell');
-
-    if (!wheel || !shell) return;
-
-    var lineColor = 'rgba(0,0,0,0.5)';
-    var dotColor = 'rgba(0,0,0,0.6)';
-
-    // All coordinates are relative to shell's top-left
-    var shellRect = shell.getBoundingClientRect();
-    var shellW = shellRect.width;
-    var shellH = shellRect.height;
-
-    // Convert an element's getBoundingClientRect to shell-relative coords
-    function toShell(rect) {
-      return {
-        left: rect.left - shellRect.left,
-        top: rect.top - shellRect.top,
-        width: rect.width,
-        height: rect.height,
-        right: rect.right - shellRect.left,
-        bottom: rect.bottom - shellRect.top,
-      };
-    }
-
-    function centerOfEl(el) {
-      var r = toShell(el.getBoundingClientRect());
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-    }
-
-    // Screen bounds (shell-relative)
-    var screenEl = document.querySelector('.ipod-screen');
-    var screenR = screenEl ? toShell(screenEl.getBoundingClientRect()) : null;
-    var screenBottom = screenR ? screenR.bottom : 0;
-
-    // Wheel bounds (shell-relative)
-    var wr = toShell(wheel.getBoundingClientRect());
-    var wheelCx = wr.left + wr.width / 2;
-    var wheelCy = wr.top + wr.height / 2;
-    var wheelR = wr.width / 2;
-    // Use viewport width for mobile detection, not shell width.
-    // On mobile (<=576px viewport), shell is 100vw with room for labels.
-    // On desktop, shell is fixed 370px — too narrow for labels beside the wheel,
-    // so we hide the overlay entirely and rely on the info button.
-    var isMobile = window.matchMedia('(max-width: 576px)').matches;
-
-    // Padding from shell edges
-    var pad = 8;
-
-    function makeDot(x, y) {
-      var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      dot.setAttribute('cx', x);
-      dot.setAttribute('cy', y);
-      dot.setAttribute('r', 3);
-      dot.setAttribute('fill', dotColor);
-      svgEl.appendChild(dot);
-    }
-
-    function makePath(d) {
-      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', d);
-      path.setAttribute('stroke', lineColor);
-      path.setAttribute('stroke-width', 1.5);
-      path.setAttribute('fill', 'none');
-      svgEl.appendChild(path);
-    }
-
-    function makeLabel(title, desc, x, y, align) {
-      var el = document.createElement('div');
-      el.className = 'tutorial-callout';
-      el.style.position = 'absolute';
-
-      var textDiv = document.createElement('div');
-      textDiv.className = 'callout-label';
-
-      if (align === 'right') {
-        el.style.left = x + 'px';
-        el.style.top = y + 'px';
-        el.style.transform = 'translateY(-50%)';
-        textDiv.classList.add('callout-label-right');
-      } else if (align === 'left') {
-        el.style.right = (shellW - x) + 'px';
-        el.style.top = y + 'px';
-        el.style.transform = 'translateY(-50%)';
-        textDiv.classList.add('callout-label-left');
-      } else if (align === 'center-below') {
-        el.style.left = x + 'px';
-        el.style.top = y + 'px';
-        el.style.transform = 'translateX(-50%)';
-        textDiv.style.textAlign = 'center';
-      }
-
-      var titleSpan = document.createElement('span');
-      titleSpan.className = 'callout-title';
-      titleSpan.textContent = title;
-      textDiv.appendChild(titleSpan);
-
-      if (desc) {
-        var descSpan = document.createElement('span');
-        descSpan.className = 'callout-desc';
-        descSpan.textContent = desc;
-        textDiv.appendChild(descSpan);
-      }
-
-      el.appendChild(textDiv);
-      calloutContainer.appendChild(el);
-    }
-
-    if (isMobile) {
-      // ---- MOBILE LAYOUT ----
-      // All dot positions computed from wheel geometry only (no getBoundingClientRect on buttons)
-      //   LEFT: Menu, Previous, Play/Pause
-      //   RIGHT: Scroll Wheel, Next, Select
-
-      var minLabelY = screenBottom + 14;
-
-      // Label anchors: halfway between wheel edge and shell edge
-      var mLeftAnchor = pad + (wr.left - pad) * 0.5;
-      var mRightAnchor = shellW - pad - (shellW - pad - wr.right) * 0.5;
-
-      // Dot positions derived from wheel center + radius
-      var menuDotX = wheelCx;
-      var menuDotY = wr.top + 6;
-      var prevDotX = wr.left + 6;
-      var prevDotY = wheelCy;
-      var nextDotX = wr.right - 6;
-      var nextDotY = wheelCy;
-      var ppDotX = wheelCx;
-      var ppDotY = wr.bottom - 6;
-      var selectDotX = wheelCx;
-      var selectDotY = wheelCy;
-
-      // Play/Pause Y (Select label will share this Y)
-      var ppLabelY = Math.min(ppDotY, shellH - 30);
-
-      // --- SCROLL WHEEL (upper-right rim) → label RIGHT ---
-      var scrollAngle = -55 * Math.PI / 180;
-      var scrollDotX = wheelCx + Math.cos(scrollAngle) * (wheelR - 6);
-      var scrollDotY = wheelCy + Math.sin(scrollAngle) * (wheelR - 6);
-      var scrollLabelY = Math.max(scrollDotY, minLabelY);
-      makeDot(scrollDotX, scrollDotY);
-      makeLabel('Scroll Wheel', 'Slide to browse', mRightAnchor, scrollLabelY, 'left');
-      makePath('M' + scrollDotX + ',' + scrollDotY + ' L' + mRightAnchor + ',' + scrollDotY +
-        (Math.abs(scrollLabelY - scrollDotY) > 3 ? ' L' + mRightAnchor + ',' + scrollLabelY : ''));
-
-      // --- MENU (top of wheel) → line LEFT then down to label ---
-      var menuLabelY = Math.max(menuDotY, minLabelY);
-      makeDot(menuDotX, menuDotY);
-      makeLabel('Menu', 'Go back', mLeftAnchor, menuLabelY, 'right');
-      makePath('M' + menuDotX + ',' + menuDotY + ' L' + mLeftAnchor + ',' + menuDotY +
-        (Math.abs(menuLabelY - menuDotY) > 3 ? ' L' + mLeftAnchor + ',' + menuLabelY : ''));
-
-      // --- PREVIOUS (left of wheel) → straight line LEFT ---
-      makeDot(prevDotX, prevDotY);
-      makeLabel('Previous', 'Skip back', mLeftAnchor, prevDotY, 'right');
-      makePath('M' + prevDotX + ',' + prevDotY + ' L' + mLeftAnchor + ',' + prevDotY);
-
-      // --- NEXT (right of wheel) → straight line RIGHT ---
-      makeDot(nextDotX, nextDotY);
-      makeLabel('Next', 'Skip forward', mRightAnchor, nextDotY, 'left');
-      makePath('M' + nextDotX + ',' + nextDotY + ' L' + mRightAnchor + ',' + nextDotY);
-
-      // --- SELECT (center of wheel) → diagonal to label RIGHT ---
-      var selectLabelY = Math.min(ppLabelY, shellH - 30);
-      makeDot(selectDotX, selectDotY);
-      makeLabel('Select', 'Press to choose', mRightAnchor, selectLabelY, 'left');
-      var selMidX = (selectDotX + mRightAnchor) / 2;
-      makePath('M' + selectDotX + ',' + selectDotY + ' L' + selMidX + ',' + selectLabelY + ' L' + mRightAnchor + ',' + selectLabelY);
-
-      // --- PLAY/PAUSE (bottom of wheel) → straight line LEFT ---
-      makeDot(ppDotX, ppDotY);
-      makeLabel('Play / Pause', 'Control playback', mLeftAnchor, ppLabelY, 'right');
-      makePath('M' + ppDotX + ',' + ppDotY +
-        (Math.abs(ppLabelY - ppDotY) > 3 ? ' L' + mLeftAnchor + ',' + ppDotY + ' L' + mLeftAnchor + ',' + ppLabelY
-          : ' L' + mLeftAnchor + ',' + ppDotY));
-
-    } else {
-      // ---- DESKTOP LAYOUT ----
-      // Arm-based labels extending past the shell edges.
-      // The shell overflow is set to visible, so labels and SVG lines
-      // can extend beyond the 370px shell.
-
-      var dExtend = 130; // px to extend labels beyond shell edges
-      var dMinY = screenBottom + 8;
-
-      // Make the SVG wider to span the extended area so SVG coords
-      // match CSS pixel coords 1:1 (no viewBox scaling).
-      var totalW = shellW + dExtend * 2;
-      svgEl.style.width = totalW + 'px';
-      svgEl.style.left = (-dExtend) + 'px';
-      svgEl.setAttribute('viewBox', '0 0 ' + totalW + ' ' + shellH);
-      // Shift all SVG x-coords by dExtend so shell-relative x=0 maps to SVG x=dExtend
-      var svgOff = dExtend;
-
-      // Dot positions from wheel geometry (shell-relative, used for both CSS labels and SVG)
-      var dMenuDotX = wheelCx;
-      var dMenuDotY = wr.top + 6;
-      var dPrevDotX = wr.left + 6;
-      var dPrevDotY = wheelCy;
-      var dNextDotX = wr.right - 6;
-      var dNextDotY = wheelCy;
-      var dPPDotX = wheelCx;
-      var dPPDotY = wr.bottom - 6;
-      var dSelectDotX = wheelCx;
-      var dSelectDotY = wheelCy;
-
-      // Label anchors (CSS shell-relative): past the shell edges
-      var dLeftAnchor = -dExtend + 10;
-      var dRightAnchor = shellW + dExtend - 10;
-
-      // SVG anchor x-coords (shifted by svgOff)
-      var svgLeftAnchor = dLeftAnchor + svgOff;
-      var svgRightAnchor = dRightAnchor + svgOff;
-
-      var dPPLabelY = Math.min(dPPDotY, shellH - 30);
-
-      // --- SCROLL WHEEL (upper-right rim) → label RIGHT ---
-      var dScrollAngle = -55 * Math.PI / 180;
-      var dScrollDotX = wheelCx + Math.cos(dScrollAngle) * (wheelR - 6);
-      var dScrollDotY = wheelCy + Math.sin(dScrollAngle) * (wheelR - 6);
-      var dScrollLabelY = Math.max(dScrollDotY, dMinY);
-      makeDot(dScrollDotX + svgOff, dScrollDotY);
-      makeLabel('Scroll Wheel', 'Slide to browse', dRightAnchor, dScrollLabelY, 'left');
-      makePath('M' + (dScrollDotX + svgOff) + ',' + dScrollDotY + ' L' + svgRightAnchor + ',' + dScrollDotY +
-        (Math.abs(dScrollLabelY - dScrollDotY) > 3 ? ' L' + svgRightAnchor + ',' + dScrollLabelY : ''));
-
-      // --- MENU (top of wheel) → label LEFT ---
-      var dMenuLabelY = Math.max(dMenuDotY, dMinY);
-      makeDot(dMenuDotX + svgOff, dMenuDotY);
-      makeLabel('Menu', 'Go back', dLeftAnchor, dMenuLabelY, 'right');
-      makePath('M' + (dMenuDotX + svgOff) + ',' + dMenuDotY + ' L' + svgLeftAnchor + ',' + dMenuDotY +
-        (Math.abs(dMenuLabelY - dMenuDotY) > 3 ? ' L' + svgLeftAnchor + ',' + dMenuLabelY : ''));
-
-      // --- PREVIOUS (left of wheel) → label LEFT ---
-      makeDot(dPrevDotX + svgOff, dPrevDotY);
-      makeLabel('Previous', 'Skip back', dLeftAnchor, dPrevDotY, 'right');
-      makePath('M' + (dPrevDotX + svgOff) + ',' + dPrevDotY + ' L' + svgLeftAnchor + ',' + dPrevDotY);
-
-      // --- NEXT (right of wheel) → label RIGHT ---
-      makeDot(dNextDotX + svgOff, dNextDotY);
-      makeLabel('Next', 'Skip forward', dRightAnchor, dNextDotY, 'left');
-      makePath('M' + (dNextDotX + svgOff) + ',' + dNextDotY + ' L' + svgRightAnchor + ',' + dNextDotY);
-
-      // --- SELECT (center) → diagonal to label RIGHT ---
-      var dSelectLabelY = Math.min(dPPLabelY, shellH - 30);
-      makeDot(dSelectDotX + svgOff, dSelectDotY);
-      makeLabel('Select', 'Press to choose', dRightAnchor, dSelectLabelY, 'left');
-      var dSelMidX = ((dSelectDotX + svgOff) + svgRightAnchor) / 2;
-      makePath('M' + (dSelectDotX + svgOff) + ',' + dSelectDotY + ' L' + dSelMidX + ',' + dSelectLabelY + ' L' + svgRightAnchor + ',' + dSelectLabelY);
-
-      // --- PLAY/PAUSE (bottom of wheel) → label LEFT ---
-      makeDot(dPPDotX + svgOff, dPPDotY);
-      makeLabel('Play / Pause', 'Control playback', dLeftAnchor, dPPLabelY, 'right');
-      makePath('M' + (dPPDotX + svgOff) + ',' + dPPDotY +
-        (Math.abs(dPPLabelY - dPPDotY) > 3 ? ' L' + svgLeftAnchor + ',' + dPPDotY + ' L' + svgLeftAnchor + ',' + dPPLabelY
-          : ' L' + svgLeftAnchor + ',' + dPPDotY));
-    }
-
+      if (currentHint === 'select') positionSelectHint();
+      else if (currentHint === 'scroll') positionScrollHint();
+    }, 120);
   }
 
   function addRingerHint() {
-    if (!calloutContainer) return;
+    if (!container || container.querySelector('.tutorial-ringer-hint')) return;
     var hint = document.createElement('div');
     hint.className = 'tutorial-ringer-hint';
     hint.textContent = 'turn ringer on for full experience';
-    calloutContainer.appendChild(hint);
+    container.appendChild(hint);
   }
 
-  function hideCallouts() {
-    window.removeEventListener('resize', onResize);
-    window.removeEventListener('orientationchange', onResize);
+  // ---- Hand icon (reused by both hints) ----
+  // Tiny SVG of a pointing hand with a soft drop shadow. currentColor on fill
+  // so we can theme it via CSS.
+  var HAND_SVG = (
+    '<svg viewBox="0 0 48 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+      '<defs>' +
+        '<filter id="tutHandShadow" x="-50%" y="-20%" width="200%" height="160%">' +
+          '<feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.35"/>' +
+        '</filter>' +
+      '</defs>' +
+      '<g filter="url(#tutHandShadow)">' +
+        // palm + fingers (simplified index-finger-pointing hand)
+        '<path fill="#ffffff" stroke="#1c1c1c" stroke-width="1.6" stroke-linejoin="round" d="' +
+          'M22 4 C20 4 18.5 5.5 18.5 7.5 L18.5 24 ' +        // index finger (up)
+          'L15 24 C13 24 11.5 25.5 11.5 27.5 ' +              // knuckle dip
+          'L11.5 34 ' +
+          'C11.5 36 10 37.5 8 37.5 ' +                        // thumb
+          'C7 37.5 6 38.5 6 39.5 ' +
+          'L6 42 ' +
+          'C6 49 12 54 20 54 L28 54 ' +
+          'C36 54 42 49 42 42 L42 32 ' +
+          'C42 30 40.5 28.5 38.5 28.5 C36.5 28.5 35 30 35 32 L35 30 ' +
+          'C35 28 33.5 26.5 31.5 26.5 C29.5 26.5 28 28 28 30 L28 28 ' +
+          'C28 26 26.5 24.5 24.5 24.5 C23 24.5 22 25.5 21.5 26 ' +
+          'L21.5 26 L25.5 7.5 ' +
+          'C25.5 5.5 24 4 22 4 Z' +
+        '"/>' +
+      '</g>' +
+    '</svg>'
+  );
 
-    // Restore shell overflow
+  function makeHand() {
+    var hand = document.createElement('div');
+    hand.className = 'tutorial-hand';
+    hand.innerHTML = HAND_SVG;
+    return hand;
+  }
+
+  // ---- Geometry helpers ----
+  function shellRect() {
     var shell = document.querySelector('.ipod-shell');
-    if (shell) shell.style.overflow = '';
+    return shell ? shell.getBoundingClientRect() : null;
+  }
 
-    if (calloutContainer) {
-      calloutContainer.classList.add('tutorial-callouts-hiding');
-      setTimeout(function () {
-        if (calloutContainer && calloutContainer.parentNode) {
-          calloutContainer.parentNode.removeChild(calloutContainer);
-        }
-        calloutContainer = null;
-      }, 400);
+  function elRectInShell(el) {
+    var sr = shellRect();
+    if (!sr || !el) return null;
+    var r = el.getBoundingClientRect();
+    return {
+      left: r.left - sr.left,
+      top: r.top - sr.top,
+      width: r.width,
+      height: r.height,
+      cx: r.left - sr.left + r.width / 2,
+      cy: r.top - sr.top + r.height / 2,
+    };
+  }
+
+  // ====================================================================
+  // SELECT hint — hand hovers above center button, tap-ring pulses on it
+  // ====================================================================
+
+  var selectEls = null; // { hand, ring }
+
+  function showSelectHint() {
+    if (!shouldShow()) return;
+    if (currentHint === 'select') return;
+    hideAll();
+    var c = ensureContainer();
+    if (!c) return;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'tutorial-select-hint';
+
+    var ring = document.createElement('div');
+    ring.className = 'tutorial-tap-ring';
+    wrap.appendChild(ring);
+
+    var hand = makeHand();
+    hand.classList.add('tutorial-hand-select');
+    wrap.appendChild(hand);
+
+    c.appendChild(wrap);
+    selectEls = { wrap: wrap, hand: hand, ring: ring };
+    currentHint = 'select';
+
+    // Position after two rAFs so the shell's descend animation doesn't throw
+    // off getBoundingClientRect on first paint.
+    waitForShellSettle(positionSelectHint);
+  }
+
+  function positionSelectHint() {
+    if (!selectEls) return;
+    var centerBtn = document.querySelector('.center-button');
+    if (!centerBtn) return;
+    var r = elRectInShell(centerBtn);
+    if (!r) return;
+
+    // Ring sits centered on the button, same diameter.
+    var ringSize = Math.max(r.width, r.height);
+    selectEls.ring.style.width = ringSize + 'px';
+    selectEls.ring.style.height = ringSize + 'px';
+    selectEls.ring.style.left = (r.cx - ringSize / 2) + 'px';
+    selectEls.ring.style.top = (r.cy - ringSize / 2) + 'px';
+
+    // Hand floats slightly up-and-right of the center button.
+    var handW = 38, handH = 44;
+    selectEls.hand.style.width = handW + 'px';
+    selectEls.hand.style.height = handH + 'px';
+    // Position so the fingertip (~top of hand) points at the button center.
+    // The hand's fingertip is at roughly (x=22/48, y=4/56) of the SVG viewBox.
+    var tipOffsetX = handW * (22 / 48);
+    var tipOffsetY = handH * (4 / 56);
+    // Offset the hand diagonally down-right from the button so the pointer
+    // finger tip sits on the button's top edge.
+    var offsetX = r.width * 0.22;   // right of center
+    var offsetY = r.height * 0.15;  // below center (hand body extends down)
+    selectEls.hand.style.left = (r.cx + offsetX - tipOffsetX) + 'px';
+    selectEls.hand.style.top = (r.cy + offsetY - tipOffsetY) + 'px';
+  }
+
+  function dismissSelectHint() {
+    if (currentHint !== 'select' || !selectEls) return;
+    selectEls.wrap.classList.add('tutorial-hide');
+    var wrap = selectEls.wrap;
+    setTimeout(function () { if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 320);
+    selectEls = null;
+    currentHint = null;
+  }
+
+  // ====================================================================
+  // SCROLL hint — hand orbits upper-right rim of wheel, arc shows direction
+  // ====================================================================
+
+  var scrollEls = null; // { wrap, arcSvg, hand }
+
+  function showScrollHint() {
+    if (!shouldShow()) return;
+    if (currentHint === 'scroll') return;
+    hideAll();
+    var c = ensureContainer();
+    if (!c) return;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'tutorial-scroll-hint';
+
+    // Dashed arc SVG (absolute-positioned inside wrap)
+    var arcSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    arcSvg.setAttribute('class', 'tutorial-arc');
+    arcSvg.style.position = 'absolute';
+    arcSvg.style.left = '0';
+    arcSvg.style.top = '0';
+    arcSvg.style.overflow = 'visible';
+    arcSvg.style.pointerEvents = 'none';
+    wrap.appendChild(arcSvg);
+
+    var hand = makeHand();
+    hand.classList.add('tutorial-hand-scroll');
+    wrap.appendChild(hand);
+
+    c.appendChild(wrap);
+    scrollEls = { wrap: wrap, arcSvg: arcSvg, hand: hand };
+    currentHint = 'scroll';
+
+    waitForShellSettle(positionScrollHint);
+  }
+
+  function positionScrollHint() {
+    if (!scrollEls) return;
+    var wheel = document.querySelector('.clickwheel');
+    if (!wheel) return;
+    var r = elRectInShell(wheel);
+    if (!r) return;
+
+    var cx = r.cx;
+    var cy = r.cy;
+    // Orbit radius: just outside the ring (past the click wheel rim).
+    var wheelRadius = Math.min(r.width, r.height) / 2;
+    var orbitR = wheelRadius - 10;  // on the ring itself
+
+    // Arc: from 30° (upper-right) sweeping clockwise to 110° (lower-right).
+    // Math angle convention (0 = right, CCW positive). To draw clockwise we
+    // go from -50° (upper-right) to -170° — but we want the arc to be the
+    // visible upper-right quadrant.
+    // We'll use SVG arc: start = upper-right, end = lower-right, clockwise.
+    var a1 = -60 * Math.PI / 180; // upper-right starting angle
+    var a2 =  45 * Math.PI / 180; // lower-right ending angle
+    var startX = cx + Math.cos(a1) * orbitR;
+    var startY = cy + Math.sin(a1) * orbitR;
+    var endX   = cx + Math.cos(a2) * orbitR;
+    var endY   = cy + Math.sin(a2) * orbitR;
+
+    // Clear + rebuild arc
+    while (scrollEls.arcSvg.firstChild) scrollEls.arcSvg.removeChild(scrollEls.arcSvg.firstChild);
+
+    // Size the svg to cover the shell for simplicity
+    var sr = shellRect();
+    scrollEls.arcSvg.setAttribute('width', sr.width);
+    scrollEls.arcSvg.setAttribute('height', sr.height);
+    scrollEls.arcSvg.setAttribute('viewBox', '0 0 ' + sr.width + ' ' + sr.height);
+
+    var arc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    // sweep-flag = 1 (clockwise); large-arc-flag = 0 (minor arc)
+    arc.setAttribute('d',
+      'M' + startX + ',' + startY +
+      ' A' + orbitR + ',' + orbitR + ' 0 0 1 ' + endX + ',' + endY);
+    arc.setAttribute('class', 'tutorial-arc-path');
+    arc.setAttribute('fill', 'none');
+    scrollEls.arcSvg.appendChild(arc);
+
+    // Arrowhead at the end of the arc — small triangle tangent to circle.
+    var tangent = a2 + Math.PI / 2; // clockwise tangent direction
+    var ah = 6;
+    var ax = endX, ay = endY;
+    var p1x = ax + Math.cos(tangent) * ah;
+    var p1y = ay + Math.sin(tangent) * ah;
+    var p2x = ax + Math.cos(tangent + 2.4) * ah;
+    var p2y = ay + Math.sin(tangent + 2.4) * ah;
+    var p3x = ax + Math.cos(tangent - 2.4) * ah;
+    var p3y = ay + Math.sin(tangent - 2.4) * ah;
+    var head = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    head.setAttribute('points', p1x + ',' + p1y + ' ' + p2x + ',' + p2y + ' ' + p3x + ',' + p3y);
+    head.setAttribute('class', 'tutorial-arc-head');
+    scrollEls.arcSvg.appendChild(head);
+
+    // Configure the hand to orbit via CSS custom props.
+    // It moves along the arc from a1 → a2 → a1 (back and forth).
+    var handW = 34, handH = 40;
+    scrollEls.hand.style.width = handW + 'px';
+    scrollEls.hand.style.height = handH + 'px';
+    scrollEls.hand.style.setProperty('--tut-cx', cx + 'px');
+    scrollEls.hand.style.setProperty('--tut-cy', cy + 'px');
+    scrollEls.hand.style.setProperty('--tut-r', orbitR + 'px');
+    // Fingertip offset (same as select hint)
+    scrollEls.hand.style.setProperty('--tut-tip-x', (handW * (22 / 48)) + 'px');
+    scrollEls.hand.style.setProperty('--tut-tip-y', (handH * (4 / 56)) + 'px');
+  }
+
+  function dismissScrollHint() {
+    if (currentHint !== 'scroll' || !scrollEls) return;
+    scrollEls.wrap.classList.add('tutorial-hide');
+    var wrap = scrollEls.wrap;
+    setTimeout(function () { if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 320);
+    scrollEls = null;
+    currentHint = null;
+  }
+
+  // ---- Utility: wait for the desktop shell's descend animation ----
+  // On desktop the .ipod-shell has a 1.5s scale animation on load. Measuring
+  // element positions before it completes yields wrong coordinates, so we
+  // wait for animationend with a safety timeout before positioning.
+  function waitForShellSettle(callback) {
+    var shell = document.querySelector('.ipod-shell');
+    if (!shell) { setTimeout(callback, 0); return; }
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var animName = getComputedStyle(shell).animationName;
+    var hasDescend = !reduceMotion && animName && animName !== 'none';
+    if (!hasDescend) {
+      requestAnimationFrame(function () { requestAnimationFrame(callback); });
+      return;
     }
-    if (svgEl) {
-      svgEl.classList.add('tutorial-callouts-hiding');
-      setTimeout(function () {
-        if (svgEl && svgEl.parentNode) {
-          svgEl.parentNode.removeChild(svgEl);
-        }
-        svgEl = null;
-      }, 400);
+    var done = false;
+    function finish() {
+      if (done) return;
+      done = true;
+      shell.removeEventListener('animationend', onEnd);
+      requestAnimationFrame(function () { requestAnimationFrame(callback); });
     }
+    function onEnd(e) { if (e.target === shell) finish(); }
+    shell.addEventListener('animationend', onEnd);
+    setTimeout(finish, 1700);
   }
 
-  function dismiss() {
-    if (dismissed) return;
-    dismissed = true;
-    hideCallouts();
+  // ---- Public dismissal ----
+  function hideAll() {
+    dismissSelectHint();
+    dismissScrollHint();
   }
 
-  // Info-button toggling (separate from the one-time boot dismiss)
-  function showForInfo() {
-    // Temporarily un-dismiss so showCallouts works
-    var wasDismissed = dismissed;
-    dismissed = false;
-    showCallouts();
-    dismissed = wasDismissed; // keep original boot-dismiss state
-  }
-
-  function hideForInfo() {
-    hideCallouts();
-  }
-
+  // ---- Public API ----
   window.ipodTutorialOverlay = {
     shouldShow: shouldShow,
     renderBootView: renderBootView,
-    showCallouts: showCallouts,
-    dismiss: dismiss,
-    _showForInfo: showForInfo,
-    _hideForInfo: hideForInfo,
-    get isActive() { return !!calloutContainer; },
+    showSelectHint: showSelectHint,
+    showScrollHint: showScrollHint,
+    dismissSelectHint: dismissSelectHint,
+    dismissScrollHint: dismissScrollHint,
+    hideAll: hideAll,
+    get currentHint() { return currentHint; },
+    get isActive() { return !!currentHint; },
   };
 })();
