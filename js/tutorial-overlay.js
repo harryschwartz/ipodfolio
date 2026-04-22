@@ -107,8 +107,17 @@
   }
 
   // ---- Hand icon (reused by both hints) ----
-  // Tiny SVG of a pointing hand with a soft drop shadow. currentColor on fill
-  // so we can theme it via CSS.
+  // Traditional browser-style pointing-hand cursor: closed fist with the
+  // index finger extended straight up. Fingertip sits at (22, 4) of the
+  // viewBox so the positioning math in showSelectHint / showScrollHint
+  // stays accurate.
+  //
+  // The shape is a single closed path traced like this (clockwise from
+  // the fingertip):
+  //   up the right side of the index finger → over the top → down the
+  //   left side → across the three bumped knuckles of the folded
+  //   fingers → down the pinky side → across the wrist → up the thumb
+  //   side → over the thumb tip → back up to the fingertip.
   var HAND_SVG = (
     '<svg viewBox="0 0 48 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
       '<defs>' +
@@ -117,21 +126,42 @@
         '</filter>' +
       '</defs>' +
       '<g filter="url(#tutHandShadow)">' +
-        // palm + fingers (simplified index-finger-pointing hand)
-        '<path fill="#ffffff" stroke="#1c1c1c" stroke-width="1.6" stroke-linejoin="round" d="' +
-          'M22 4 C20 4 18.5 5.5 18.5 7.5 L18.5 24 ' +        // index finger (up)
-          'L15 24 C13 24 11.5 25.5 11.5 27.5 ' +              // knuckle dip
-          'L11.5 34 ' +
-          'C11.5 36 10 37.5 8 37.5 ' +                        // thumb
-          'C7 37.5 6 38.5 6 39.5 ' +
-          'L6 42 ' +
-          'C6 49 12 54 20 54 L28 54 ' +
-          'C36 54 42 49 42 42 L42 32 ' +
-          'C42 30 40.5 28.5 38.5 28.5 C36.5 28.5 35 30 35 32 L35 30 ' +
-          'C35 28 33.5 26.5 31.5 26.5 C29.5 26.5 28 28 28 30 L28 28 ' +
-          'C28 26 26.5 24.5 24.5 24.5 C23 24.5 22 25.5 21.5 26 ' +
-          'L21.5 26 L25.5 7.5 ' +
-          'C25.5 5.5 24 4 22 4 Z' +
+        '<path fill="#ffffff" stroke="#1c1c1c" stroke-width="1.6" ' +
+              'stroke-linejoin="round" stroke-linecap="round" d="' +
+          // Fingertip, down the right side of the index finger to the
+          // top of the knuckles.
+          'M22 4 ' +
+          'C24.5 4 25.5 5.8 25.5 8 ' +
+          'L25.5 26 ' +
+          // Middle-finger knuckle bump.
+          'C25.5 24.5 26.8 23.5 28.5 23.5 ' +
+          'C30.2 23.5 31.5 24.8 31.5 26.5 ' +
+          'L31.5 29 ' +
+          // Ring-finger knuckle bump.
+          'C31.5 27.5 32.8 26.5 34.2 26.5 ' +
+          'C35.9 26.5 37 27.8 37 29.5 ' +
+          'L37 32 ' +
+          // Pinky knuckle bump.
+          'C37 30.8 38 29.8 39.2 29.8 ' +
+          'C40.5 29.8 41.5 30.8 41.5 32.2 ' +
+          'L41.5 42 ' +
+          // Down the pinky side, curve across the wrist / palm base.
+          'C41.5 49 35.5 54 28 54 ' +
+          'L20 54 ' +
+          'C13 54 8 49.5 7 43 ' +
+          // Up the thumb side: wrist ridge then the thumb tip.
+          'L5.5 35 ' +
+          'C5.2 33.5 6 32 7.5 31.6 ' +
+          'C9 31.2 10.5 32 11 33.5 ' +
+          'L12 37 ' +
+          // Back up into the palm edge next to the index finger base.
+          'L12 27.5 ' +
+          'C12 25.8 13.3 24.5 15 24.5 ' +
+          'C16.7 24.5 18 25.8 18 27.5 ' +
+          'L18.5 27.5 ' +
+          // Up the left side of the index finger back to the tip.
+          'L18.5 8 ' +
+          'C18.5 5.8 19.5 4 22 4 Z' +
         '"/>' +
       '</g>' +
     '</svg>'
