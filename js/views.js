@@ -413,11 +413,12 @@ function renderPhotoGrid(node) {
   photos.forEach((photo, i) => {
     const img = document.createElement('img');
     img.className = 'photo-thumb' + (i === 0 ? ' active' : '');
-    img.src = transformedImageUrl(photo.url, { width: 240, quality: 70 });
     img.loading = 'lazy';
     img.decoding = 'async';
     img.alt = photo.caption || 'Photo';
     img.dataset.index = i;
+    // attachPhotoLoader gives us onerror fallback to the original URL.
+    attachPhotoLoader(img, photo, { width: 240, quality: 70 });
     container.appendChild(img);
   });
   
@@ -425,25 +426,66 @@ function renderPhotoGrid(node) {
 }
 
 // ---- Photo Fullscreen ----
+// Attach a loader with retry/fallback: if the Supabase transform fetch fails
+// (cold edge, 504, network flake), fall back to the original un-transformed
+// URL before giving up. Also shows a shimmer skeleton while loading.
+function attachPhotoLoader(img, photo, transformOpts) {
+  const transformed = transformedImageUrl(photo.url, transformOpts);
+  let attempt = 0;
+  img.classList.add('photo-loading');
+  const onLoad = () => {
+    img.classList.remove('photo-loading');
+    img.classList.remove('photo-error');
+  };
+  const onError = () => {
+    attempt += 1;
+    if (attempt === 1 && transformed !== photo.url) {
+      // Transform endpoint failed — try the original storage URL directly.
+      img.src = photo.url;
+      return;
+    }
+    if (attempt === 2) {
+      // Second failure — one retry with cache-bust on the transform URL.
+      img.src = transformed + (transformed.includes('?') ? '&' : '?') + 'r=' + Date.now();
+      return;
+    }
+    // Give up: show an error state so the user sees something tangible.
+    img.classList.remove('photo-loading');
+    img.classList.add('photo-error');
+  };
+  img.addEventListener('load', onLoad);
+  img.addEventListener('error', onError);
+  img.src = transformed;
+}
+
 function renderPhotoFullscreen(photo) {
   const container = document.createElement('div');
   container.className = 'photo-fullscreen';
-  
+
+  // Skeleton shimmer shown until the image loads.
+  const skeleton = document.createElement('div');
+  skeleton.className = 'photo-skeleton';
+  container.appendChild(skeleton);
+
   const img = document.createElement('img');
   // Fullscreen shows at most ~370×232 on mobile; 1200px covers 3x DPR and
   // avoids downloading multi-MB originals for the common case.
-  img.src = transformedImageUrl(photo.url, { width: 1200, quality: 85 });
   img.decoding = 'async';
+  img.loading = 'eager';
+  img.fetchPriority = 'high';
+  img.setAttribute('fetchpriority', 'high');
   img.alt = photo.caption || 'Photo';
+  img.addEventListener('load', () => skeleton.remove(), { once: true });
+  attachPhotoLoader(img, photo, { width: 1200, quality: 85 });
   container.appendChild(img);
-  
+
   if (photo.caption) {
     const cap = document.createElement('div');
     cap.className = 'photo-caption';
     cap.textContent = photo.caption;
     container.appendChild(cap);
   }
-  
+
   return container;
 }
 

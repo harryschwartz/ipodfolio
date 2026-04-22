@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ipodfolio-v64';
+const CACHE_NAME = 'ipodfolio-v65';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -79,12 +79,14 @@ self.addEventListener('fetch', (event) => {
   // Audio files: never cache (too large, streaming is fine)
   if (isAudioRequest(url)) return;
 
-  // Images: cache-first (serve from cache instantly, update in background)
+  // Images: cache-first (serve from cache instantly, update in background).
+  // If there is no cached copy, race the network against a 6s timeout so a
+  // hung request doesn't block the <img> forever — letting onerror kick in
+  // and trigger our retry/fallback logic in views.js.
   if (isImageRequest(url)) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
         cache.match(event.request).then((cached) => {
-          // Kick off background fetch to refresh cache
           const networkFetch = fetch(event.request).then((response) => {
             if (response.status === 200) {
               cache.put(event.request, response.clone());
@@ -92,8 +94,27 @@ self.addEventListener('fetch', (event) => {
             return response;
           }).catch(() => null);
 
-          // Return cached immediately, or wait for network
-          return cached || networkFetch;
+          if (cached) {
+            // Return cached immediately; network refresh runs in background.
+            return cached;
+          }
+
+          // Race network against a 6s timeout to avoid hung requests.
+          return new Promise((resolve) => {
+            let done = false;
+            const timer = setTimeout(() => {
+              if (done) return;
+              done = true;
+              // Hand back a 504 so the <img> fires onerror cleanly.
+              resolve(new Response('', { status: 504, statusText: 'Image timeout' }));
+            }, 6000);
+            networkFetch.then((resp) => {
+              if (done) return;
+              done = true;
+              clearTimeout(timer);
+              resolve(resp || new Response('', { status: 504, statusText: 'Image fetch failed' }));
+            });
+          });
         })
       )
     );

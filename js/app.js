@@ -466,6 +466,9 @@ class IPodApp {
         const view = renderPhotoGrid(node);
         this.currentItems = node.metadata?.photos || [];
         this.transitionTo(view, direction);
+        // Warm the Supabase transform + HTTP cache for the first few
+        // fullscreen-sized images so that opening one feels instant.
+        this._prefetchPhotosAround(node.metadata?.photos || [], 0, 2);
         break;
       }
       case 'text': {
@@ -1511,16 +1514,40 @@ class IPodApp {
     }
     const view = renderPhotoFullscreen(photos[this.photoIndex]);
     this.transitionTo(view, direction === 'forward' ? 'right' : 'left');
-    // Prefetch the neighbor in the direction of travel so the next press
-    // feels instant.
-    const nextIdx = direction === 'backward'
-      ? (this.photoIndex - 1 + photos.length) % photos.length
-      : (this.photoIndex + 1) % photos.length;
-    const nextPhoto = photos[nextIdx];
-    if (nextPhoto?.url && typeof transformedImageUrl === 'function') {
+    // Prefetch ±2 in the direction of travel so rapid-fire scrolls stay warm.
+    this._prefetchPhotosAround(photos, this.photoIndex, 2, direction);
+  }
+
+  // Shared photo prefetch helper. Kicks off low-priority image requests for
+  // the fullscreen-sized versions of nearby photos so they’re already in the
+  // browser (and service worker) cache by the time the user navigates to them.
+  // • radius: how many photos out on each side to prefetch.
+  // • direction: if 'forward'/'backward', biases toward that direction.
+  _prefetchPhotosAround(photos, centerIdx, radius, direction) {
+    if (!Array.isArray(photos) || photos.length === 0) return;
+    if (typeof transformedImageUrl !== 'function') return;
+    if (!this._photoPrefetchCache) this._photoPrefetchCache = new Set();
+    const indices = [];
+    if (direction === 'backward') {
+      for (let i = 1; i <= radius; i++) indices.push(centerIdx - i, centerIdx + i);
+    } else {
+      for (let i = 1; i <= radius; i++) indices.push(centerIdx + i, centerIdx - i);
+    }
+    // Include the center itself (useful when opening an album).
+    indices.unshift(centerIdx);
+    for (const rawIdx of indices) {
+      const idx = ((rawIdx % photos.length) + photos.length) % photos.length;
+      const photo = photos[idx];
+      if (!photo?.url) continue;
+      const key = photo.url;
+      if (this._photoPrefetchCache.has(key)) continue;
+      this._photoPrefetchCache.add(key);
       const pre = new Image();
       pre.decoding = 'async';
-      pre.src = transformedImageUrl(nextPhoto.url, { width: 1200, quality: 85 });
+      // Low priority so the prefetches never starve the currently visible image.
+      try { pre.fetchPriority = 'low'; } catch (_) {}
+      pre.setAttribute('fetchpriority', 'low');
+      pre.src = transformedImageUrl(photo.url, { width: 1200, quality: 85 });
     }
   }
 }
