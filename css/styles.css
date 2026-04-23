@@ -1383,7 +1383,7 @@ a {
   position: absolute;
   width: 38px;
   height: 44px;
-  transform-origin: 30.5% 2.3%; /* at the fingertip (5.5/18, 0.5/22) */
+  transform-origin: 35.5% 0%; /* at the fingertip (166/468, 0/600) */
   will-change: transform;
   filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2));
 }

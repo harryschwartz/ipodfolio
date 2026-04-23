@@ -107,12 +107,13 @@
   }
 
   // ---- Hand icon (reused by both hints) ----
-  // Classic pixelated link cursor, served as a static PNG asset. The image
-  // is on an 18×22 pixel grid; the fingertip is at grid cell (5, 0), which
-  // is fractional anchor (5.5/18, 0.5/22) of the rendered image.
+  // Classic pixelated link cursor, served as a static PNG asset (white fill
+  // with a black pixelated outline, transparent background). The image is
+  // 468×600; the fingertip was measured at pixel (166, 0) — fractional
+  // anchor (0.3547, 0) of the rendered image.
   var HAND_IMG_SRC = 'assets/cursor-hand.png';
-  var HAND_TIP_FX = 5.5 / 18;  // fingertip x as fraction of image width
-  var HAND_TIP_FY = 0.5 / 22;  // fingertip y as fraction of image height
+  var HAND_TIP_FX = 166 / 468;  // fingertip x as fraction of image width
+  var HAND_TIP_FY = 0;          // fingertip y as fraction of image height
 
   function makeHand() {
     var hand = document.createElement('div');
