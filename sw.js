@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ipodfolio-v68';
+const CACHE_NAME = 'ipodfolio-v69';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -23,6 +23,7 @@ const ASSETS_TO_CACHE = [
   '/img/music-preview.jpg',
   '/img/projects-preview.jpg',
   '/img/apple-logo-black.png',
+  '/assets/cursor-hand.png',
   '/favicon.svg',
   '/favicon-32.png'
 ];

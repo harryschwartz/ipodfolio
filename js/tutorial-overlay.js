@@ -107,56 +107,22 @@
   }
 
   // ---- Hand icon (reused by both hints) ----
-  // Classic pixel-style link cursor: closed fist with an index finger on
-  // the LEFT side pointing up. Modeled after the iconic OS link pointer
-  // (see reference: Vecteezy pixel-hand cursor).
-  //
-  // Grid: 32 × 36 viewBox, traced on a 2-unit pixel grid. The fingertip
-  // is at (8, 0) — callers use tip = (8/32, 0/36) for positioning.
-  //
-  // Outline is traced clockwise starting at the fingertip:
-  //   down right side of index → stepped middle/ring/pinky knuckles →
-  //   down pinky side → across the wrist → stepped thumb on the left →
-  //   up the left side of the palm → up the left side of index → tip.
-  var HAND_SVG = (
-    '<svg viewBox="0 0 32 36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" shape-rendering="geometricPrecision">' +
-      '<defs>' +
-        '<filter id="tutHandShadow" x="-50%" y="-20%" width="200%" height="160%">' +
-          '<feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-opacity="0.35"/>' +
-        '</filter>' +
-      '</defs>' +
-      '<g filter="url(#tutHandShadow)">' +
-        '<path fill="#ffffff" stroke="#1c1c1c" stroke-width="1" ' +
-              'stroke-linejoin="miter" stroke-linecap="butt" d="' +
-          // Index finger tip, down the right side of the index finger.
-          'M6 0 L10 0 L10 12 ' +
-          // Middle finger knuckle step (right of index).
-          'L14 12 L14 14 L16 14 L16 16 ' +
-          // Ring finger knuckle step.
-          'L18 16 L18 18 L20 18 ' +
-          // Pinky knuckle step — top-right corner of palm.
-          'L20 20 L22 20 ' +
-          // Right side of palm straight down.
-          'L22 32 ' +
-          // Across the bottom / wrist.
-          'L6 32 ' +
-          // Stepped thumb sticking out the lower-left.
-          'L6 30 L4 30 L4 26 L2 26 L2 22 L0 22 L0 18 L2 18 L2 16 L4 16 ' +
-          // Up the left side of the palm.
-          'L4 14 ' +
-          // Left side of the base of the index finger.
-          'L6 14 ' +
-          // Up the left side of the index finger back to the tip.
-          'L6 0 Z' +
-        '"/>' +
-      '</g>' +
-    '</svg>'
-  );
+  // Classic pixelated link cursor, served as a static PNG asset. The image
+  // is on an 18×22 pixel grid; the fingertip is at grid cell (5, 0), which
+  // is fractional anchor (5.5/18, 0.5/22) of the rendered image.
+  var HAND_IMG_SRC = 'assets/cursor-hand.png';
+  var HAND_TIP_FX = 5.5 / 18;  // fingertip x as fraction of image width
+  var HAND_TIP_FY = 0.5 / 22;  // fingertip y as fraction of image height
 
   function makeHand() {
     var hand = document.createElement('div');
     hand.className = 'tutorial-hand';
-    hand.innerHTML = HAND_SVG;
+    var img = document.createElement('img');
+    img.src = HAND_IMG_SRC;
+    img.alt = '';
+    img.setAttribute('aria-hidden', 'true');
+    img.draggable = false;
+    hand.appendChild(img);
     return hand;
   }
 
@@ -232,9 +198,8 @@
     selectEls.hand.style.width = handW + 'px';
     selectEls.hand.style.height = handH + 'px';
     // Position so the fingertip points at the button center.
-    // The hand's fingertip is at (x=8/32, y=0/36) of the SVG viewBox.
-    var tipOffsetX = handW * (8 / 32);
-    var tipOffsetY = 0;
+    var tipOffsetX = handW * HAND_TIP_FX;
+    var tipOffsetY = handH * HAND_TIP_FY;
     // Offset the hand diagonally down-right from the button so the pointer
     // finger tip sits on the button's top edge.
     var offsetX = r.width * 0.22;   // right of center
@@ -355,9 +320,9 @@
     scrollEls.hand.style.setProperty('--tut-cx', cx + 'px');
     scrollEls.hand.style.setProperty('--tut-cy', cy + 'px');
     scrollEls.hand.style.setProperty('--tut-r', orbitR + 'px');
-    // Fingertip offset (same as select hint): (8/32, 0/36) of the viewBox.
-    scrollEls.hand.style.setProperty('--tut-tip-x', (handW * (8 / 32)) + 'px');
-    scrollEls.hand.style.setProperty('--tut-tip-y', '0px');
+    // Fingertip offset (same as select hint).
+    scrollEls.hand.style.setProperty('--tut-tip-x', (handW * HAND_TIP_FX) + 'px');
+    scrollEls.hand.style.setProperty('--tut-tip-y', (handH * HAND_TIP_FY) + 'px');
   }
 
   function dismissScrollHint() {
