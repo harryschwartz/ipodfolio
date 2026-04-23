@@ -107,61 +107,47 @@
   }
 
   // ---- Hand icon (reused by both hints) ----
-  // Traditional browser-style pointing-hand cursor: closed fist with the
-  // index finger extended straight up. Fingertip sits at (22, 4) of the
-  // viewBox so the positioning math in showSelectHint / showScrollHint
-  // stays accurate.
+  // Classic pixel-style link cursor: closed fist with an index finger on
+  // the LEFT side pointing up. Modeled after the iconic OS link pointer
+  // (see reference: Vecteezy pixel-hand cursor).
   //
-  // The shape is a single closed path traced like this (clockwise from
-  // the fingertip):
-  //   up the right side of the index finger → over the top → down the
-  //   left side → across the three bumped knuckles of the folded
-  //   fingers → down the pinky side → across the wrist → up the thumb
-  //   side → over the thumb tip → back up to the fingertip.
+  // Grid: 32 × 36 viewBox, traced on a 2-unit pixel grid. The fingertip
+  // is at (8, 0) — callers use tip = (8/32, 0/36) for positioning.
+  //
+  // Outline is traced clockwise starting at the fingertip:
+  //   down right side of index → stepped middle/ring/pinky knuckles →
+  //   down pinky side → across the wrist → stepped thumb on the left →
+  //   up the left side of the palm → up the left side of index → tip.
   var HAND_SVG = (
-    '<svg viewBox="0 0 48 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+    '<svg viewBox="0 0 32 36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" shape-rendering="geometricPrecision">' +
       '<defs>' +
         '<filter id="tutHandShadow" x="-50%" y="-20%" width="200%" height="160%">' +
-          '<feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.35"/>' +
+          '<feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-opacity="0.35"/>' +
         '</filter>' +
       '</defs>' +
       '<g filter="url(#tutHandShadow)">' +
-        '<path fill="#ffffff" stroke="#1c1c1c" stroke-width="1.6" ' +
-              'stroke-linejoin="round" stroke-linecap="round" d="' +
-          // Fingertip, down the right side of the index finger to the
-          // top of the knuckles.
-          'M22 4 ' +
-          'C24.5 4 25.5 5.8 25.5 8 ' +
-          'L25.5 26 ' +
-          // Middle-finger knuckle bump.
-          'C25.5 24.5 26.8 23.5 28.5 23.5 ' +
-          'C30.2 23.5 31.5 24.8 31.5 26.5 ' +
-          'L31.5 29 ' +
-          // Ring-finger knuckle bump.
-          'C31.5 27.5 32.8 26.5 34.2 26.5 ' +
-          'C35.9 26.5 37 27.8 37 29.5 ' +
-          'L37 32 ' +
-          // Pinky knuckle bump.
-          'C37 30.8 38 29.8 39.2 29.8 ' +
-          'C40.5 29.8 41.5 30.8 41.5 32.2 ' +
-          'L41.5 42 ' +
-          // Down the pinky side, curve across the wrist / palm base.
-          'C41.5 49 35.5 54 28 54 ' +
-          'L20 54 ' +
-          'C13 54 8 49.5 7 43 ' +
-          // Up the thumb side: wrist ridge then the thumb tip.
-          'L5.5 35 ' +
-          'C5.2 33.5 6 32 7.5 31.6 ' +
-          'C9 31.2 10.5 32 11 33.5 ' +
-          'L12 37 ' +
-          // Back up into the palm edge next to the index finger base.
-          'L12 27.5 ' +
-          'C12 25.8 13.3 24.5 15 24.5 ' +
-          'C16.7 24.5 18 25.8 18 27.5 ' +
-          'L18.5 27.5 ' +
+        '<path fill="#ffffff" stroke="#1c1c1c" stroke-width="1" ' +
+              'stroke-linejoin="miter" stroke-linecap="butt" d="' +
+          // Index finger tip, down the right side of the index finger.
+          'M6 0 L10 0 L10 12 ' +
+          // Middle finger knuckle step (right of index).
+          'L14 12 L14 14 L16 14 L16 16 ' +
+          // Ring finger knuckle step.
+          'L18 16 L18 18 L20 18 ' +
+          // Pinky knuckle step — top-right corner of palm.
+          'L20 20 L22 20 ' +
+          // Right side of palm straight down.
+          'L22 32 ' +
+          // Across the bottom / wrist.
+          'L6 32 ' +
+          // Stepped thumb sticking out the lower-left.
+          'L6 30 L4 30 L4 26 L2 26 L2 22 L0 22 L0 18 L2 18 L2 16 L4 16 ' +
+          // Up the left side of the palm.
+          'L4 14 ' +
+          // Left side of the base of the index finger.
+          'L6 14 ' +
           // Up the left side of the index finger back to the tip.
-          'L18.5 8 ' +
-          'C18.5 5.8 19.5 4 22 4 Z' +
+          'L6 0 Z' +
         '"/>' +
       '</g>' +
     '</svg>'
@@ -245,10 +231,10 @@
     var handW = 38, handH = 44;
     selectEls.hand.style.width = handW + 'px';
     selectEls.hand.style.height = handH + 'px';
-    // Position so the fingertip (~top of hand) points at the button center.
-    // The hand's fingertip is at roughly (x=22/48, y=4/56) of the SVG viewBox.
-    var tipOffsetX = handW * (22 / 48);
-    var tipOffsetY = handH * (4 / 56);
+    // Position so the fingertip points at the button center.
+    // The hand's fingertip is at (x=8/32, y=0/36) of the SVG viewBox.
+    var tipOffsetX = handW * (8 / 32);
+    var tipOffsetY = 0;
     // Offset the hand diagonally down-right from the button so the pointer
     // finger tip sits on the button's top edge.
     var offsetX = r.width * 0.22;   // right of center
@@ -369,9 +355,9 @@
     scrollEls.hand.style.setProperty('--tut-cx', cx + 'px');
     scrollEls.hand.style.setProperty('--tut-cy', cy + 'px');
     scrollEls.hand.style.setProperty('--tut-r', orbitR + 'px');
-    // Fingertip offset (same as select hint)
-    scrollEls.hand.style.setProperty('--tut-tip-x', (handW * (22 / 48)) + 'px');
-    scrollEls.hand.style.setProperty('--tut-tip-y', (handH * (4 / 56)) + 'px');
+    // Fingertip offset (same as select hint): (8/32, 0/36) of the viewBox.
+    scrollEls.hand.style.setProperty('--tut-tip-x', (handW * (8 / 32)) + 'px');
+    scrollEls.hand.style.setProperty('--tut-tip-y', '0px');
   }
 
   function dismissScrollHint() {
