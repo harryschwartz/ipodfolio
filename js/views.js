@@ -649,7 +649,7 @@ function renderSettingsView(currentTheme, hapticsEnabled) {
   // so it doesn't participate in click-wheel navigation.
   const ringerNote = document.createElement('p');
   ringerNote.className = 'settings-note';
-  ringerNote.textContent = 'Turn your ringer on for the full audio experience.';
+  ringerNote.textContent = 'Make sure your ringer is on for the full experience.';
   container.appendChild(ringerNote);
 
   // Theme section
