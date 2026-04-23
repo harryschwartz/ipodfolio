@@ -637,6 +637,14 @@ function renderSettingsView(currentTheme, hapticsEnabled) {
   container.appendChild(hapticsEl);
   itemIndex++;
 
+  // Footnote under Haptics: hardware ringer is required for sound on iOS.
+  // This is NOT a selectable list item — no dataset.index, no 'list-item'
+  // class — so it doesn't participate in click-wheel navigation.
+  const ringerNote = document.createElement('p');
+  ringerNote.className = 'settings-note';
+  ringerNote.textContent = 'Turn your ringer on for the full audio experience.';
+  container.appendChild(ringerNote);
+
   // Theme section
   const themes = [
     { id: 'silver', title: 'Silver' },

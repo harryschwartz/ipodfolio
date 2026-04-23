@@ -1009,6 +1009,16 @@ a {
   color: #555;
 }
 
+/* Non-interactive footnote under a settings row (e.g., ringer hint under
+   Haptics). Not a .list-item — doesn't affect click-wheel navigation. */
+.settings-note {
+  margin: 6px 10px 10px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #666;
+  font-style: italic;
+}
+
 /* ---- Cover Flow ---- */
 .coverflow-container {
   height: 100%;
