@@ -619,6 +619,13 @@ function renderSettingsView(currentTheme, hapticsEnabled) {
   container.appendChild(speedEl);
   itemIndex++;
 
+  // Feedback section — input / device feedback settings (Haptics lives
+  // here instead of under Playback because it's unrelated to audio output).
+  const feedbackHeader = document.createElement('div');
+  feedbackHeader.className = 'settings-section-header';
+  feedbackHeader.textContent = 'Feedback';
+  container.appendChild(feedbackHeader);
+
   // Haptics
   const hapticsEl = document.createElement('div');
   hapticsEl.className = 'list-item';
@@ -638,8 +645,8 @@ function renderSettingsView(currentTheme, hapticsEnabled) {
   itemIndex++;
 
   // Footnote under Haptics: hardware ringer is required for sound on iOS.
-  // This is NOT a selectable list item — no dataset.index, no 'list-item'
-  // class — so it doesn't participate in click-wheel navigation.
+  // Not a selectable list item — no dataset.index, no 'list-item' class —
+  // so it doesn't participate in click-wheel navigation.
   const ringerNote = document.createElement('p');
   ringerNote.className = 'settings-note';
   ringerNote.textContent = 'Turn your ringer on for the full audio experience.';

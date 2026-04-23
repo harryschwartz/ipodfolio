@@ -1096,9 +1096,13 @@ class IPodApp {
       return;
     }
 
-    // Settings: Playback (0-3) then Theme (4-7)
+    // Settings list indices:
+    //   Playback section: 0=Shuffle, 1=Repeat, 2=Speed
+    //   Feedback section: 3=Haptics
+    //   Theme section:    4–7 (silver, black, u2, pink)
+    // Section headers are non-interactive and don't consume indices.
     if (this.currentNode?.type === 'settings') {
-      const playbackCount = 4; // shuffle, repeat, speed, haptics
+      const preThemeCount = 4; // shuffle, repeat, speed, haptics
       const themes = ['silver', 'black', 'u2', 'pink'];
       if (this.scrollIndex === 0) {
         // Toggle shuffle
@@ -1114,8 +1118,8 @@ class IPodApp {
         if (window.ipodClickWheel) {
           window.ipodClickWheel.hapticsEnabled = !window.ipodClickWheel.hapticsEnabled;
         }
-      } else if (this.scrollIndex >= playbackCount && this.scrollIndex < playbackCount + themes.length) {
-        this.applyTheme(themes[this.scrollIndex - playbackCount]);
+      } else if (this.scrollIndex >= preThemeCount && this.scrollIndex < preThemeCount + themes.length) {
+        this.applyTheme(themes[this.scrollIndex - preThemeCount]);
       }
       // Re-render settings
       this._rerenderSettings();
