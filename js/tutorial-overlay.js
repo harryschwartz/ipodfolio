@@ -82,8 +82,6 @@
     container.style.overflow = 'visible';
     shell.appendChild(container);
 
-    addRingerHint(); // stays visible regardless of which hint is active
-
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
 
@@ -96,14 +94,6 @@
       if (currentHint === 'select') positionSelectHint();
       else if (currentHint === 'scroll') positionScrollHint();
     }, 120);
-  }
-
-  function addRingerHint() {
-    if (!container || container.querySelector('.tutorial-ringer-hint')) return;
-    var hint = document.createElement('div');
-    hint.className = 'tutorial-ringer-hint';
-    hint.textContent = 'turn ringer on for full experience';
-    container.appendChild(hint);
   }
 
   // ---- Hand icon (reused by both hints) ----
