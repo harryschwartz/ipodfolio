@@ -1437,17 +1437,11 @@ a {
   100% { transform: scale(1.35); opacity: 0; }
 }
 
-/* ---- SCROLL hint: dashed arc + hand orbits clockwise on the rim ---- */
+/* ---- SCROLL hint: solid two-sided arc + hand orbits on the rim ---- */
 .tutorial-arc-path {
-  stroke: rgba(33,150,243,0.85);
-  stroke-width: 2;
+  stroke: rgba(33,150,243,0.9);
+  stroke-width: 2.5;
   stroke-linecap: round;
-  stroke-dasharray: 4 5;
-  animation: tut-arc-march 1s linear infinite;
-}
-@keyframes tut-arc-march {
-  from { stroke-dashoffset: 0; }
-  to   { stroke-dashoffset: -18; }
 }
 .tutorial-arc-head {
   fill: rgba(33,150,243,0.95);

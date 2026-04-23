@@ -201,9 +201,10 @@
 
   function dismissSelectHint() {
     if (currentHint !== 'select' || !selectEls) return;
-    selectEls.wrap.classList.add('tutorial-hide');
+    // Remove immediately (no fade) so the select hand doesn't linger while
+    // the next hint fades in on top of it.
     var wrap = selectEls.wrap;
-    setTimeout(function () { if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 320);
+    if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
     selectEls = null;
     currentHint = null;
   }
@@ -258,11 +259,8 @@
     var wheelRadius = Math.min(r.width, r.height) / 2;
     var orbitR = wheelRadius - 10;  // on the ring itself
 
-    // Arc: from 30° (upper-right) sweeping clockwise to 110° (lower-right).
-    // Math angle convention (0 = right, CCW positive). To draw clockwise we
-    // go from -50° (upper-right) to -170° — but we want the arc to be the
-    // visible upper-right quadrant.
-    // We'll use SVG arc: start = upper-right, end = lower-right, clockwise.
+    // Arc: from upper-right sweeping clockwise to lower-right, drawn solid
+    // with an arrowhead on both ends to signal bidirectional scroll.
     var a1 = -60 * Math.PI / 180; // upper-right starting angle
     var a2 =  45 * Math.PI / 180; // lower-right ending angle
     var startX = cx + Math.cos(a1) * orbitR;
@@ -288,20 +286,28 @@
     arc.setAttribute('fill', 'none');
     scrollEls.arcSvg.appendChild(arc);
 
-    // Arrowhead at the end of the arc — small triangle tangent to circle.
-    var tangent = a2 + Math.PI / 2; // clockwise tangent direction
-    var ah = 6;
-    var ax = endX, ay = endY;
-    var p1x = ax + Math.cos(tangent) * ah;
-    var p1y = ay + Math.sin(tangent) * ah;
-    var p2x = ax + Math.cos(tangent + 2.4) * ah;
-    var p2y = ay + Math.sin(tangent + 2.4) * ah;
-    var p3x = ax + Math.cos(tangent - 2.4) * ah;
-    var p3y = ay + Math.sin(tangent - 2.4) * ah;
-    var head = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    head.setAttribute('points', p1x + ',' + p1y + ' ' + p2x + ',' + p2y + ' ' + p3x + ',' + p3y);
-    head.setAttribute('class', 'tutorial-arc-head');
-    scrollEls.arcSvg.appendChild(head);
+    // Arrowheads on BOTH ends of the arc — small triangles tangent to the
+    // circle, pointing outward in the scroll direction.
+    var ah = 7;
+    function addArrowhead(angle, tipX, tipY, outward) {
+      // `outward` = +1 for the end pointing along clockwise direction,
+      // -1 for the end pointing against it (counter-clockwise).
+      var tangent = angle + outward * Math.PI / 2;
+      var p1x = tipX + Math.cos(tangent) * ah;
+      var p1y = tipY + Math.sin(tangent) * ah;
+      var p2x = tipX + Math.cos(tangent + 2.4) * ah;
+      var p2y = tipY + Math.sin(tangent + 2.4) * ah;
+      var p3x = tipX + Math.cos(tangent - 2.4) * ah;
+      var p3y = tipY + Math.sin(tangent - 2.4) * ah;
+      var head = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      head.setAttribute('points', p1x + ',' + p1y + ' ' + p2x + ',' + p2y + ' ' + p3x + ',' + p3y);
+      head.setAttribute('class', 'tutorial-arc-head');
+      scrollEls.arcSvg.appendChild(head);
+    }
+    // End (clockwise direction, at a2): tangent points along +CW
+    addArrowhead(a2, endX, endY, +1);
+    // Start (counter-clockwise direction, at a1): tangent points along -CW
+    addArrowhead(a1, startX, startY, -1);
 
     // Configure the hand to orbit via CSS custom props.
     // It moves along the arc from a1 → a2 → a1 (back and forth).
