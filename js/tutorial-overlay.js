@@ -152,6 +152,10 @@
 
     var wrap = document.createElement('div');
     wrap.className = 'tutorial-select-hint';
+    // Hide until positioned — on desktop the shell has a ~1.5s descend
+    // animation, during which measuring would yield wrong coordinates.
+    // Without this, the hand paints at (0,0) in the shell's top-left.
+    wrap.style.visibility = 'hidden';
 
     var ring = document.createElement('div');
     ring.className = 'tutorial-tap-ring';
@@ -165,9 +169,13 @@
     selectEls = { wrap: wrap, hand: hand, ring: ring };
     currentHint = 'select';
 
-    // Position after two rAFs so the shell's descend animation doesn't throw
-    // off getBoundingClientRect on first paint.
-    waitForShellSettle(positionSelectHint);
+    // Position after the shell settles (handles desktop descend animation),
+    // then reveal. This prevents the hand from being visible at (0,0) while
+    // waiting for coordinates.
+    waitForShellSettle(function () {
+      positionSelectHint();
+      if (selectEls) selectEls.wrap.style.visibility = '';
+    });
   }
 
   function positionSelectHint() {
@@ -224,6 +232,7 @@
 
     var wrap = document.createElement('div');
     wrap.className = 'tutorial-scroll-hint';
+    wrap.style.visibility = 'hidden';
 
     // Dashed arc SVG (absolute-positioned inside wrap)
     var arcSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -243,7 +252,10 @@
     scrollEls = { wrap: wrap, arcSvg: arcSvg, hand: hand };
     currentHint = 'scroll';
 
-    waitForShellSettle(positionScrollHint);
+    waitForShellSettle(function () {
+      positionScrollHint();
+      if (scrollEls) scrollEls.wrap.style.visibility = '';
+    });
   }
 
   function positionScrollHint() {
