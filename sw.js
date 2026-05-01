@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ipodfolio-v76';
+const CACHE_NAME = 'ipodfolio-v77';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -81,9 +81,12 @@ self.addEventListener('fetch', (event) => {
   if (isAudioRequest(url)) return;
 
   // Images: cache-first (serve from cache instantly, update in background).
-  // If there is no cached copy, race the network against a 6s timeout so a
-  // hung request doesn't block the <img> forever — letting onerror kick in
-  // and trigger our retry/fallback logic in views.js.
+  // If there is no cached copy, await the network. The previous version raced
+  // the fetch against a 6s timeout and returned a 504 on slow connections —
+  // which converted recoverable slow first-loads into permanent broken
+  // images, since most call sites don't retry on error. Better to let the
+  // browser hold the request open; users can always reload, but reload
+  // wouldn't help if we'd already poisoned the cache with nothing.
   if (isImageRequest(url)) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) =>
@@ -93,29 +96,19 @@ self.addEventListener('fetch', (event) => {
               cache.put(event.request, response.clone());
             }
             return response;
-          }).catch(() => null);
+          });
 
           if (cached) {
-            // Return cached immediately; network refresh runs in background.
+            // Return cached immediately; refresh in the background but
+            // don't reject the SW response if the refresh fails.
+            networkFetch.catch(() => {});
             return cached;
           }
 
-          // Race network against a 6s timeout to avoid hung requests.
-          return new Promise((resolve) => {
-            let done = false;
-            const timer = setTimeout(() => {
-              if (done) return;
-              done = true;
-              // Hand back a 504 so the <img> fires onerror cleanly.
-              resolve(new Response('', { status: 504, statusText: 'Image timeout' }));
-            }, 6000);
-            networkFetch.then((resp) => {
-              if (done) return;
-              done = true;
-              clearTimeout(timer);
-              resolve(resp || new Response('', { status: 504, statusText: 'Image fetch failed' }));
-            });
-          });
+          // No cache yet — let the network finish. If it truly errors
+          // (DNS failure, offline), the browser fires <img> onerror so the
+          // retry/fallback in views.js can kick in.
+          return networkFetch;
         })
       )
     );

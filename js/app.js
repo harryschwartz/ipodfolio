@@ -1391,9 +1391,13 @@ class IPodApp {
         artwork.style = '';
         const coverMeta = parent?.metadata?.coverImage ? parent.metadata : track.metadata;
         const nowPlayingCover = coverMeta?.coverImage;
-        artwork.src = nowPlayingCover
-          ? (typeof transformedImageUrl === 'function' ? transformedImageUrl(nowPlayingCover, { width: 800, quality: 85 }) : nowPlayingCover)
-          : 'img/headphones-cover.jpg';
+        if (nowPlayingCover && typeof setTransformedSrc === 'function') {
+          setTransformedSrc(artwork, nowPlayingCover, { width: 800, quality: 85 });
+        } else {
+          artwork.src = nowPlayingCover
+            ? (typeof transformedImageUrl === 'function' ? transformedImageUrl(nowPlayingCover, { width: 800, quality: 85 }) : nowPlayingCover)
+            : 'img/headphones-cover.jpg';
+        }
         artwork.style.objectFit = 'cover';
         artwork.style.objectPosition = coverMeta?.coverImagePosition || '50% 50%';
         if (coverMeta?.coverImageZoom && parseFloat(coverMeta.coverImageZoom) !== 1) {
