@@ -239,11 +239,18 @@ class IPodApp {
   navigateTo(node, direction) {
     // Save current state to stack
     if (this.currentView) {
-      this.navStack.push({
+      const entry = {
         nodeId: this.currentNode ? this.currentNode.id : null,
         scrollIndex: this.scrollIndex,
         type: this.currentNode ? this.currentNode.type : 'home',
-      });
+      };
+      // If we're leaving a cover-flow view mid-backside, attach the
+      // carousel state so navigateBack can restore it (see showCoverFlow).
+      if (this._pendingCoverFlowStateForPush) {
+        entry.coverFlowState = this._pendingCoverFlowStateForPush;
+        this._pendingCoverFlowStateForPush = null;
+      }
+      this.navStack.push(entry);
     }
     
     this.currentNode = node;
@@ -266,6 +273,9 @@ class IPodApp {
         if (prev.musicViewType) {
           this._restoreMusicView(prev, 'left');
           return;
+        }
+        if (prev.coverFlowState) {
+          this.pendingCoverFlowState = prev.coverFlowState;
         }
         if (prev.nodeId === null) {
           this.showHome();
@@ -311,6 +321,12 @@ class IPodApp {
       if (prev.musicViewType) {
         this._restoreMusicView(prev, 'left');
         return;
+      }
+      // If the entry we're returning to is a cover-flow view that had
+      // carousel state saved when we navigated away, hoist it so that
+      // showCoverFlow can restore activeIndex + open backside.
+      if (prev.coverFlowState) {
+        this.pendingCoverFlowState = prev.coverFlowState;
       }
       // Leaving music views entirely
       this.musicViewType = null;
@@ -801,19 +817,30 @@ class IPodApp {
     const container = document.createElement('div');
     container.style.height = '100%';
     this.transitionTo(container, 'right');
-    
+
+    // Consume any pending state so a MENU-back from a nested album/photo/video
+    // restores the exact carousel + backside the user came from.
+    const restoreState = this.pendingCoverFlowState || null;
+    this.pendingCoverFlowState = null;
+
     // Initialize CoverFlow after DOM ready
     requestAnimationFrame(() => {
-      this.activeCoverFlow = new CoverFlow(container, albums, (playedSong, navigateToNode) => {
+      this.activeCoverFlow = new CoverFlow(container, albums, (playedSong, navigateToNode, coverFlowState) => {
         this.activeCoverFlow = null;
         if (playedSong) {
           this.showNowPlaying();
         } else if (navigateToNode) {
+          // Stash the cover-flow state so we can restore it on MENU-back.
+          // The state is remembered on the navStack entry that navigateTo
+          // is about to push, so it survives further nested navigation.
+          if (coverFlowState) {
+            this._pendingCoverFlowStateForPush = coverFlowState;
+          }
           this.navigateTo(navigateToNode, 'right');
         } else {
           this.navigateBack();
         }
-      });
+      }, restoreState);
     });
   }
 

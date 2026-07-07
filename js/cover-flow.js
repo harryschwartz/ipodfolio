@@ -1,6 +1,6 @@
 // Cover Flow 3D Carousel
 class CoverFlow {
-  constructor(container, albums, onBack) {
+  constructor(container, albums, onBack, restoreState) {
     this.container = container;
     this.albums = albums;
     this.onBack = onBack;
@@ -11,10 +11,36 @@ class CoverFlow {
     this.midpoint = { x: 0, y: 0 };
     this.listeners = [];
 
+    // If we're returning to cover flow from a nested view (e.g. the user
+    // opened a project's backside, tapped a photo album, then pressed MENU
+    // to come back), restore the exact carousel position and re-open the
+    // backside they were on. Without this, MENU-back would land them on
+    // the first album with no backside — which felt like the whole
+    // navigation stack had collapsed.
+    if (restoreState && typeof restoreState.activeIndex === 'number') {
+      const idx = restoreState.activeIndex;
+      if (idx >= 0 && idx < albums.length) {
+        this.activeIndex = idx;
+      }
+    }
+
     this.render();
     this.updateMidpoint();
     this.bindEvents();
     this.updatePositions();
+
+    // Re-open the backside if the saved state pointed inside one.
+    if (restoreState && restoreState.backsideAlbumId) {
+      const album = this.albums[this.activeIndex];
+      if (album && album.id === restoreState.backsideAlbumId) {
+        this.showBackside(album);
+        if (typeof restoreState.backsideScrollIndex === 'number') {
+          const max = (this.backsideChildren || []).length - 1;
+          this.backsideScrollIndex = Math.max(0, Math.min(max, restoreState.backsideScrollIndex));
+          this.updateBacksideSelection();
+        }
+      }
+    }
   }
 
   render() {
@@ -266,9 +292,18 @@ class CoverFlow {
           } else if (track.type === 'link' && track.metadata?.url) {
             window.open(track.metadata.url, '_blank', 'noopener,noreferrer');
           } else if (track.type === 'folder' || track.type === 'photo_album' || track.type === 'video') {
-            // Navigate into the item via the main app
+            // Navigate into the item via the main app. Pass the current
+            // cover-flow state so that when the user presses MENU to come
+            // back, the app can restore the same album + backside they
+            // were on — instead of dropping them at the first cover with
+            // no backside open.
+            const state = {
+              activeIndex: this.activeIndex,
+              backsideAlbumId: this.selectedAlbum ? this.selectedAlbum.id : null,
+              backsideScrollIndex: this.backsideScrollIndex,
+            };
             this.cleanup();
-            if (this.onBack) this.onBack(false, track);
+            if (this.onBack) this.onBack(false, track, state);
           }
         }
       }

@@ -1391,34 +1391,29 @@ a {
   to   { opacity: 1; }
 }
 
-/* ---- Speed hint tooltip ---- */
-.tutorial-speed-tooltip {
+/* ---- SPEED hint: floating hand + blue tap-ring on the speed badge ---- */
+/* Matches the classic hand-cursor tool tip look (select/scroll hints). */
+.tutorial-hand-speed {
+  animation: tut-hand-tap 1.3s ease-in-out infinite;
+}
+.tutorial-speed-ring {
+  /* Inherits ring border + pulse animation from .tutorial-tap-ring. */
+}
+.tutorial-speed-label {
   position: absolute;
-  padding: 6px 10px;
-  background: #2c2c2c;
+  padding: 4px 8px;
+  background: rgba(30, 30, 30, 0.92);
   color: #fff;
   font-size: 11px;
   font-weight: 500;
   line-height: 1.2;
   border-radius: 6px;
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-  /* Subtle attention-getting bob so the user's eye lands on it. */
-  animation: tut-speed-bob 1.6s ease-in-out infinite;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
 }
-.tutorial-speed-caret {
-  position: absolute;
-  bottom: -5px;
-  width: 0;
-  height: 0;
-  transform: translateX(-50%);
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 5px solid #2c2c2c;
-}
-@keyframes tut-speed-bob {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-2px); }
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-hand-speed { animation: none; }
 }
 
 /* ---- Hand icon (shared) ---- */

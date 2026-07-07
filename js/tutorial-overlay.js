@@ -382,30 +382,48 @@
   }
 
   // ====================================================================
-  // SPEED hint — small tooltip pointing at the Now Playing speed badge.
-  // Fires exactly once (persisted via localStorage) the first time the user
-  // plays audio, and self-dismisses on any interaction (click, keypress,
-  // scroll wheel, navigation).
+  // SPEED hint — floating hand + blue tap-ring pointing at the speed badge.
+  // Matches the visual language of the SELECT hint (blue ring + pixelated
+  // hand with a small label). Fires exactly once (persisted via localStorage)
+  // the first time the user plays audio, and self-dismisses on any
+  // interaction (click, keypress, scroll wheel, navigation).
   // ====================================================================
 
   var SPEED_HINT_KEY = 'ipodfolio.speedHintShown';
-  var speedEls = null; // { wrap, tooltip }
+  // { wrap, hand, ring, label, badge }
+  var speedEls = null;
   var speedDismissHandlers = null;
 
   function showSpeedHint() {
     if (!shouldShow()) return;
     if (hintWasShown(SPEED_HINT_KEY)) return;
     if (currentHint === 'speed') return;
-    // The badge is inside the Now Playing view; wait a beat for it to render.
-    // Retry a few times to handle slow first render.
+    // The badge is inside the Now Playing view. `showNowPlaying` starts a
+    // slide-in transition, so we must wait for the badge to STOP MOVING
+    // before measuring — otherwise we anchor to a transient mid-animation
+    // x-coordinate and the hand lands far off to the side.
     var attempts = 0;
+    var lastX = null;
+    var stableFrames = 0;
     function tryMount() {
       var badge = document.getElementById('np-speed-badge');
-      if (badge && badge.offsetParent !== null) {
+      if (!badge || badge.offsetParent === null) {
+        if (++attempts < 30) setTimeout(tryMount, 80);
+        return;
+      }
+      var x = badge.getBoundingClientRect().left;
+      if (lastX !== null && Math.abs(x - lastX) < 0.5) {
+        stableFrames++;
+      } else {
+        stableFrames = 0;
+      }
+      lastX = x;
+      // Two consecutive stable measurements = transition has settled.
+      if (stableFrames >= 2) {
         mountSpeedHint(badge);
         return;
       }
-      if (++attempts < 20) setTimeout(tryMount, 100);
+      if (++attempts < 30) setTimeout(tryMount, 80);
     }
     tryMount();
   }
@@ -419,21 +437,32 @@
     wrap.className = 'tutorial-speed-hint';
     wrap.style.visibility = 'hidden';
 
-    var tooltip = document.createElement('div');
-    tooltip.className = 'tutorial-speed-tooltip';
-    tooltip.textContent = 'Tap to change speed';
+    // Blue pulsing ring centered on the badge (same look as select hint).
+    var ring = document.createElement('div');
+    ring.className = 'tutorial-tap-ring tutorial-speed-ring';
+    wrap.appendChild(ring);
 
-    var caret = document.createElement('div');
-    caret.className = 'tutorial-speed-caret';
-    tooltip.appendChild(caret);
+    // Floating pixelated hand that taps down on the badge.
+    var hand = makeHand();
+    hand.classList.add('tutorial-hand-speed');
+    wrap.appendChild(hand);
 
-    wrap.appendChild(tooltip);
+    // Small label above the hand — same tone as the classic hints.
+    var label = document.createElement('div');
+    label.className = 'tutorial-speed-label';
+    label.textContent = 'Tap to change speed';
+    wrap.appendChild(label);
+
     c.appendChild(wrap);
-    speedEls = { wrap: wrap, tooltip: tooltip, caret: caret, badge: badge };
+    speedEls = { wrap: wrap, hand: hand, ring: ring, label: label, badge: badge };
     currentHint = 'speed';
 
-    positionSpeedHint();
-    wrap.style.visibility = '';
+    // Wait one frame so the hand image + label have real dimensions before we
+    // measure them for positioning (offsetWidth is 0 pre-layout).
+    requestAnimationFrame(function () {
+      positionSpeedHint();
+      if (speedEls) speedEls.wrap.style.visibility = '';
+    });
 
     markHintShown(SPEED_HINT_KEY);
     installSpeedDismissHandlers();
@@ -443,31 +472,56 @@
     if (!speedEls) return;
     var br = elRectInShell(speedEls.badge);
     if (!br) return;
-    // Position the tooltip ABOVE the badge, horizontally centered on it.
-    // The caret at the bottom of the tooltip points down at the badge.
-    // We measure the tooltip after appending to get its true width.
-    var tw = speedEls.tooltip.offsetWidth || 140;
-    var th = speedEls.tooltip.offsetHeight || 28;
-    var gap = 8; // px between caret tip and badge
-
-    var left = br.cx - tw / 2;
-    var top = br.top - th - gap;
-
-    // Clamp horizontally to the shell so the tooltip never overflows.
     var sr = shellRect();
-    if (sr) {
-      var maxLeft = sr.width - tw - 6;
-      if (left < 6) left = 6;
-      if (left > maxLeft) left = maxLeft;
+    if (!sr) return;
+
+    // ---- Ring: centered on the badge, sized to comfortably enclose it. ----
+    // The badge is a tiny ~19×11 pill; a fixed 26px ring reads well without
+    // dominating the row.
+    var ringSize = Math.max(26, br.width + 14);
+    speedEls.ring.style.width = ringSize + 'px';
+    speedEls.ring.style.height = ringSize + 'px';
+    speedEls.ring.style.left = (br.cx - ringSize / 2) + 'px';
+    speedEls.ring.style.top = (br.cy - ringSize / 2) + 'px';
+
+    // ---- Hand: sized like select-hint's hand, fingertip lands on the badge. ----
+    // The badge lives on a horizontal status row; positioning the hand from
+    // directly above (like select) keeps it out of the way of the album art
+    // and progress bar on both mobile and desktop viewports.
+    var handW = 34, handH = 40;
+    speedEls.hand.style.width = handW + 'px';
+    speedEls.hand.style.height = handH + 'px';
+    var tipOffsetX = handW * HAND_TIP_FX;
+    var tipOffsetY = handH * HAND_TIP_FY;
+    // Hand comes in from up-and-slightly-right, tapping down on the badge
+    // center. The tap-bob animation moves the whole hand vertically.
+    var handX = br.cx - tipOffsetX + 4; // 4px right so fingertip visually lands on badge
+    var handY = br.top - handH - 2;     // sit just above the badge
+    // Clamp so the hand never falls off the left/right edges of the shell.
+    var minHandX = 4;
+    var maxHandX = sr.width - handW - 4;
+    if (handX < minHandX) handX = minHandX;
+    if (handX > maxHandX) handX = maxHandX;
+    speedEls.hand.style.left = handX + 'px';
+    speedEls.hand.style.top = handY + 'px';
+
+    // ---- Label: small caption above the hand. ----
+    var lw = speedEls.label.offsetWidth || 130;
+    var lh = speedEls.label.offsetHeight || 18;
+    // Center label above the hand's fingertip (which sits at handX + tipOffsetX).
+    var fingerX = handX + tipOffsetX;
+    var labelLeft = fingerX - lw / 2;
+    var labelTop = handY - lh - 4;
+    // Clamp horizontally to the shell edges.
+    var maxLabelLeft = sr.width - lw - 6;
+    if (labelLeft < 6) labelLeft = 6;
+    if (labelLeft > maxLabelLeft) labelLeft = maxLabelLeft;
+    // If the label would go above the shell top, drop it below the hand instead.
+    if (labelTop < 4) {
+      labelTop = handY + handH + 2;
     }
-
-    speedEls.tooltip.style.left = left + 'px';
-    speedEls.tooltip.style.top = top + 'px';
-
-    // Position caret so it sits at the horizontal center of the badge,
-    // regardless of any horizontal clamping we applied to the tooltip.
-    var caretX = br.cx - left; // relative to tooltip's left edge
-    speedEls.caret.style.left = caretX + 'px';
+    speedEls.label.style.left = labelLeft + 'px';
+    speedEls.label.style.top = labelTop + 'px';
   }
 
   function dismissSpeedHint() {
