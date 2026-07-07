@@ -562,23 +562,63 @@ function renderTextView(node) {
 }
 
 // ---- Video View ----
+// Extracts a YouTube video ID from any common URL shape
+// (youtu.be/<id>, youtube.com/watch?v=<id>, youtube.com/embed/<id>,
+//  youtube.com/shorts/<id>). Returns null for non-YouTube URLs.
+function extractYouTubeId(url) {
+  if (!url || typeof url !== 'string') return null;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') {
+      return u.pathname.slice(1).split('/')[0] || null;
+    }
+    if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+      if (u.pathname === '/watch') return u.searchParams.get('v');
+      const m = u.pathname.match(/^\/(embed|shorts|v)\/([^/?#]+)/);
+      if (m) return m[2];
+    }
+  } catch (e) { /* not a valid URL */ }
+  return null;
+}
+
 function renderVideoView(node) {
   const container = document.createElement('div');
   container.className = 'video-view';
-  
-  if (node.metadata?.videoUrl) {
-    const video = document.createElement('video');
-    video.src = node.metadata.videoUrl;
-    video.controls = false;
-    video.playsInline = true;
-    container.appendChild(video);
-  } else {
+
+  const videoUrl = node.metadata?.videoUrl;
+  if (!videoUrl) {
     const placeholder = document.createElement('div');
     placeholder.className = 'video-placeholder';
     placeholder.textContent = 'No video available';
     container.appendChild(placeholder);
+    return container;
   }
-  
+
+  // YouTube URLs can't be played by <video>. Embed via iframe instead.
+  const ytId = extractYouTubeId(videoUrl);
+  if (ytId) {
+    const iframe = document.createElement('iframe');
+    iframe.className = 'video-iframe';
+    // Autoplay muted so mobile browsers actually start playback; user can
+    // unmute via the iframe controls.
+    iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(ytId)
+      + '?autoplay=1&playsinline=1&rel=0&modestbranding=1';
+    iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    iframe.allowFullscreen = true;
+    iframe.setAttribute('frameborder', '0');
+    iframe.title = node.title || 'video';
+    container.appendChild(iframe);
+    return container;
+  }
+
+  // Direct video file — use <video>.
+  const video = document.createElement('video');
+  video.src = videoUrl;
+  video.controls = true;
+  video.playsInline = true;
+  video.autoplay = true;
+  container.appendChild(video);
   return container;
 }
 

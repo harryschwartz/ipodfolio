@@ -545,6 +545,23 @@ a {
   transition: color 0.15s, background 0.15s;
   pointer-events: auto;
   touch-action: manipulation;
+  /* Enlarged invisible hit area so mobile taps land reliably even though
+     the badge itself is small (10px font in a 16px row). Extends the tap
+     target to ~44px tall and ~22px past each side without changing the
+     visible size. */
+  position: relative;
+}
+.np-speed-badge::before {
+  content: '';
+  position: absolute;
+  top: -16px;
+  bottom: -16px;
+  left: -22px;
+  right: -22px;
+  /* Transparent, but interactive. Sits above the artwork/scrubber area
+     so taps in this hit-zone hit the badge instead of falling through. */
+  background: transparent;
+  z-index: 5;
 }
 .np-speed-badge.np-speed-active {
   color: #333;
@@ -978,11 +995,14 @@ a {
   background: black;
 }
 
-.video-view video {
+.video-view video,
+.video-view .video-iframe {
   width: 100%;
   flex: 1;
   object-fit: contain;
   background: black;
+  border: 0;
+  display: block;
 }
 
 .video-placeholder {
