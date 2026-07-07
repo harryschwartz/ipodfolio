@@ -1084,25 +1084,74 @@ function renderMusicPlaylistSongsView(playlist, songs) {
 }
 
 // ---- Ken Burns helpers ----
+//
+// The two <img> layers cross-fade via CSS opacity transitions. Two rules make
+// the transitions look smooth even during rapid scroll navigation between
+// home items:
+//
+//   1. Every image assignment PRELOADS the URL in a detached Image() first,
+//      then only swaps the DOM <img>.src (and does any class flip) once the
+//      pixels are actually decoded. Without this, we would flip 'active' to
+//      the back layer while its <img> still shows the previous src — giving
+//      a brief flash of an earlier photo (the user's "bouncing back" bug).
+//
+//   2. Every startKenBurns() call is tagged with a monotonic epoch and every
+//      async callback checks that its epoch is still current before touching
+//      the DOM. This prevents a slow preload from a stale pool (e.g. the pool
+//      the user just scrolled past) from clobbering the current view.
+function _kbPreload(url) {
+  return new Promise((resolve) => {
+    if (!url) { resolve(null); return; }
+    const preload = new Image();
+    preload.decoding = 'async';
+    preload.onload = () => resolve(url);
+    preload.onerror = () => resolve(url); // resolve anyway; the retry chain on the real <img> can still recover
+    preload.src = transformedImageUrl(url, { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
+  });
+}
+
 function startKenBurns(container) {
   const kb = container._kenBurns;
   if (!kb || kb.urls.length < 2) return;
-  kb.interval = setInterval(() => {
-    kb.index = (kb.index + 1) % kb.urls.length;
+  // Bump the epoch so any in-flight async work from an earlier start is
+  // ignored when it eventually resolves.
+  kb.epoch = (kb.epoch || 0) + 1;
+  const myEpoch = kb.epoch;
+  kb.interval = setInterval(async () => {
+    if (kb.epoch !== myEpoch) return;
     const next = (kb.index + 1) % kb.urls.length;
+    const nextUrl = kb.urls[next];
+
+    // Preload the next image BEFORE flipping opacity, so the fade always
+    // reveals a fully-decoded image instead of the stale previous src.
+    await _kbPreload(nextUrl);
+    if (kb.epoch !== myEpoch) return;
+
     const [front, back] = kb.img0.classList.contains('active')
       ? [kb.img0, kb.img1]
       : [kb.img1, kb.img0];
-    setTransformedSrc(back, kb.urls[next], { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
-    back.classList.replace('inactive', 'active');
-    front.classList.replace('active', 'inactive');
+    setTransformedSrc(back, nextUrl, { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
+    // Give the browser one frame to apply the new src before the class flip
+    // starts the opacity transition.
+    requestAnimationFrame(() => {
+      if (kb.epoch !== myEpoch) return;
+      back.classList.replace('inactive', 'active');
+      front.classList.replace('active', 'inactive');
+      kb.index = next;
+    });
   }, 3500);
 }
 
 function stopKenBurns(container) {
-  if (container?._kenBurns?.interval) {
-    clearInterval(container._kenBurns.interval);
+  const kb = container?._kenBurns;
+  if (!kb) return;
+  if (kb.interval) {
+    clearInterval(kb.interval);
+    kb.interval = null;
   }
+  // Bumping the epoch cancels any pending preload callbacks from the
+  // previous session before they can touch the DOM.
+  kb.epoch = (kb.epoch || 0) + 1;
 }
 
 function swapKenBurnsPool(container, itemIndex) {
@@ -1113,27 +1162,36 @@ function swapKenBurnsPool(container, itemIndex) {
   // Avoid restart if pool hasn't changed
   if (newUrls === kb.urls) return;
 
+  // Stop and invalidate any in-flight work from the outgoing pool.
   stopKenBurns(container);
   kb.urls = newUrls;
   kb.index = 0;
+  const myEpoch = (kb.epoch || 0) + 1;
+  kb.epoch = myEpoch;
 
-  // Snap the active image to first of new pool; preload second
+  // Preload the incoming image and only then apply the src + snap the
+  // active class. This keeps rapid scrolling smooth — you never see a
+  // half-loaded new-pool image or a leftover previous-pool image.
   const [front, back] = kb.img0.classList.contains('active')
     ? [kb.img0, kb.img1]
     : [kb.img1, kb.img0];
-  setTransformedSrc(front, newUrls[0], { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
-  setTransformedSrc(back, newUrls[1] || newUrls[0], { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
-  // Ensure correct opacity state (no transition flash)
-  front.style.transition = 'none';
-  back.style.transition = 'none';
-  front.classList.replace('inactive', 'active');
-  back.classList.replace('active', 'inactive');
-  requestAnimationFrame(() => {
-    front.style.transition = '';
-    back.style.transition = '';
-  });
 
-  startKenBurns(container);
+  _kbPreload(newUrls[0]).then(() => {
+    if (kb.epoch !== myEpoch) return;
+    setTransformedSrc(front, newUrls[0], { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
+    setTransformedSrc(back, newUrls[1] || newUrls[0], { width: COVER_THUMB_WIDTH, quality: COVER_THUMB_QUALITY });
+    // Snap opacity state without transition (avoids a fade flash).
+    front.style.transition = 'none';
+    back.style.transition = 'none';
+    front.classList.replace('inactive', 'active');
+    back.classList.replace('active', 'inactive');
+    requestAnimationFrame(() => {
+      if (kb.epoch !== myEpoch) return;
+      front.style.transition = '';
+      back.style.transition = '';
+      startKenBurns(container);
+    });
+  });
 }
 
 // ---- Game View (shared for all canvas games) ----

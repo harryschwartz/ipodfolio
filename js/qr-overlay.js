@@ -47,7 +47,7 @@
 
       try {
         const qr = qrcode(0, 'M'); // auto-detect version, medium error correction
-        qr.addData('https://ipodfolio.vercel.app/');
+        qr.addData('https://harryschwartz.com/');
         qr.make();
 
         const moduleCount = qr.getModuleCount();
