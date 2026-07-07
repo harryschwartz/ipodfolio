@@ -389,7 +389,10 @@
   // interaction (click, keypress, scroll wheel, navigation).
   // ====================================================================
 
-  var SPEED_HINT_KEY = 'ipodfolio.speedHintShown';
+  // v2 key: v1 was set prematurely inside mount, so users who ever loaded
+  // audio before v83 had it burned on first play. Bumping the key resets
+  // everyone so the hint gets a fair chance to actually appear.
+  var SPEED_HINT_KEY = 'ipodfolio.speedHintShown.v2';
   // { wrap, hand, ring, label, badge }
   var speedEls = null;
   var speedDismissHandlers = null;
@@ -464,7 +467,15 @@
       if (speedEls) speedEls.wrap.style.visibility = '';
     });
 
-    markHintShown(SPEED_HINT_KEY);
+    // NB: don't mark the hint as "shown" until it's actually been on screen
+    // for a moment. If we mark it too early, a stray dismiss event during
+    // the audio-start sequence would burn the one chance the user has to
+    // ever see it. Persist the flag after 1.2s of visible time.
+    setTimeout(function () {
+      if (currentHint === 'speed' && speedEls && speedEls.wrap && speedEls.wrap.parentNode) {
+        markHintShown(SPEED_HINT_KEY);
+      }
+    }, 1200);
     // Delay installing dismiss handlers so stray events triggered by the
     // audio-start sequence (metadata loaded, artwork src swap, layout thrash)
     // don't immediately dismiss the hint before the user has seen it.
