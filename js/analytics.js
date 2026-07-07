@@ -1,8 +1,14 @@
 // ============================================================
-// iPodfolio analytics — thin wrapper around Vercel Web Analytics
+// iPodfolio analytics — fan-out wrapper for Vercel + PostHog
 // ============================================================
-// Emits named custom events via the `va` queue installed in index.html.
-// Doubles as the session-lifecycle tracker (duration, max depth,
+// Emits named custom events to two destinations:
+//   1. Vercel Web Analytics via the `va` queue (Hobby plan: only
+//      pageviews render in the dashboard; custom events are dropped
+//      server-side, but the queue call is harmless).
+//   2. PostHog via `posthog.capture()` — full custom-event support on
+//      the free tier + session replay.
+//
+// Also owns the session-lifecycle tracker (duration, max depth,
 // crude drop-off signal via beforeunload/pagehide).
 //
 // Public API:
@@ -10,15 +16,14 @@
 //   analytics.markDepth(depthNumber)   // used to compute maxDepth
 //
 // Design notes:
-// - We do NOT throw on missing `va` (e.g. local file:// or ad-blocked).
-//   Every call is best-effort.
+// - Every call is best-effort. Never throws — analytics must never
+//   crash the app. If a provider isn't loaded (ad-blocker, offline,
+//   file:// origin), we silently skip it.
 // - Long strings get truncated to keep the payload small; Vercel caps
-//   event data at ~2KB per event.
-// - `pagehide` is fired on iOS Safari backgrounding, `beforeunload` on
+//   event data at ~2KB per event. PostHog is more generous but we
+//   still keep values small so replays stay light.
+// - `pagehide` fires on iOS Safari backgrounding, `beforeunload` on
 //   desktop. We register both and de-dupe with a sent flag.
-// - `sendBeacon` is not exposed by the Vercel script; we call `va()` and
-//   rely on the SDK's own outbound handling. That's usually reliable
-//   because the script queues into an Image() beacon under the hood.
 // ============================================================
 
 (function () {
@@ -56,12 +61,19 @@
     if (!name || typeof name !== 'string') return;
     if (eventsSent >= MAX_EVENTS_PER_SESSION) return;
     eventsSent++;
+    var d = sanitizeData(data);
+    // 1. Vercel (Hobby drops custom events, but harmless to send)
     try {
-      var payload = { name: name };
-      var d = sanitizeData(data);
-      if (d) payload.data = d;
       if (typeof window.va === 'function') {
-        window.va('event', payload);
+        var vercelPayload = { name: name };
+        if (d) vercelPayload.data = d;
+        window.va('event', vercelPayload);
+      }
+    } catch (e) { /* never let analytics crash the app */ }
+    // 2. PostHog (this is where the funnel actually lives)
+    try {
+      if (window.posthog && typeof window.posthog.capture === 'function') {
+        window.posthog.capture(name, d || {});
       }
     } catch (e) { /* never let analytics crash the app */ }
   }
