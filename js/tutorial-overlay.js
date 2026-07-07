@@ -34,6 +34,17 @@
     return true;
   }
 
+  // ---- localStorage helpers ----
+  // Persist "already shown" flags across sessions so first-time hints only
+  // fire once per browser. Wrapped in try/catch because localStorage can
+  // throw in private-browsing/quota-exceeded contexts.
+  function hintWasShown(key) {
+    try { return !!localStorage.getItem(key); } catch (e) { return false; }
+  }
+  function markHintShown(key) {
+    try { localStorage.setItem(key, '1'); } catch (e) {}
+  }
+
   // ---- Boot screen content (unchanged) ----
   function renderBootView() {
     var view = document.createElement('div');
@@ -93,6 +104,7 @@
     resizeTimer = setTimeout(function () {
       if (currentHint === 'select') positionSelectHint();
       else if (currentHint === 'scroll') positionScrollHint();
+      else if (currentHint === 'speed') positionSpeedHint();
     }, 120);
   }
 
@@ -369,10 +381,137 @@
     setTimeout(finish, 1700);
   }
 
+  // ====================================================================
+  // SPEED hint — small tooltip pointing at the Now Playing speed badge.
+  // Fires exactly once (persisted via localStorage) the first time the user
+  // plays audio, and self-dismisses on any interaction (click, keypress,
+  // scroll wheel, navigation).
+  // ====================================================================
+
+  var SPEED_HINT_KEY = 'ipodfolio.speedHintShown';
+  var speedEls = null; // { wrap, tooltip }
+  var speedDismissHandlers = null;
+
+  function showSpeedHint() {
+    if (!shouldShow()) return;
+    if (hintWasShown(SPEED_HINT_KEY)) return;
+    if (currentHint === 'speed') return;
+    // The badge is inside the Now Playing view; wait a beat for it to render.
+    // Retry a few times to handle slow first render.
+    var attempts = 0;
+    function tryMount() {
+      var badge = document.getElementById('np-speed-badge');
+      if (badge && badge.offsetParent !== null) {
+        mountSpeedHint(badge);
+        return;
+      }
+      if (++attempts < 20) setTimeout(tryMount, 100);
+    }
+    tryMount();
+  }
+
+  function mountSpeedHint(badge) {
+    hideAll();
+    var c = ensureContainer();
+    if (!c) return;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'tutorial-speed-hint';
+    wrap.style.visibility = 'hidden';
+
+    var tooltip = document.createElement('div');
+    tooltip.className = 'tutorial-speed-tooltip';
+    tooltip.textContent = 'Tap to change speed';
+
+    var caret = document.createElement('div');
+    caret.className = 'tutorial-speed-caret';
+    tooltip.appendChild(caret);
+
+    wrap.appendChild(tooltip);
+    c.appendChild(wrap);
+    speedEls = { wrap: wrap, tooltip: tooltip, caret: caret, badge: badge };
+    currentHint = 'speed';
+
+    positionSpeedHint();
+    wrap.style.visibility = '';
+
+    markHintShown(SPEED_HINT_KEY);
+    installSpeedDismissHandlers();
+  }
+
+  function positionSpeedHint() {
+    if (!speedEls) return;
+    var br = elRectInShell(speedEls.badge);
+    if (!br) return;
+    // Position the tooltip ABOVE the badge, horizontally centered on it.
+    // The caret at the bottom of the tooltip points down at the badge.
+    // We measure the tooltip after appending to get its true width.
+    var tw = speedEls.tooltip.offsetWidth || 140;
+    var th = speedEls.tooltip.offsetHeight || 28;
+    var gap = 8; // px between caret tip and badge
+
+    var left = br.cx - tw / 2;
+    var top = br.top - th - gap;
+
+    // Clamp horizontally to the shell so the tooltip never overflows.
+    var sr = shellRect();
+    if (sr) {
+      var maxLeft = sr.width - tw - 6;
+      if (left < 6) left = 6;
+      if (left > maxLeft) left = maxLeft;
+    }
+
+    speedEls.tooltip.style.left = left + 'px';
+    speedEls.tooltip.style.top = top + 'px';
+
+    // Position caret so it sits at the horizontal center of the badge,
+    // regardless of any horizontal clamping we applied to the tooltip.
+    var caretX = br.cx - left; // relative to tooltip's left edge
+    speedEls.caret.style.left = caretX + 'px';
+  }
+
+  function dismissSpeedHint() {
+    if (currentHint !== 'speed' || !speedEls) return;
+    var wrap = speedEls.wrap;
+    wrap.classList.add('tutorial-hide');
+    setTimeout(function () { if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 260);
+    speedEls = null;
+    currentHint = null;
+    removeSpeedDismissHandlers();
+  }
+
+  function installSpeedDismissHandlers() {
+    if (speedDismissHandlers) return;
+    var dismiss = function () { dismissSpeedHint(); };
+    speedDismissHandlers = {
+      pointerdown: dismiss,
+      keydown: dismiss,
+      wheel: dismiss,
+      forwardscroll: dismiss,
+      backscroll: dismiss,
+      centerclick: dismiss,
+      menuclick: dismiss,
+      playpauseclick: dismiss,
+    };
+    Object.keys(speedDismissHandlers).forEach(function (evt) {
+      // capture: true so we notice clicks even on elements that stopPropagation.
+      window.addEventListener(evt, speedDismissHandlers[evt], true);
+    });
+  }
+
+  function removeSpeedDismissHandlers() {
+    if (!speedDismissHandlers) return;
+    Object.keys(speedDismissHandlers).forEach(function (evt) {
+      window.removeEventListener(evt, speedDismissHandlers[evt], true);
+    });
+    speedDismissHandlers = null;
+  }
+
   // ---- Public dismissal ----
   function hideAll() {
     dismissSelectHint();
     dismissScrollHint();
+    dismissSpeedHint();
   }
 
   // ---- Public API ----
@@ -381,8 +520,10 @@
     renderBootView: renderBootView,
     showSelectHint: showSelectHint,
     showScrollHint: showScrollHint,
+    showSpeedHint: showSpeedHint,
     dismissSelectHint: dismissSelectHint,
     dismissScrollHint: dismissScrollHint,
+    dismissSpeedHint: dismissSpeedHint,
     hideAll: hideAll,
     get currentHint() { return currentHint; },
     get isActive() { return !!currentHint; },

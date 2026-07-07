@@ -1372,20 +1372,53 @@ a {
 
 /* Shared fade-out class applied right before removal */
 .tutorial-select-hint,
-.tutorial-scroll-hint {
+.tutorial-scroll-hint,
+.tutorial-speed-hint {
   pointer-events: none;
   opacity: 1;
   transition: opacity 0.3s ease;
 }
 .tutorial-select-hint.tutorial-hide,
-.tutorial-scroll-hint.tutorial-hide { opacity: 0; }
+.tutorial-scroll-hint.tutorial-hide,
+.tutorial-speed-hint.tutorial-hide { opacity: 0; }
 
-/* Both hints fade in gently on mount */
+/* All hints fade in gently on mount */
 .tutorial-select-hint { animation: tut-fade-in 0.45s ease both; }
 .tutorial-scroll-hint { animation: tut-fade-in 0.45s ease both; }
+.tutorial-speed-hint  { animation: tut-fade-in 0.35s ease both; }
 @keyframes tut-fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+/* ---- Speed hint tooltip ---- */
+.tutorial-speed-tooltip {
+  position: absolute;
+  padding: 6px 10px;
+  background: #2c2c2c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  border-radius: 6px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  /* Subtle attention-getting bob so the user's eye lands on it. */
+  animation: tut-speed-bob 1.6s ease-in-out infinite;
+}
+.tutorial-speed-caret {
+  position: absolute;
+  bottom: -5px;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #2c2c2c;
+}
+@keyframes tut-speed-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2px); }
 }
 
 /* ---- Hand icon (shared) ---- */

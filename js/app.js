@@ -840,6 +840,13 @@ class IPodApp {
     const view = renderNowPlayingView();
     this.transitionTo(view, 'right');
     this.updateNowPlayingUI();
+
+    // First-time audio playback: point out that the speed badge is tappable.
+    // The tutorial overlay module handles the localStorage "seen" flag and
+    // waits internally for the badge to render before mounting the tooltip.
+    if (window.ipodTutorialOverlay && window.ipodTutorialOverlay.showSpeedHint) {
+      window.ipodTutorialOverlay.showSpeedHint();
+    }
   }
 
   // ---- View Transitions ----
