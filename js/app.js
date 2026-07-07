@@ -1405,24 +1405,46 @@ class IPodApp {
     const track = audioPlayer.currentTrack;
     if (!track) return;
     
-    // Artwork
-    const artwork = this.currentView?.querySelector('.now-playing-artwork');
+    // Artwork — may need to swap between <img> and <div> for emoji covers,
+    // since text content doesn't render inside void <img> elements.
+    let artwork = this.currentView?.querySelector('.now-playing-artwork');
     if (artwork) {
       const parent = getParent(track);
-      const meta = parent?.metadata?.coverEmoji ? parent.metadata
-                 : track.metadata?.coverEmoji ? track.metadata
-                 : null;
-      if (meta?.coverEmoji) {
-        artwork.style.backgroundColor = meta.coverColor || '#6366f1';
+      const emojiMeta = parent?.metadata?.coverEmoji ? parent.metadata
+                     : track.metadata?.coverEmoji ? track.metadata
+                     : null;
+      const needDiv = !!emojiMeta?.coverEmoji;
+      const isDiv = artwork.tagName === 'DIV';
+
+      // Swap the element type if needed (img <-> div).
+      if (needDiv !== isDiv) {
+        const container = artwork.parentNode;
+        const replacement = document.createElement(needDiv ? 'div' : 'img');
+        replacement.className = 'now-playing-artwork';
+        if (!needDiv) {
+          replacement.alt = 'Album artwork';
+          replacement.decoding = 'async';
+        }
+        container.replaceChild(replacement, artwork);
+        artwork = replacement;
+      }
+
+      if (needDiv) {
+        // Reset any lingering styles, then paint the emoji cover.
+        artwork.removeAttribute('style');
+        artwork.style.backgroundColor = emojiMeta.coverColor || '#6366f1';
         artwork.style.display = 'flex';
         artwork.style.alignItems = 'center';
         artwork.style.justifyContent = 'center';
-        artwork.style.fontSize = '2rem';
-        artwork.textContent = meta.coverEmoji;
-        artwork.src = '';
-      } else {
+        // Big emoji sized to the artwork container (~8em box).
         artwork.textContent = '';
-        artwork.style = '';
+        const span = document.createElement('span');
+        span.style.fontSize = '5rem';
+        span.style.lineHeight = '1';
+        span.textContent = emojiMeta.coverEmoji;
+        artwork.appendChild(span);
+      } else {
+        artwork.removeAttribute('style');
         const coverMeta = parent?.metadata?.coverImage ? parent.metadata : track.metadata;
         const nowPlayingCover = coverMeta?.coverImage;
         if (nowPlayingCover && typeof setTransformedSrc === 'function') {

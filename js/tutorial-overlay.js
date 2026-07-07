@@ -454,7 +454,7 @@
     wrap.appendChild(label);
 
     c.appendChild(wrap);
-    speedEls = { wrap: wrap, hand: hand, ring: ring, label: label, badge: badge };
+    speedEls = { wrap: wrap, hand: hand, ring: ring, label: label, badge: badge, mountedAt: Date.now() };
     currentHint = 'speed';
 
     // Wait one frame so the hand image + label have real dimensions before we
@@ -465,7 +465,12 @@
     });
 
     markHintShown(SPEED_HINT_KEY);
-    installSpeedDismissHandlers();
+    // Delay installing dismiss handlers so stray events triggered by the
+    // audio-start sequence (metadata loaded, artwork src swap, layout thrash)
+    // don't immediately dismiss the hint before the user has seen it.
+    setTimeout(function () {
+      if (currentHint === 'speed') installSpeedDismissHandlers();
+    }, 400);
   }
 
   function positionSpeedHint() {
@@ -534,6 +539,9 @@
 
   function dismissSpeedHint() {
     if (currentHint !== 'speed' || !speedEls) return;
+    // Belt-and-suspenders: ignore dismiss events that fire within the grace
+    // window right after mount, in case a handler slipped in.
+    if (speedEls.mountedAt && (Date.now() - speedEls.mountedAt) < 400) return;
     var wrap = speedEls.wrap;
     wrap.classList.add('tutorial-hide');
     setTimeout(function () { if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 260);
