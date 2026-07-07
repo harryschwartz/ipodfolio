@@ -1393,8 +1393,24 @@ a {
 
 /* ---- SPEED hint: floating hand + blue tap-ring on the speed badge ---- */
 /* Matches the classic hand-cursor tool tip look (select/scroll hints). */
+/* The base cursor-hand.png points UP (fingertip at top). For the speed */
+/* hint we want the finger reaching DOWN onto the badge, so we flip the */
+/* image inside its box — the DOM box stays at handX/handY, but pixels */
+/* are mirrored vertically. Fingertip (was at image y=0) now visually */
+/* sits at the BOTTOM edge of the DOM box, touching the badge. */
+.tutorial-hand-speed img {
+  transform: scaleY(-1);
+  transform-origin: 50% 50%;
+}
 .tutorial-hand-speed {
-  animation: tut-hand-tap 1.3s ease-in-out infinite;
+  /* Override base transform-origin so the tap-bob animation stays vertical */
+  /* around the fingertip (bottom-center of the flipped box). */
+  transform-origin: 35.5% 100%;
+  animation: tut-hand-tap-down 1.3s ease-in-out infinite;
+}
+@keyframes tut-hand-tap-down {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(3px); }
 }
 .tutorial-speed-ring {
   /* Inherits ring border + pulse animation from .tutorial-tap-ring. */

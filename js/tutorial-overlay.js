@@ -495,8 +495,15 @@
     var tipOffsetY = handH * HAND_TIP_FY;
     // Hand comes in from up-and-slightly-right, tapping down on the badge
     // center. The tap-bob animation moves the whole hand vertically.
-    var handX = br.cx - tipOffsetX + 4; // 4px right so fingertip visually lands on badge
-    var handY = br.top - handH - 2;     // sit just above the badge
+    // The hand image inside .tutorial-hand-speed is flipped via CSS
+    // (scaleY(-1) around image center) so the fingertip visually sits at
+    // the BOTTOM of the DOM box. Fingertip x-fraction stays at HAND_TIP_FX.
+    // Visual fingertip position = (handX + handW * HAND_TIP_FX, handY + handH).
+    //
+    // Anchor the fingertip so it lightly presses the badge from above:
+    // x on badge center, y just touching (or 1px into) the top edge.
+    var handX = br.cx - tipOffsetX;
+    var handY = br.top - handH + 1;
     // Clamp so the hand never falls off the left/right edges of the shell.
     var minHandX = 4;
     var maxHandX = sr.width - handW - 4;
@@ -508,7 +515,8 @@
     // ---- Label: small caption above the hand. ----
     var lw = speedEls.label.offsetWidth || 130;
     var lh = speedEls.label.offsetHeight || 18;
-    // Center label above the hand's fingertip (which sits at handX + tipOffsetX).
+    // Center label above the hand body (hand body extends from handY to
+    // handY + handH; fingertip is at the bottom).
     var fingerX = handX + tipOffsetX;
     var labelLeft = fingerX - lw / 2;
     var labelTop = handY - lh - 4;
