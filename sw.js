@@ -1,8 +1,9 @@
-const CACHE_NAME = 'ipodfolio-v84';
+const CACHE_NAME = 'ipodfolio-v85';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/css/styles.css',
+  '/js/analytics.js',
   '/js/app.js',
   '/js/audio-player.js',
   '/js/brick-game.js',

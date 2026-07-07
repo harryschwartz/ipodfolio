@@ -26,6 +26,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 
 <link rel="stylesheet" href="css/styles.css">
+
+<!-- Vercel Web Analytics + Speed Insights (queue must precede the deferred scripts) -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body>
   <!-- Studio backdrop with curved perspective grid -->
@@ -101,6 +109,7 @@
 
 
   <!-- Scripts -->
+  <script src="js/analytics.js"></script>
   <script src="js/qrcode-lib.js"></script>
   <script src="js/qr-overlay.js"></script>
   <script src="js/tutorial-overlay.js"></script>

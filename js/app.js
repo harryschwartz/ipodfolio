@@ -135,6 +135,7 @@ class IPodApp {
 
   dismissBootScreen() {
     this.bootScreenActive = false;
+    window.analytics?.track('boot_complete');
     // Desktop: show QR screen next (hint stays up). Mobile: go straight to
     // home and swap to the scroll-wheel hint. Either way, the select hint
     // is explicitly hidden first so there's no visual overlap during the
@@ -222,6 +223,8 @@ class IPodApp {
     this.scrollIndex = 0;
     this.musicViewType = null;
     this.setHeaderTitle("Harry's iPortfolio");
+    window.analytics?.track('menu_entered', { menu: 'home' });
+    window.analytics?.markDepth(0);
     
     const view = renderFolderView(null, this.currentItems, true);
     this.transitionTo(view, 'none');
@@ -469,9 +472,13 @@ class IPodApp {
       case 'folder': {
         // Intercept Music folder — show computed iPod-style menu
         if (isMusicFolder(node.id)) {
+          window.analytics?.track('menu_entered', { menu: 'Music' });
+          window.analytics?.markDepth(this.navStack?.length || 1);
           this.showMusicMenu(direction, restoreIndex);
           return;
         }
+        window.analytics?.track('menu_entered', { menu: node.title });
+        window.analytics?.markDepth(this.navStack?.length || 1);
         const isTopLevel = node.metadata?.splitScreen ?? (node.parentId === null);
         this.setHeaderTitle(node.title);
         const view = renderFolderView(node, children, isTopLevel);
@@ -488,6 +495,8 @@ class IPodApp {
         break;
       }
       case 'playlist': {
+        window.analytics?.track('project_opened', { title: node.title });
+        window.analytics?.markDepth(this.navStack?.length || 1);
         const songIds = node.metadata?.songIds || [];
         const songs = songIds.map(id => getNode(id)).filter(Boolean);
         // Include all direct children (songs, links, albums, etc.)
@@ -525,6 +534,8 @@ class IPodApp {
         break;
       }
       case 'video': {
+        window.analytics?.track('video_opened', { title: node.title });
+        window.analytics?.markDepth(this.navStack?.length || 1);
         this.setHeaderTitle(node.title);
         const view = renderVideoView(node);
         this.transitionTo(view, direction);
@@ -539,6 +550,8 @@ class IPodApp {
         break;
       }
       case 'game': {
+        window.analytics?.track('game_started', { game: node.title });
+        window.analytics?.markDepth(this.navStack?.length || 1);
         this.setHeaderTitle(node.title);
         const view = renderGameView();
         this.transitionTo(view, direction);
@@ -564,6 +577,7 @@ class IPodApp {
       }
       case 'link': {
         if (node.metadata?.url) {
+          window.analytics?.track('link_clicked', { url: node.metadata.url, title: node.title });
           window.open(node.metadata.url, '_blank', 'noopener,noreferrer');
         }
         // Don't navigate, stay on current view
@@ -1257,6 +1271,7 @@ class IPodApp {
 
     // Songs: play and show Now Playing
     if (item.type === 'song') {
+      window.analytics?.track('song_played', { title: item.title });
       this.navStack.push({
         nodeId: this.currentNode ? this.currentNode.id : null,
         scrollIndex: this.scrollIndex,
@@ -1269,6 +1284,7 @@ class IPodApp {
     // Links: open in new tab
     if (item.type === 'link') {
       if (item.metadata?.url) {
+        window.analytics?.track('link_clicked', { url: item.metadata.url, title: item.title });
         let url = item.metadata.url;
         if (!/^[a-zA-Z][a-zA-Z0-9+\-.]*:/.test(url)) url = 'https://' + url;
         // Non-http schemes (sms:, mailto:, tel:) must use location.href, not window.open
@@ -1583,7 +1599,9 @@ class IPodApp {
         speedBadge.addEventListener('pointerdown', (e) => {
           e.stopPropagation();
           e.preventDefault();
+          const from = audioPlayer.playbackSpeed;
           audioPlayer.cycleSpeed();
+          window.analytics?.track('speed_changed', { from, to: audioPlayer.playbackSpeed });
         });
         // Swallow any downstream click so it doesn't hit the screen handler.
         speedBadge.addEventListener('click', (e) => {
