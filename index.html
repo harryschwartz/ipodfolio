@@ -44,6 +44,9 @@
     autocapture: false,
     capture_pageview: true,
     capture_pageleave: true,
+    // Automatically capture uncaught JS errors + unhandled promise rejections.
+    // Surfaces as an "Exceptions" tab in PostHog.
+    capture_exceptions: true,
     disable_session_recording: false,
     session_recording: {
       maskAllInputs: true,

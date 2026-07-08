@@ -29,11 +29,51 @@
 (function () {
   var MAX_STR = 80;             // truncate string prop values
   var MAX_EVENTS_PER_SESSION = 200;  // hard cap to avoid runaway loops
+  var ADMIN_KEY = 'ipodfolio.internal_user';
 
   var sessionStart = Date.now();
   var maxDepth = 0;
   var eventsSent = 0;
   var sessionEndSent = false;
+
+  // ---- Admin/internal-user filter ----------------------------------------
+  // Visiting harryschwartz.com/?admin=1 once (per device) marks this browser
+  // as "internal" — events get tagged is_internal:true so dashboards can
+  // filter them out. Visit /?admin=0 to un-mark.
+  function readAdminFlag() {
+    try {
+      var qs = new URLSearchParams(window.location.search);
+      if (qs.get('admin') === '1') {
+        try { localStorage.setItem(ADMIN_KEY, '1'); } catch (_) {}
+      } else if (qs.get('admin') === '0') {
+        try { localStorage.removeItem(ADMIN_KEY); } catch (_) {}
+      }
+      try { return localStorage.getItem(ADMIN_KEY) === '1'; } catch (_) { return false; }
+    } catch (_) { return false; }
+  }
+  var isInternal = readAdminFlag();
+
+  // Tell PostHog about it as a persistent super-property + person property
+  // so it sticks across events and future sessions on this browser.
+  function tagInternalOnPostHog() {
+    try {
+      if (!window.posthog || typeof window.posthog.register !== 'function') return;
+      if (isInternal) {
+        window.posthog.register({ is_internal: true });
+        if (typeof window.posthog.people?.set === 'function') {
+          window.posthog.people.set({ is_internal: true });
+        }
+      } else {
+        // Explicitly unregister so a cleared flag stops tagging future events
+        if (typeof window.posthog.unregister === 'function') {
+          window.posthog.unregister('is_internal');
+        }
+      }
+    } catch (_) {}
+  }
+  // PostHog script loads deferred; try immediately + on load.
+  tagInternalOnPostHog();
+  window.addEventListener('load', tagInternalOnPostHog);
 
   function truncate(v) {
     if (typeof v === 'string' && v.length > MAX_STR) return v.slice(0, MAX_STR - 1) + '\u2026';
@@ -61,19 +101,21 @@
     if (!name || typeof name !== 'string') return;
     if (eventsSent >= MAX_EVENTS_PER_SESSION) return;
     eventsSent++;
-    var d = sanitizeData(data);
+    var d = sanitizeData(data) || {};
+    // Always stamp is_internal on the event itself as a belt-and-suspenders
+    // in case super-properties didn't register yet.
+    if (isInternal) d.is_internal = true;
     // 1. Vercel (Hobby drops custom events, but harmless to send)
     try {
       if (typeof window.va === 'function') {
-        var vercelPayload = { name: name };
-        if (d) vercelPayload.data = d;
+        var vercelPayload = { name: name, data: d };
         window.va('event', vercelPayload);
       }
     } catch (e) { /* never let analytics crash the app */ }
     // 2. PostHog (this is where the funnel actually lives)
     try {
       if (window.posthog && typeof window.posthog.capture === 'function') {
-        window.posthog.capture(name, d || {});
+        window.posthog.capture(name, d);
       }
     } catch (e) { /* never let analytics crash the app */ }
   }
@@ -103,5 +145,6 @@
   window.analytics = {
     track: track,
     markDepth: markDepth,
+    isInternal: function () { return isInternal; },
   };
 })();

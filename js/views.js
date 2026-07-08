@@ -448,7 +448,7 @@ function attachScrubberDrag(scrubberLayer) {
 function renderPhotoGrid(node) {
   const container = document.createElement('div');
   container.className = 'photo-grid';
-  
+
   const photos = node.metadata?.photos || [];
   // Thumbs render at ~110×110 CSS px in a 3-col grid on mobile; 240px wide covers 2x DPR.
   photos.forEach((photo, i) => {
@@ -462,7 +462,38 @@ function renderPhotoGrid(node) {
     attachPhotoLoader(img, photo, { width: 240, quality: 70 });
     container.appendChild(img);
   });
-  
+
+  // ---- Analytics: track grid impressions via IntersectionObserver ------
+  // We fire photo_scrolled_into_view once per photo per album view when the
+  // thumbnail becomes >=50% visible. Impressions are accumulated on the
+  // container and read by app.js when the album is closed to compute
+  // grid_impressions on album_closed.
+  container._photoImpressions = new Set();
+  container._photoAlbumTitle = node.title || 'album';
+  container._photoAlbumTotal = photos.length;
+  try {
+    if ('IntersectionObserver' in window && photos.length > 0) {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            const idx = Number(entry.target.dataset.index);
+            if (!Number.isNaN(idx) && !container._photoImpressions.has(idx)) {
+              container._photoImpressions.add(idx);
+              window.analytics?.track('photo_scrolled_into_view', {
+                album: node.title,
+                index: idx,
+                total: photos.length,
+              });
+            }
+          }
+        });
+      }, { threshold: [0.5] });
+      // Observe each thumb; store observer for later disconnect.
+      container.querySelectorAll('img.photo-thumb').forEach((img) => io.observe(img));
+      container._photoObserver = io;
+    }
+  } catch (_) { /* observer optional */ }
+
   return container;
 }
 
@@ -596,30 +627,178 @@ function renderVideoView(node) {
   }
 
   // YouTube URLs can't be played by <video>. Embed via iframe instead.
+  // Uses the YouTube IFrame API (loaded lazily) so we can track play/
+  // progress/complete events and fire content_closed on nav-away.
   const ytId = extractYouTubeId(videoUrl);
   if (ytId) {
     const iframe = document.createElement('iframe');
     iframe.className = 'video-iframe';
-    // Autoplay muted so mobile browsers actually start playback; user can
-    // unmute via the iframe controls.
+    // enablejsapi=1 is required for the IFrame API to control this player.
+    // origin=... helps YouTube validate postMessage traffic.
     iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(ytId)
-      + '?autoplay=1&playsinline=1&rel=0&modestbranding=1';
+      + '?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1'
+      + '&origin=' + encodeURIComponent(window.location.origin);
     iframe.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
     iframe.allowFullscreen = true;
     iframe.setAttribute('frameborder', '0');
     iframe.title = node.title || 'video';
     container.appendChild(iframe);
+    // Fire content_opened analytics is done by app.js on view entry.
+    // Wire IFrame API for play/progress/complete tracking.
+    attachYouTubeTracking(iframe, ytId, node.title || 'video', container);
     return container;
   }
 
-  // Direct video file — use <video>.
+  // Direct video file — use <video>. Track via native events.
   const video = document.createElement('video');
   video.src = videoUrl;
   video.controls = true;
   video.playsInline = true;
   video.autoplay = true;
+  attachHtmlVideoTracking(video, node.title || 'video');
   container.appendChild(video);
   return container;
+}
+
+// ---- YouTube IFrame API tracking --------------------------------------
+// Loads the YouTube API on demand and attaches a player instance to the
+// given iframe. Fires:
+//   video_played           when playback actually starts
+//   video_progress {pct}   at 25/50/75 marks (once each)
+//   video_completed        when state = ENDED
+//   video_closed {pct_watched, seconds_watched}  when the view is torn down
+let _ytApiPromise = null;
+function loadYouTubeApi() {
+  if (_ytApiPromise) return _ytApiPromise;
+  _ytApiPromise = new Promise((resolve) => {
+    // If already loaded (rare — no other consumer), resolve immediately.
+    if (window.YT && window.YT.Player) { resolve(window.YT); return; }
+    // YouTube calls this global when the API is ready.
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = function () {
+      if (typeof prev === 'function') { try { prev(); } catch (_) {} }
+      resolve(window.YT);
+    };
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    s.async = true;
+    document.head.appendChild(s);
+  });
+  return _ytApiPromise;
+}
+
+function attachYouTubeTracking(iframe, ytId, title, container) {
+  loadYouTubeApi().then((YT) => {
+    let player;
+    const state = {
+      startedAt: null,        // ms when play began
+      secondsWatched: 0,      // accumulated play time
+      lastTickAt: null,       // ms of last tick while playing
+      duration: 0,            // total seconds (from YT)
+      milestonesFired: {},    // { 25: true, 50: true, ... }
+      completedFired: false,
+      opened: true,           // still on the view
+    };
+    function tick() {
+      if (!player || !state.opened) return;
+      try {
+        const cur = player.getCurrentTime ? player.getCurrentTime() : 0;
+        const dur = player.getDuration ? player.getDuration() : 0;
+        if (dur > 0) state.duration = dur;
+        if (state.startedAt && state.lastTickAt) {
+          state.secondsWatched += (Date.now() - state.lastTickAt) / 1000;
+        }
+        state.lastTickAt = Date.now();
+        if (state.duration > 0) {
+          const pct = (cur / state.duration) * 100;
+          [25, 50, 75].forEach((m) => {
+            if (pct >= m && !state.milestonesFired[m]) {
+              state.milestonesFired[m] = true;
+              window.analytics?.track('video_progress', { title, pct: m });
+            }
+          });
+        }
+      } catch (_) {}
+    }
+    const tickInterval = setInterval(tick, 1000);
+    // Close hook: when the container is removed from the DOM (view swap),
+    // fire video_closed with a snapshot of engagement.
+    const mo = new MutationObserver(() => {
+      if (!document.body.contains(container)) {
+        state.opened = false;
+        clearInterval(tickInterval);
+        mo.disconnect();
+        try {
+          let pct = 0;
+          try {
+            if (player && player.getCurrentTime && state.duration > 0) {
+              pct = Math.min(100, Math.round((player.getCurrentTime() / state.duration) * 100));
+            }
+          } catch (_) {}
+          // Skip duplicate: if completed already fired, don't also fire closed.
+          if (!state.completedFired) {
+            window.analytics?.track('video_closed', {
+              title,
+              pct_watched: pct,
+              seconds_watched: Math.round(state.secondsWatched),
+            });
+          }
+        } catch (_) {}
+        try { player && player.destroy && player.destroy(); } catch (_) {}
+      }
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+    // Create the Player. YT reads directly from the iframe element.
+    try {
+      player = new YT.Player(iframe, {
+        events: {
+          onStateChange: (e) => {
+            // 1=PLAYING, 0=ENDED
+            if (e.data === 1) {
+              if (!state.startedAt) {
+                state.startedAt = Date.now();
+                window.analytics?.track('video_played', { title });
+              }
+              state.lastTickAt = Date.now();
+            } else if (e.data === 0 && !state.completedFired) {
+              state.completedFired = true;
+              // Final tick to include the last moments before end.
+              tick();
+              window.analytics?.track('video_completed', {
+                title,
+                seconds_watched: Math.round(state.secondsWatched),
+              });
+            }
+          },
+        },
+      });
+    } catch (_) { /* IFrame API not usable in this context */ }
+  }).catch(() => { /* API failed to load; skip video events */ });
+}
+
+function attachHtmlVideoTracking(video, title) {
+  const state = { startedAt: null, milestones: {}, completed: false };
+  video.addEventListener('play', () => {
+    if (!state.startedAt) {
+      state.startedAt = Date.now();
+      window.analytics?.track('video_played', { title });
+    }
+  }, { once: false });
+  video.addEventListener('timeupdate', () => {
+    if (!video.duration || !isFinite(video.duration)) return;
+    const pct = (video.currentTime / video.duration) * 100;
+    [25, 50, 75].forEach((m) => {
+      if (pct >= m && !state.milestones[m]) {
+        state.milestones[m] = true;
+        window.analytics?.track('video_progress', { title, pct: m });
+      }
+    });
+  });
+  video.addEventListener('ended', () => {
+    if (state.completed) return;
+    state.completed = true;
+    window.analytics?.track('video_completed', { title });
+  });
 }
 
 // ---- Settings View ----

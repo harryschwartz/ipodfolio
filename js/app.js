@@ -263,6 +263,33 @@ class IPodApp {
   }
 
   navigateBack() {
+    // Analytics: fire album_closed when leaving a photo_album (from the grid,
+    // NOT from fullscreen — fullscreen navigateBack pops back to the grid).
+    // The photoFullscreen check below is the fullscreen-exit path; that one
+    // handles restoreIndex re-render and returns early, so if we reach the
+    // block after this the user is truly leaving the album.
+    if (
+      this.currentNode?.type === 'photo_album' &&
+      !this.photoFullscreen &&
+      !this.activeNowPlaying
+    ) {
+      const grid = this._currentAlbumView;
+      const impressions = grid && grid._photoImpressions ? grid._photoImpressions.size : 0;
+      const total = (this.currentNode.metadata?.photos || []).length;
+      const opened = this._currentAlbumPhotosOpened || 0;
+      window.analytics?.track('album_closed', {
+        title: this.currentNode.title,
+        grid_impressions: impressions,
+        opened_count: opened,
+        total_photos: total,
+        pct_viewed: total > 0 ? Math.round((impressions / total) * 100) : 0,
+      });
+      // Disconnect the observer so it stops firing after teardown.
+      try { grid && grid._photoObserver && grid._photoObserver.disconnect(); } catch (_) {}
+      this._currentAlbumView = null;
+      this._currentAlbumPhotosOpened = 0;
+    }
+
     // Clean up active sub-controllers
     this.cleanupSubControllers();
 
@@ -509,6 +536,16 @@ class IPodApp {
         break;
       }
       case 'photo_album': {
+        // Fire album_opened only on fresh entry, not when returning from
+        // fullscreen (which re-renders the same album with restoreIndex).
+        const isFreshEntry = restoreIndex === undefined || restoreIndex === null;
+        if (isFreshEntry) {
+          window.analytics?.track('album_opened', {
+            title: node.title,
+            total_photos: (node.metadata?.photos || []).length,
+          });
+          window.analytics?.markDepth(this.navStack?.length || 1);
+        }
         this.photoNode = node;
         // When returning from fullscreen (via menu), restoreIndex carries the
         // photo the user was viewing so the grid highlights it.
@@ -517,6 +554,9 @@ class IPodApp {
         this.scrollIndex = idx;
         this.setHeaderTitle(node.title);
         const view = renderPhotoGrid(node);
+        this._currentAlbumView = view; // Held for album_closed engagement snapshot
+        this._currentAlbumPhotosOpened = this._currentAlbumPhotosOpened || 0;
+        if (isFreshEntry) this._currentAlbumPhotosOpened = 0;
         this.currentItems = node.metadata?.photos || [];
         this.transitionTo(view, direction);
         // Wait a tick so the newly transitioned view becomes currentView before
@@ -552,6 +592,9 @@ class IPodApp {
       case 'game': {
         window.analytics?.track('game_started', { game: node.title });
         window.analytics?.markDepth(this.navStack?.length || 1);
+        // Stash the start time + title so we can fire game_ended on teardown
+        // with duration + "closed" reason if they navigate away mid-game.
+        this._currentGame = { title: node.title, startedAt: Date.now(), endedNaturally: false };
         this.setHeaderTitle(node.title);
         const view = renderGameView();
         this.transitionTo(view, direction);
@@ -563,6 +606,19 @@ class IPodApp {
           if (canvas) {
             this.activeBrickGame = new BrickGame();
             this.activeBrickGame.init(canvas, hud, hudRight);
+            // Hook: BrickGame fires this when lives run out. See brick-game.js.
+            this.activeBrickGame.onGameOver = (score, level) => {
+              if (!this._currentGame) return;
+              this._currentGame.endedNaturally = true;
+              const durationSec = Math.round((Date.now() - this._currentGame.startedAt) / 1000);
+              window.analytics?.track('game_ended', {
+                game: this._currentGame.title,
+                reason: 'game_over',
+                score: score,
+                level: level,
+                duration_sec: durationSec,
+              });
+            };
           }
         });
         break;
@@ -931,6 +987,23 @@ class IPodApp {
       this.activeCoverFlow = null;
     }
     if (this.activeBrickGame) {
+      // Analytics: if the user is leaving mid-game (before game_over fired),
+      // report a 'closed' reason with the current score and duration. If
+      // game_over already fired, endedNaturally is true and we skip.
+      try {
+        if (this._currentGame && !this._currentGame.endedNaturally) {
+          const p = this.activeBrickGame.player || {};
+          const durationSec = Math.round((Date.now() - this._currentGame.startedAt) / 1000);
+          window.analytics?.track('game_ended', {
+            game: this._currentGame.title,
+            reason: 'closed',
+            score: typeof p.score === 'number' ? p.score : 0,
+            level: this.activeBrickGame.level || 1,
+            duration_sec: durationSec,
+          });
+        }
+      } catch (_) {}
+      this._currentGame = null;
       this.activeBrickGame.cleanup();
       this.activeBrickGame = null;
     }
@@ -1133,6 +1206,13 @@ class IPodApp {
       const photos = this.currentNode.metadata?.photos || [];
       if (photos[this.photoIndex]) {
         this.photoFullscreen = true;
+        // Analytics: photo_opened (tap-to-fullscreen — hard engagement signal)
+        window.analytics?.track('photo_opened', {
+          album: this.currentNode.title,
+          index: this.photoIndex,
+          total: photos.length,
+        });
+        this._currentAlbumPhotosOpened = (this._currentAlbumPhotosOpened || 0) + 1;
         const view = renderPhotoFullscreen(photos[this.photoIndex]);
         this.navStack.push({
           nodeId: this.currentNode.id,

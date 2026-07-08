@@ -277,6 +277,13 @@ class BrickGame {
       this.state = GAME_STATE.GAME_OVER;
       this.initials = ['A', 'A', 'A'];
       this.initialsCursor = 0;
+      // Analytics: notify parent (app.js sets this callback in the 'game'
+      // case handler) so it can fire the game_ended event with reason='game_over'.
+      try {
+        if (typeof this.onGameOver === 'function') {
+          this.onGameOver(this.finalScore, this.finalLevel);
+        }
+      } catch (_) {}
       return;
     }
     this.spawnBalls();
