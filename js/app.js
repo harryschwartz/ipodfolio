@@ -1058,6 +1058,12 @@ class IPodApp {
       return;
     }
 
+    // Video view: wheel scrubs the video by ~5s per tick.
+    if (this.currentNode?.type === 'video' && window.currentVideoRemote) {
+      window.currentVideoRemote.seekBy(direction === 'forward' ? 5 : -5);
+      return;
+    }
+
     // Text view: scroll body + link rows (wheel does not move list highlight)
     if (this.currentNode?.type === 'text') {
       const scrollEl = this.currentView?._scrollEl;
@@ -1254,9 +1260,13 @@ class IPodApp {
       return;
     }
 
-    // Text view or video - no action on center click
+    // Text view - no action on center click
     if (this.currentNode?.type === 'text') return;
-    if (this.currentNode?.type === 'video') return;
+    // Video view - center click toggles play/pause
+    if (this.currentNode?.type === 'video') {
+      window.currentVideoRemote?.togglePlayPause();
+      return;
+    }
 
     // Select current item
     const item = this.currentItems[this.scrollIndex];
@@ -1411,7 +1421,13 @@ class IPodApp {
   // ---- Play/Pause ----
   onPlayPause() {
     if (this.activeBrickGame) return;
-    
+
+    // Video view wins over audio - route play/pause to the video remote.
+    if (this.currentNode?.type === 'video' && window.currentVideoRemote) {
+      window.currentVideoRemote.togglePlayPause();
+      return;
+    }
+
     if (audioPlayer.isPlaying || audioPlayer.isPaused) {
       audioPlayer.togglePlayPause();
       this.updateHeaderIcons();
@@ -1425,6 +1441,11 @@ class IPodApp {
       this.handlePhotoFullscreenScroll('forward');
       return;
     }
+    // Video view - skip 10s ahead
+    if (this.currentNode?.type === 'video' && window.currentVideoRemote) {
+      window.currentVideoRemote.seekBy(10);
+      return;
+    }
     if (audioPlayer.isPlaying) {
       audioPlayer.next();
     }
@@ -1434,6 +1455,11 @@ class IPodApp {
     if (this.activeBrickGame) return;
     if (this.photoFullscreen) {
       this.handlePhotoFullscreenScroll('backward');
+      return;
+    }
+    // Video view - skip 10s back
+    if (this.currentNode?.type === 'video' && window.currentVideoRemote) {
+      window.currentVideoRemote.seekBy(-10);
       return;
     }
     if (audioPlayer.isPlaying) {

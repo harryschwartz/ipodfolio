@@ -745,6 +745,10 @@ function attachYouTubeTracking(iframe, ytId, title, container) {
           }
         } catch (_) {}
         try { player && player.destroy && player.destroy(); } catch (_) {}
+        // Clear remote so the iPod controls stop targeting this video.
+        if (window.currentVideoRemote && window.currentVideoRemote.kind === 'youtube') {
+          window.currentVideoRemote = null;
+        }
       }
     });
     mo.observe(document.body, { childList: true, subtree: true });
@@ -752,6 +756,32 @@ function attachYouTubeTracking(iframe, ytId, title, container) {
     try {
       player = new YT.Player(iframe, {
         events: {
+          onReady: () => {
+            // Expose a unified remote so the iPod's play/pause/scroll
+            // controls can drive the video. Cleared when the view unmounts.
+            window.currentVideoRemote = {
+              kind: 'youtube',
+              isPlaying: () => {
+                try { return player.getPlayerState && player.getPlayerState() === 1; }
+                catch (_) { return false; }
+              },
+              togglePlayPause: () => {
+                try {
+                  const s = player.getPlayerState && player.getPlayerState();
+                  if (s === 1) player.pauseVideo();
+                  else player.playVideo();
+                } catch (_) {}
+              },
+              seekBy: (deltaSec) => {
+                try {
+                  const cur = player.getCurrentTime ? player.getCurrentTime() : 0;
+                  const dur = player.getDuration ? player.getDuration() : 0;
+                  const target = Math.max(0, Math.min(dur || cur + deltaSec, cur + deltaSec));
+                  player.seekTo(target, true);
+                } catch (_) {}
+              },
+            };
+          },
           onStateChange: (e) => {
             // 1=PLAYING, 0=ENDED
             if (e.data === 1) {
@@ -778,6 +808,17 @@ function attachYouTubeTracking(iframe, ytId, title, container) {
 
 function attachHtmlVideoTracking(video, title) {
   const state = { startedAt: null, milestones: {}, completed: false };
+  // Expose remote so iPod controls can drive native <video> too.
+  window.currentVideoRemote = {
+    kind: 'html',
+    isPlaying: () => !video.paused && !video.ended,
+    togglePlayPause: () => { if (video.paused) video.play(); else video.pause(); },
+    seekBy: (deltaSec) => {
+      const dur = isFinite(video.duration) ? video.duration : 0;
+      const target = Math.max(0, Math.min(dur || video.currentTime + deltaSec, video.currentTime + deltaSec));
+      video.currentTime = target;
+    },
+  };
   video.addEventListener('play', () => {
     if (!state.startedAt) {
       state.startedAt = Date.now();
@@ -799,6 +840,16 @@ function attachHtmlVideoTracking(video, title) {
     state.completed = true;
     window.analytics?.track('video_completed', { title });
   });
+  // Clear remote when the <video> is removed from the DOM.
+  const mo = new MutationObserver(() => {
+    if (!document.body.contains(video)) {
+      if (window.currentVideoRemote && window.currentVideoRemote.kind === 'html') {
+        window.currentVideoRemote = null;
+      }
+      mo.disconnect();
+    }
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
 }
 
 // ---- Settings View ----
