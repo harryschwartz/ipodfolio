@@ -120,13 +120,47 @@ class BrickGame {
     window.addEventListener('forwardscroll', onFwd, true);
     window.addEventListener('backwardscroll', onBwd, true);
     window.addEventListener('menuclick', onMenu);
-    
+
+    // Canvas taps during game-over: tap a letter box to cycle it,
+    // tap elsewhere to advance/submit (same as Select).
+    const onCanvasPointer = (evt) => {
+      if (this.state !== GAME_STATE.GAME_OVER) return;
+      if (this.initialsCursor > 2) return;
+      const rect = canvasEl.getBoundingClientRect();
+      const point = evt.touches ? evt.touches[0] : evt;
+      const px = point.clientX - rect.left;
+      const py = point.clientY - rect.top;
+      // Convert to canvas coords (rect may be scaled)
+      const scaleX = this.cw / rect.width;
+      const scaleY = this.ch / rect.height;
+      const x = px * scaleX;
+      const y = py * scaleY;
+      const hit = this._hitTestInitialBox(x, y);
+      if (hit !== null) {
+        // Tapped a letter box: focus it, and if it's the already-active
+        // one, cycle it forward one step (feels like tapping to change).
+        if (hit === this.initialsCursor) {
+          this.cycleInitial(1);
+        } else {
+          this.initialsCursor = hit;
+        }
+        evt.preventDefault();
+      } else {
+        // Tap outside letters -> advance (submit if on last)
+        this.handleCenter();
+        evt.preventDefault();
+      }
+    };
+    canvasEl.addEventListener('pointerdown', onCanvasPointer);
+
     this.listeners = [
       ['centerclick', onCenter],
       ['forwardscroll', onFwd],
       ['backwardscroll', onBwd],
       ['menuclick', onMenu],
     ];
+    this._canvasPointerHandler = onCanvasPointer;
+    this._canvasEl = canvasEl;
 
     this.initialized = true;
     this.update();
@@ -137,7 +171,32 @@ class BrickGame {
     this.animId = null;
     this.listeners.forEach(([evt, fn]) => window.removeEventListener(evt, fn, true));
     this.listeners = [];
+    if (this._canvasEl && this._canvasPointerHandler) {
+      this._canvasEl.removeEventListener('pointerdown', this._canvasPointerHandler);
+    }
+    this._canvasEl = null;
+    this._canvasPointerHandler = null;
     this.initialized = false;
+  }
+
+  // Helper: returns 0/1/2 if (x,y) is inside a letter box, else null.
+  _hitTestInitialBox(x, y) {
+    const s = this.scale;
+    const cx = this.cw / 2;
+    const letterW = 28 * s;
+    const letterH = 32 * s;
+    const gap = 8 * s;
+    const totalW = 3 * letterW + 2 * gap;
+    const startX = cx - totalW / 2;
+    const letterY = 84 * s;
+    // Add a bit of padding for easier tapping
+    const pad = 6 * s;
+    if (y < letterY - pad || y > letterY + letterH + pad) return null;
+    for (let i = 0; i < 3; i++) {
+      const bx = startX + i * (letterW + gap);
+      if (x >= bx - pad && x <= bx + letterW + pad) return i;
+    }
+    return null;
   }
 
   // --- Input handling per state ---
@@ -462,8 +521,8 @@ class BrickGame {
     c.fillStyle = 'rgba(255,255,255,0.5)';
     c.textAlign = 'center';
     if (this.initialsCursor <= 2) {
-      c.fillText('Scroll to change • Select to confirm', cx, this.ch - 14 * s);
-      c.fillText('Menu to go back', cx, this.ch - 4 * s);
+      c.fillText('Tap letter to change • Select for next', cx, this.ch - 14 * s);
+      c.fillText('Or scroll wheel • Menu to go back', cx, this.ch - 4 * s);
     } else {
       c.fillText('Submitting...', cx, this.ch - 10 * s);
     }
