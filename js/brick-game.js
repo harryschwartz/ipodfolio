@@ -531,39 +531,55 @@ class BrickGame {
   // --- Submit score to Supabase ---
   async submitScore() {
     const initStr = this.initials.join('');
+    const submission = {
+      initials: initStr,
+      score: this.finalScore,
+      level: this.finalLevel,
+    };
+    // Remember what we just submitted so we can highlight & merge it in.
+    this.justSubmitted = submission;
+    this.submitFailed = false;
+
+    let submitOk = false;
     try {
       const url = `${SUPABASE_URL}/rest/v1/brick_breaker_scores`;
-      await fetch(url, {
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'apikey': SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
-          'Prefer': 'return=minimal',
+          'Prefer': 'return=representation',
         },
-        body: JSON.stringify({
-          initials: initStr,
-          score: this.finalScore,
-          level: this.finalLevel,
-        }),
+        body: JSON.stringify(submission),
       });
+      submitOk = res.ok;
+      if (!res.ok) {
+        console.warn('Score submit returned', res.status, await res.text());
+      }
     } catch (e) {
       console.warn('Failed to submit score:', e);
     }
+    this.submitFailed = !submitOk;
+
     // Show leaderboard
     this.state = GAME_STATE.LEADERBOARD;
     this.leaderboardScroll = 0;
+    // Fetch; if the score isn't there yet (replication lag / any hiccup),
+    // the merge step below still guarantees it's visible.
     this.fetchLeaderboard();
   }
 
-  async fetchLeaderboard() {
+  async fetchLeaderboard(attempt = 0) {
     this.leaderboardLoading = true;
     try {
-      const url = `${SUPABASE_URL}/rest/v1/brick_breaker_scores?select=initials,score,level&order=score.desc&limit=50`;
+      // Cache-bust so a stale intermediary can't hide the fresh row.
+      const url = `${SUPABASE_URL}/rest/v1/brick_breaker_scores?select=initials,score,level&order=score.desc&limit=50&t=${Date.now()}`;
       const res = await fetch(url, {
         headers: {
           'apikey': SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Cache-Control': 'no-cache',
         },
       });
       this.leaderboardScores = await res.json();
@@ -571,7 +587,36 @@ class BrickGame {
       console.warn('Failed to fetch leaderboard:', e);
       this.leaderboardScores = [];
     }
+
+    // If we just submitted a score but it isn't in the returned list yet,
+    // retry once after a short delay to catch replication lag.
+    if (
+      this.justSubmitted &&
+      attempt < 1 &&
+      !this._leaderboardHasSubmission()
+    ) {
+      await new Promise((r) => setTimeout(r, 800));
+      return this.fetchLeaderboard(attempt + 1);
+    }
+
+    // Optimistically merge our submission if still absent (network hiccup,
+    // stronger lag, or ad-blocker interfering). Guarantees the user sees
+    // their score even if the DB round-trip failed.
+    if (this.justSubmitted && !this._leaderboardHasSubmission()) {
+      const merged = [...(this.leaderboardScores || []), this.justSubmitted];
+      merged.sort((a, b) => b.score - a.score);
+      this.leaderboardScores = merged.slice(0, 50);
+    }
+
     this.leaderboardLoading = false;
+  }
+
+  _leaderboardHasSubmission() {
+    if (!this.justSubmitted) return true;
+    const s = this.justSubmitted;
+    return (this.leaderboardScores || []).some(
+      (e) => e.initials === s.initials && e.score === s.score && e.level === s.level
+    );
   }
 
   // --- Leaderboard screen ---
@@ -628,10 +673,20 @@ class BrickGame {
       const maxVisible = Math.floor((this.ch - startY - 20 * s) / rowH);
       const visibleScores = this.leaderboardScores.slice(this.leaderboardScroll, this.leaderboardScroll + maxVisible);
 
+      // Track whether we've already highlighted the just-submitted row
+      // (so duplicate initials/score entries in history don't all light up).
+      let highlightedOnce = false;
       visibleScores.forEach((entry, i) => {
         const rank = this.leaderboardScroll + i + 1;
         const y = startY + i * rowH;
-        const isNew = entry.initials === this.initials.join('') && entry.score === this.finalScore;
+        const js = this.justSubmitted;
+        const isNew =
+          !highlightedOnce &&
+          !!js &&
+          entry.initials === js.initials &&
+          entry.score === js.score &&
+          entry.level === js.level;
+        if (isNew) highlightedOnce = true;
 
         c.font = `${10 * s}px "Chicago", "Geneva", monospace`;
         c.fillStyle = isNew ? 'rgb(64,162,247)' : '#fff';
@@ -649,7 +704,14 @@ class BrickGame {
     c.font = `${8 * s}px "Chicago", "Geneva", sans-serif`;
     c.fillStyle = 'rgba(255,255,255,0.5)';
     c.textAlign = 'center';
-    c.fillText('Press Select to play again', cx, this.ch - 4 * s);
+    if (this.submitFailed) {
+      c.fillStyle = 'rgba(255,120,120,0.8)';
+      c.fillText("Couldn't save — shown locally", cx, this.ch - 14 * s);
+      c.fillStyle = 'rgba(255,255,255,0.5)';
+      c.fillText('Press Select to play again', cx, this.ch - 4 * s);
+    } else {
+      c.fillText('Press Select to play again', cx, this.ch - 4 * s);
+    }
   }
 }
 
