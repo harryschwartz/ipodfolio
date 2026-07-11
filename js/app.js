@@ -279,6 +279,8 @@ class IPodApp {
       const opened = this._currentAlbumPhotosOpened || 0;
       window.analytics?.track('album_closed', {
         title: this.currentNode.title,
+        album_id: this.currentNode.id,
+        ...getProjectContext(this.currentNode),
         grid_impressions: impressions,
         opened_count: opened,
         total_photos: total,
@@ -522,7 +524,10 @@ class IPodApp {
         break;
       }
       case 'playlist': {
-        window.analytics?.track('project_opened', { title: node.title });
+        window.analytics?.track('project_opened', {
+          title: node.title,
+          project_id: node.id,
+        });
         window.analytics?.markDepth(this.navStack?.length || 1);
         const songIds = node.metadata?.songIds || [];
         const songs = songIds.map(id => getNode(id)).filter(Boolean);
@@ -542,7 +547,9 @@ class IPodApp {
         if (isFreshEntry) {
           window.analytics?.track('album_opened', {
             title: node.title,
+            album_id: node.id,
             total_photos: (node.metadata?.photos || []).length,
+            ...getProjectContext(node),
           });
           window.analytics?.markDepth(this.navStack?.length || 1);
         }
@@ -574,7 +581,11 @@ class IPodApp {
         break;
       }
       case 'video': {
-        window.analytics?.track('video_opened', { title: node.title });
+        window.analytics?.track('video_opened', {
+          title: node.title,
+          video_id: node.id,
+          ...getProjectContext(node),
+        });
         window.analytics?.markDepth(this.navStack?.length || 1);
         this.setHeaderTitle(node.title);
         const view = renderVideoView(node);
@@ -1215,6 +1226,8 @@ class IPodApp {
         // Analytics: photo_opened (tap-to-fullscreen — hard engagement signal)
         window.analytics?.track('photo_opened', {
           album: this.currentNode.title,
+          album_id: this.currentNode.id,
+          ...getProjectContext(this.currentNode),
           index: this.photoIndex,
           total: photos.length,
         });
@@ -1361,7 +1374,11 @@ class IPodApp {
 
     // Songs: play and show Now Playing
     if (item.type === 'song') {
-      window.analytics?.track('song_played', { title: item.title });
+      window.analytics?.track('song_played', {
+        title: item.title,
+        song_id: item.id,
+        ...getProjectContext(item),
+      });
       this.navStack.push({
         nodeId: this.currentNode ? this.currentNode.id : null,
         scrollIndex: this.scrollIndex,

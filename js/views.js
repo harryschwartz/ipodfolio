@@ -481,6 +481,8 @@ function renderPhotoGrid(node) {
               container._photoImpressions.add(idx);
               window.analytics?.track('photo_scrolled_into_view', {
                 album: node.title,
+                album_id: node.id,
+                ...(typeof getProjectContext === 'function' ? getProjectContext(node) : {}),
                 index: idx,
                 total: photos.length,
               });
@@ -645,7 +647,7 @@ function renderVideoView(node) {
     container.appendChild(iframe);
     // Fire content_opened analytics is done by app.js on view entry.
     // Wire IFrame API for play/progress/complete tracking.
-    attachYouTubeTracking(iframe, ytId, node.title || 'video', container);
+    attachYouTubeTracking(iframe, ytId, node.title || 'video', container, node);
     return container;
   }
 
@@ -655,7 +657,7 @@ function renderVideoView(node) {
   video.controls = true;
   video.playsInline = true;
   video.autoplay = true;
-  attachHtmlVideoTracking(video, node.title || 'video');
+  attachHtmlVideoTracking(video, node.title || 'video', node);
   container.appendChild(video);
   return container;
 }
@@ -687,7 +689,10 @@ function loadYouTubeApi() {
   return _ytApiPromise;
 }
 
-function attachYouTubeTracking(iframe, ytId, title, container) {
+function attachYouTubeTracking(iframe, ytId, title, container, node) {
+  const videoCtx = (node && typeof getProjectContext === 'function')
+    ? { video_id: node.id, ...getProjectContext(node) }
+    : {};
   loadYouTubeApi().then((YT) => {
     let player;
     const state = {
@@ -714,7 +719,7 @@ function attachYouTubeTracking(iframe, ytId, title, container) {
           [25, 50, 75].forEach((m) => {
             if (pct >= m && !state.milestonesFired[m]) {
               state.milestonesFired[m] = true;
-              window.analytics?.track('video_progress', { title, pct: m });
+              window.analytics?.track('video_progress', { title, pct: m, ...videoCtx });
             }
           });
         }
@@ -739,6 +744,7 @@ function attachYouTubeTracking(iframe, ytId, title, container) {
           if (!state.completedFired) {
             window.analytics?.track('video_closed', {
               title,
+              ...videoCtx,
               pct_watched: pct,
               seconds_watched: Math.round(state.secondsWatched),
             });
@@ -787,7 +793,7 @@ function attachYouTubeTracking(iframe, ytId, title, container) {
             if (e.data === 1) {
               if (!state.startedAt) {
                 state.startedAt = Date.now();
-                window.analytics?.track('video_played', { title });
+                window.analytics?.track('video_played', { title, ...videoCtx });
               }
               state.lastTickAt = Date.now();
             } else if (e.data === 0 && !state.completedFired) {
@@ -796,6 +802,7 @@ function attachYouTubeTracking(iframe, ytId, title, container) {
               tick();
               window.analytics?.track('video_completed', {
                 title,
+                ...videoCtx,
                 seconds_watched: Math.round(state.secondsWatched),
               });
             }
@@ -806,7 +813,10 @@ function attachYouTubeTracking(iframe, ytId, title, container) {
   }).catch(() => { /* API failed to load; skip video events */ });
 }
 
-function attachHtmlVideoTracking(video, title) {
+function attachHtmlVideoTracking(video, title, node) {
+  const videoCtx = (node && typeof getProjectContext === 'function')
+    ? { video_id: node.id, ...getProjectContext(node) }
+    : {};
   const state = { startedAt: null, milestones: {}, completed: false };
   // Expose remote so iPod controls can drive native <video> too.
   window.currentVideoRemote = {
@@ -822,7 +832,7 @@ function attachHtmlVideoTracking(video, title) {
   video.addEventListener('play', () => {
     if (!state.startedAt) {
       state.startedAt = Date.now();
-      window.analytics?.track('video_played', { title });
+      window.analytics?.track('video_played', { title, ...videoCtx });
     }
   }, { once: false });
   video.addEventListener('timeupdate', () => {
@@ -831,14 +841,14 @@ function attachHtmlVideoTracking(video, title) {
     [25, 50, 75].forEach((m) => {
       if (pct >= m && !state.milestones[m]) {
         state.milestones[m] = true;
-        window.analytics?.track('video_progress', { title, pct: m });
+        window.analytics?.track('video_progress', { title, pct: m, ...videoCtx });
       }
     });
   });
   video.addEventListener('ended', () => {
     if (state.completed) return;
     state.completed = true;
-    window.analytics?.track('video_completed', { title });
+    window.analytics?.track('video_completed', { title, ...videoCtx });
   });
   // Clear remote when the <video> is removed from the DOM.
   const mo = new MutationObserver(() => {

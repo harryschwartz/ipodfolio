@@ -150,7 +150,12 @@ class AudioPlayer {
   _onEnded() {
     try {
       const cur = this.queue[this.queueIndex];
-      window.analytics?.track('song_completed', { title: cur?.title || 'unknown' });
+      const ctx = (cur && typeof getProjectContext === 'function') ? getProjectContext(cur) : {};
+      window.analytics?.track('song_completed', {
+        title: cur?.title || 'unknown',
+        song_id: cur?.id || null,
+        ...ctx,
+      });
     } catch (_) {}
     if (this.repeat === 2) {
       // Repeat One: replay current track

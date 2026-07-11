@@ -350,6 +350,30 @@ function getParent(node) {
   return getNode(node.parentId);
 }
 
+// Returns the nearest ancestor playlist (project) node, or null.
+// Accepts a node object or a node id.
+function getProjectAncestor(nodeOrId) {
+  let n = typeof nodeOrId === 'string' ? getNode(nodeOrId) : nodeOrId;
+  const seen = new Set();
+  while (n && !seen.has(n.id)) {
+    seen.add(n.id);
+    if (n.type === 'playlist') return n;
+    if (!n.parentId) return null;
+    n = getNode(n.parentId);
+  }
+  return null;
+}
+
+// Convenience: {parent_title, parent_id} payload for analytics events.
+// Falls back to nulls if the node has no project ancestor.
+function getProjectContext(nodeOrId) {
+  const proj = getProjectAncestor(nodeOrId);
+  return {
+    parent_title: proj ? proj.title : null,
+    parent_id: proj ? proj.id : null,
+  };
+}
+
 function getAncestors(node) {
   const ancestors = [];
   let current = node;
