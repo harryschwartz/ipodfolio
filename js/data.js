@@ -224,6 +224,22 @@ const FALLBACK_DATA = [
     metadata: { gameId: "brick" }
   },
   {
+    id: "solitaire",
+    parentId: "games",
+    type: "game",
+    title: "Solitaire",
+    sortOrder: 1,
+    metadata: { gameId: "solitaire" }
+  },
+  {
+    id: "parachute",
+    parentId: "games",
+    type: "game",
+    title: "Parachute",
+    sortOrder: 2,
+    metadata: { gameId: "parachute" }
+  },
+  {
     id: "about",
     parentId: null,
     type: "text",
@@ -313,6 +329,8 @@ function fetchCMSData() {
         PORTFOLIO_DATA = cleaned;
         _cmsDataReady = true;
         console.log(`[iPodfolio] Loaded ${nodes.length} nodes from CMS`);
+        // Inject preview-only games (not in CMS)
+        _injectPreviewGames();
       }
       // Fetch transcription data from Supabase (CMS API doesn't include it)
       return fetchTranscriptions().then(() => PORTFOLIO_DATA);
@@ -326,6 +344,23 @@ function fetchCMSData() {
   return _cmsDataPromise;
 }
 
+// Inject preview-only games that aren't in the CMS
+function _injectPreviewGames() {
+  const previewGames = [
+    { id: 'solitaire-preview', type: 'game', title: 'Solitaire', sortOrder: 1, metadata: { gameId: 'solitaire' } },
+    { id: 'parachute-preview', type: 'game', title: 'Parachute', sortOrder: 2, metadata: { gameId: 'parachute' } },
+  ];
+  // Find the games folder
+  const gamesFolder = PORTFOLIO_DATA.find(n => n.type === 'folder' && n.title === 'Games' && n.parentId === null);
+  if (!gamesFolder) return;
+  for (const game of previewGames) {
+    // Don't inject if already exists
+    if (PORTFOLIO_DATA.some(n => n.id === game.id)) continue;
+    game.parentId = gamesFolder.id;
+    PORTFOLIO_DATA.push(game);
+  }
+  console.log('[iPodfolio] Injected preview games');
+}
 
 // Start fetching immediately
 fetchCMSData();

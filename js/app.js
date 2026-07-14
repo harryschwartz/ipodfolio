@@ -607,7 +607,8 @@ class IPodApp {
         // with duration + "closed" reason if they navigate away mid-game.
         this._currentGame = { title: node.title, startedAt: Date.now(), endedNaturally: false };
         this.setHeaderTitle(node.title);
-        const view = renderGameView();
+        const gameId = node.metadata?.gameId || 'brick';
+        const view = renderGameView(gameId);
         this.transitionTo(view, direction);
         // Initialize game after DOM is ready
         requestAnimationFrame(() => {
@@ -615,7 +616,13 @@ class IPodApp {
           const hud = this.screenContent.querySelector('.game-hud');
           const hudRight = this.screenContent.querySelector('.game-hud-right');
           if (canvas) {
-            this.activeBrickGame = new BrickGame();
+            if (gameId === 'solitaire' && typeof SolitaireGame !== 'undefined') {
+              this.activeBrickGame = new SolitaireGame();
+            } else if (gameId === 'parachute' && typeof ParachuteGame !== 'undefined') {
+              this.activeBrickGame = new ParachuteGame();
+            } else {
+              this.activeBrickGame = new BrickGame();
+            }
             this.activeBrickGame.init(canvas, hud, hudRight);
             // Hook: BrickGame fires this when lives run out. See brick-game.js.
             this.activeBrickGame.onGameOver = (score, level) => {
